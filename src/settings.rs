@@ -15,7 +15,7 @@ pub struct Settings {
     pub extra_jvm_args: Vec<String>,
     /// 主页默认选中的实例
     pub select_version: Option<String>,
-    /// 下载源：mojang = 官方，bmcl = 国内镜像
+    /// 下载源：mojang = 官方，bmcl = 国内镜像（BMCLAPI + MCIM + 清华 TUNA）
     pub download_source: String,
     /// 同时下载文件数
     pub max_concurrent: usize,
@@ -32,7 +32,7 @@ impl Default for Settings {
             java_path: None,
             extra_jvm_args: Vec::new(),
             select_version: None,
-            download_source: "mojang".into(),
+            download_source: "bmcl".into(),
             max_concurrent: 16,
             close_on_launch: false,
             game_lang: "zh_cn".into(),

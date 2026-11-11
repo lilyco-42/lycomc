@@ -19,7 +19,7 @@
 - **Modrinth**：装 Sodium / Fabric API 到实例 `mods/`，列表可读、可删。
 - **Web 全链路**：首页点「启动游戏」→ SSE 进度 + 日志尾 → 「游戏运行中 PID」→「结束进程」。
 - **中文本地化**：`gameLang` 默认 `zh_cn`（启动前写入实例 `options.txt`）；「版本管理 → 一键汉化」异步装 CFPA 模组汉化包与 Sodium 中文包，游戏主菜单与 Mod 设置页均中文。汉化包仅运行时下载、不内嵌二进制。
-- **国内镜像**：下载源支持 Mojang / BMCLAPI；Modrinth API 与 CDN 自动回落 MCIM 中国镜像，CFPA 资源包经 gh-proxy.com 加速。
+- **国内镜像**：默认下载源 bmcl（设置页可切回 Mojang 官方），BMCLAPI 覆盖版本清单/JSON/libraries/assets/Fabric meta 与 maven 库；Modrinth 搜索与文件优先 MCIM 中国镜像；托管 JRE 优先清华 TUNA；CFPA 汉化包经 gh-proxy.com / ghfast.top / hk.gh-proxy.com 多级回落。所有请求统一 UA lycomc/0.1，主源失败自动回落官方，实测各端点均 200。
 
 > 唯一已知无害报错：`UnsatisfiedLinkError: libflite.so`（Narrator 语音库，系统未装，不影响游戏）。
 
@@ -69,7 +69,7 @@ lycomc --schema             # 全部命令的 JSON 清单（给脚本 / Agent �
 - **版本管理**：已装实例列表、切换当前实例、删除、看详情（Mod 数 / 运行中）、一键汉化（已汉化显示徽章）。
 - **下载**：远程 900+ 版本（正式版 / 快照 / 全部）、搜索、分页、一键安装（可同时装 Fabric）。
 - **Mod 管理**：Modrinth 搜索（400ms 去抖）+ 一键装（自动拉依赖）+ 已装列表删除。
-- **设置**：内存滑块、Java 运行时选择、额外 JVM 参数、下载源（Mojang / BMCLAPI）、并发数、关闭行为、游戏语言（默认简体中文）、离线账号。
+- **设置**：内存滑块、Java 运行时选择、额外 JVM 参数、下载源（Mojang 官方 / BMCLAPI 国内镜像，默认 BMCLAPI）、并发数、关闭行为、游戏语言（默认简体中文）、离线账号。
 
 ## 架构
 
@@ -87,7 +87,7 @@ src/
     download.rs  并发下载 + 进度泵 + 哈希校验
     fabric.rs    Fabric loader 元数据与合并
     launch.rs    参数拼装、natives 补齐、子进程与日志
-    java.rs      Java 探测与 Adoptium 下载
+    java.rs      Java 探测与托管 JRE 下载（Adoptium / 清华 TUNA 优先）
     modrinth.rs  Modrinth 搜索 / 安装 / 删除（MCIM 镜像回落）
     options.rs   options.txt 原子改写（lang / resourcePacks）
     localize.rs  一键汉化：CFPA + Sodium 资源包下载、pack_format 兼容重写
@@ -100,7 +100,7 @@ web/          React 19 + shadcn/ui + Tailwind 4 + hash 路由，构建产物被 
 
 - [docs/DECISION.md](docs/DECISION.md) —— lyco 预研：候选对比、niche 知识、为什么自研薄壳
 - [docs/CONTRACT.md](docs/CONTRACT.md) —— 前后端契约（HTTP API、类型、数据根布局、变更记录）
-- [docs/DECISION.md](docs/DECISION.md) 末节 —— 本地化 / 镜像源调研与许可说明（CFPA 包 CC BY-NC-SA 4.0、Sodium 中文包 MIT）；本项目二进制不含第三方汉化资源，用户点「一键汉化」时自行下载。
+- [docs/DECISION.md](docs/DECISION.md) 末节 —— 本地化 / 镜像源调研、接入决策与许可说明（CFPA 包 CC BY-NC-SA 4.0、Sodium 中文包 MIT）；本项目二进制不含第三方汉化资源，用户点「一键汉化」时自行下载。国内镜像决策：adopt 现状 + 局部补齐，CurseForge 完整接入 / Forge·NeoForge·OptiFine 安装器 / 自搭反代 ROI 未过门槛暂不做。
 
 ## License
 

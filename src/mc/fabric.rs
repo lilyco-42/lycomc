@@ -11,9 +11,9 @@ use super::meta::{self, Source};
 use super::{paths, ProgressFn};
 
 /// 稳定版 loader 列表里取最新的一个
-pub async fn latest_loader(game_version: &str) -> Result<String, String> {
+pub async fn latest_loader(game_version: &str, source: Source) -> Result<String, String> {
     let url = format!("{}/versions/loader/{}", meta::FABRIC_META, game_version);
-    let body = super::download::fetch_text(&url, Source::Mojang).await?;
+    let body = super::download::fetch_text(&url, source).await?;
     let arr: serde_json::Value =
         serde_json::from_str(&body).map_err(|e| format!("Fabric loader 列表解析失败: {e}"))?;
     let list = arr.as_array().ok_or_else(|| "Fabric loader 列表格式异常".to_string())?;
@@ -50,7 +50,7 @@ pub async fn install_fabric(
     progress(super::pct(1.0, format!("准备 Fabric（{game_version}）…")));
     let loader = match loader {
         Some(l) if !l.trim().is_empty() => l.trim().to_string(),
-        _ => latest_loader(game_version).await?,
+        _ => latest_loader(game_version, source).await?,
     };
     // 父版本必须先就位，否则 fabric 的 jar / assets 都缺
     if !install::is_installed(game_version) {
@@ -59,7 +59,7 @@ pub async fn install_fabric(
     }
     progress(super::pct(80.0, "拉取 Fabric loader profile…"));
     let url = format!("{}/versions/loader/{}/{}/profile/json", meta::FABRIC_META, game_version, loader);
-    let body = super::download::fetch_text(&url, Source::Mojang).await?;
+    let body = super::download::fetch_text(&url, source).await?;
     let profile: meta::VersionJson =
         serde_json::from_str(&body).map_err(|e| format!("Fabric profile 解析失败: {e}"))?;
     let id = profile.id.clone();

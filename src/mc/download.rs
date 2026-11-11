@@ -201,6 +201,12 @@ async fn one(
     if source != Source::Mojang {
         candidates.push(it.url.clone());
     }
+    // Modrinth 文件走 MCIM 中国镜像优先；CDN 必须保留 /data/ 前缀。
+    // MCIM 会 302 回官方 CDN，失败时下面的循环继续用官方直连兜底。
+    if let Some(m) = super::modrinth::mirror_cdn(&it.url) {
+        candidates.insert(0, m);
+    }
+    candidates.dedup();
     if let Some(dir) = it.dest.parent() {
         std::fs::create_dir_all(dir).map_err(|e| format!("创建目录 {} 失败: {e}", dir.display()))?;
     }

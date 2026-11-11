@@ -43,6 +43,12 @@ impl Source {
                     format!("https://bmclapi2.bangbang93.com/maven{rest}")
                 } else if let Some(rest) = url.strip_prefix("https://resources.download.minecraft.net") {
                     format!("https://bmclapi2.bangbang93.com/assets{rest}")
+                } else if let Some(rest) = url.strip_prefix("https://meta.fabricmc.net/v2") {
+                    // BMCLAPI 的 fabric-meta 与官方 v2 接口一一对应（实测 255 项 loader 一致）
+                    format!("https://bmclapi2.bangbang93.com/fabric-meta/v2{rest}")
+                } else if let Some(rest) = url.strip_prefix("https://maven.fabricmc.net") {
+                    // Fabric profile 的库挂在 maven.fabricmc.net；BMCL /maven 前缀实测可用
+                    format!("https://bmclapi2.bangbang93.com/maven{rest}")
                 } else {
                     url.to_string()
                 }
@@ -77,7 +83,7 @@ pub struct Manifest {
 
 pub fn client() -> reqwest::Client {
     reqwest::Client::builder()
-        .user_agent("lycomc/0.1 (Minecraft launcher)")
+        .user_agent("lycomc/0.1")
         .timeout(std::time::Duration::from_secs(60))
         .build()
         .unwrap_or_default()
@@ -443,4 +449,42 @@ pub struct AssetObject {
     pub hash: String,
     #[serde(default)]
     pub size: u64,
+}
+
+
+#[cfg(test)]
+mod mirror_tests {
+    use super::Source;
+
+    #[test]
+    fn bmcl_rewrites_all_official_prefixes() {
+        let b = Source::Bmcl;
+        assert_eq!(
+            b.rewrite("https://piston-meta.mojang.com/mc/game/version_manifest_v2.json"),
+            "https://bmclapi2.bangbang93.com/mc/game/version_manifest_v2.json"
+        );
+        assert_eq!(
+            b.rewrite("https://libraries.minecraft.net/com/google/guava/guava/21.0/guava-21.0.jar"),
+            "https://bmclapi2.bangbang93.com/maven/com/google/guava/guava/21.0/guava-21.0.jar"
+        );
+        assert_eq!(
+            b.rewrite("https://resources.download.minecraft.net/b6/b62ca8ec10d07e6bf5ac8dae0c8c1d2e6a1e3356"),
+            "https://bmclapi2.bangbang93.com/assets/b6/b62ca8ec10d07e6bf5ac8dae0c8c1d2e6a1e3356"
+        );
+        assert_eq!(
+            b.rewrite("https://meta.fabricmc.net/v2/versions/loader/1.20.1"),
+            "https://bmclapi2.bangbang93.com/fabric-meta/v2/versions/loader/1.20.1"
+        );
+        assert_eq!(
+            b.rewrite("https://maven.fabricmc.net/net/fabricmc/fabric-loader/0.20.1/fabric-loader-0.20.1.jar"),
+            "https://bmclapi2.bangbang93.com/maven/net/fabricmc/fabric-loader/0.20.1/fabric-loader-0.20.1.jar"
+        );
+    }
+
+    #[test]
+    fn mojang_keeps_urls_and_unknown_urls_are_untouched() {
+        let u = "https://api.modrinth.com/v2/search";
+        assert_eq!(Source::Mojang.rewrite(u), u);
+        assert_eq!(Source::Bmcl.rewrite(u), u);
+    }
 }

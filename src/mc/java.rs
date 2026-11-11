@@ -142,19 +142,37 @@ pub async fn ensure(required: u32, source: Source, progress: ProgressFn<'_>) -> 
     }
     progress(super::pct(0.0, format!("本机缺 Java {required}，正在下载托管 JRE…")));
     let (os, arch) = adoptium_platform();
-    let url = format!(
+    let official = format!(
         "https://api.adoptium.net/v3/binary/latest/{required}/ga/{os}/{arch}/jre/hotspot/normal/eclipse?project=jdk"
     );
     let c = meta::client();
-    let resp = c
-        .get(&url)
-        .send()
-        .await
-        .map_err(|e| format!("请求 Adoptium 失败: {e}"))?;
-    if !resp.status().is_success() {
-        return Err(format!("Adoptium 返回 HTTP {}（Java {required} / {os}-{arch}）", resp.status()));
+    // 国内镜像：清华 TUNA 的 Adoptium 目录里有 JRE tar.gz（linux/mac）。
+    // 逐个候选尝试，必须拿到 gzip 魔数才算成功，避免把 404 页面当成 JRE 解包。
+    let mut urls: Vec<String> = Vec::new();
+    if source == Source::Bmcl && os != "windows" {
+        if let Some(u) = tuna_jre_url(&c, required, os, arch).await {
+            urls.push(u);
+        }
     }
-    let bytes = resp.bytes().await.map_err(|e| e.to_string())?;
+    urls.push(official.clone());
+    let mut bytes: Option<Vec<u8>> = None;
+    let mut last = String::new();
+    for u in &urls {
+        match c.get(u).send().await {
+            Ok(r) if r.status().is_success() => match r.bytes().await {
+                Ok(b) if b.len() > 2 && b[0] == 0x1f && b[1] == 0x8b => {
+                    progress(super::pct(20.0, format!("已从国内镜像取得 Java {required} 运行时…")));
+                    bytes = Some(b.to_vec());
+                    break;
+                }
+                Ok(_) => last = format!("{u}: 返回的不是 tar.gz"),
+                Err(e) => last = format!("{u}: {e}"),
+            },
+            Ok(r) => last = format!("{u}: HTTP {}", r.status()),
+            Err(e) => last = format!("{u}: {e}"),
+        }
+    }
+    let bytes = bytes.ok_or_else(|| format!("下载 Java {required} 失败（{last}）"))?;
     progress(super::pct(60.0, format!("已下载 {:.1} MB，正在解包…", bytes.len() as f64 / 1_048_576.0)));
     let staging = paths::java_dir().join(format!("{required}.tmp"));
     if staging.exists() {
@@ -184,6 +202,30 @@ pub async fn ensure(required: u32, source: Source, progress: ProgressFn<'_>) -> 
     }
     progress(super::pct(100.0, format!("Java {required} 就绪")));
     Ok(bin)
+}
+
+/// 从清华 TUNA 的 Adoptium 目录页里挑出当前平台的 JRE 包名。
+/// 目录文件名形如 OpenJDK17U-jre_x64_linux_hotspot_17.0.21_9.tar.gz。
+async fn tuna_jre_url(
+    c: &reqwest::Client,
+    required: u32,
+    os: &str,
+    arch: &str,
+) -> Option<String> {
+    let dir = format!("https://mirrors.tuna.tsinghua.edu.cn/Adoptium/{required}/jre/{arch}/{os}/");
+    let text = c.get(&dir).send().await.ok()?.text().await.ok()?;
+    tuna_jre_name(&text, arch, os).map(|name| format!("{dir}{name}"))
+}
+
+/// 纯解析：从 TUNA 目录页里挑出当前平台的 JRE 包名。
+fn tuna_jre_name(text: &str, arch: &str, os: &str) -> Option<String> {
+    let needle = format!("jre_{arch}_{os}_hotspot_");
+    for part in text.split('"') {
+        if part.starts_with("OpenJDK") && part.contains(&needle) && part.ends_with(".tar.gz") {
+            return Some(part.to_string());
+        }
+    }
+    None
 }
 
 fn adoptium_platform() -> (&'static str, &'static str) {
@@ -230,4 +272,22 @@ pub fn extract_archive(bytes: &[u8], dest: &Path) -> Result<(), String> {
         return Err("解压 JRE 包失败（tar 非零退出）".into());
     }
     Ok(())
+}
+
+
+#[cfg(test)]
+mod mirror_tests {
+    use super::tuna_jre_name;
+
+    #[test]
+    fn parses_tuna_jre_directory() {
+        let page = r#"<a href="../">../</a>
+<a href="OpenJDK17U-jre_x64_linux_hotspot_17.0.21_9.tar.gz">OpenJDK17U-jre_x64_linux_hotspot_17.0.21_9.tar.gz</a>
+<a href="OpenJDK17U-jdk_x64_linux_hotspot_17.0.21_9.tar.gz">jdk</a>"#;
+        assert_eq!(
+            tuna_jre_name(page, "x64", "linux"),
+            Some("OpenJDK17U-jre_x64_linux_hotspot_17.0.21_9.tar.gz".into())
+        );
+        assert_eq!(tuna_jre_name(page, "aarch64", "linux"), None);
+    }
 }

@@ -64,6 +64,9 @@ pub struct ModVersion {
     pub game_versions: Vec<String>,
     #[serde(default)]
     pub loaders: Vec<String>,
+    /// ISO-8601 发布时间；MCIM 镜像返回顺序可能过期，必须自己按时间挑最新
+    #[serde(default)]
+    pub date_published: String,
     #[serde(default)]
     pub files: Vec<VersionFile>,
 }
@@ -99,9 +102,16 @@ pub async fn pick_version(project_id: &str, game_version: &str, loader: &str) ->
     let body = fetch(&url).await?;
     let list: Vec<ModVersion> =
         serde_json::from_str(&body).map_err(|e| format!("Modrinth 版本解析失败: {e}"))?;
-    list.into_iter()
-        .next()
+    newest_version(list)
         .ok_or_else(|| format!("该模组没有适配 {game_version} / {loader} 的文件"))
+}
+
+/// 从版本列表里挑发布时间最新的一个。
+/// 官方 API 恰好按时间倒序返回，但 MCIM 镜像可能把新版本追加到末尾（缓存顺序过期），
+/// 所以不能依赖数组顺序；统一按 date_published 降序（稳定排序，同秒保持原顺序）。
+fn newest_version(mut list: Vec<ModVersion>) -> Option<ModVersion> {
+    list.sort_by(|a, b| b.date_published.cmp(&a.date_published));
+    list.into_iter().next()
 }
 
 /// 下载并放到实例的 mods/，返回落地文件名
@@ -206,7 +216,7 @@ async fn fetch(url: &str) -> Result<String, String> {
     for u in &candidates {
         let r = match c
             .get(u)
-            .header("User-Agent", "lycomc/0.1 (Minecraft launcher)")
+            .header("User-Agent", "lycomc/0.1")
             .send()
             .await
         {
@@ -239,3 +249,46 @@ pub fn urlencode(s: &str) -> String {
     out
 }
 
+
+
+#[cfg(test)]
+mod mirror_tests {
+    use super::mirror_cdn;
+
+    #[test]
+    fn cdn_rewrite_keeps_data_prefix() {
+        assert_eq!(
+            mirror_cdn("https://cdn.modrinth.com/data/AANobbMI/versions/ygf8cVZg/sodium.jar"),
+            Some("https://mod.mcimirror.top/data/AANobbMI/versions/ygf8cVZg/sodium.jar".into())
+        );
+    }
+
+    #[test]
+    fn newest_version_ignores_stale_mirror_order() {
+        use super::{newest_version, ModVersion};
+        // 真实观测：MCIM 把 0.5.12/0.5.13 追加在末尾，官方则排在最前。
+        let mk = |name: &str, date: &str| ModVersion {
+            id: name.into(), name: name.into(), version_number: name.into(),
+            game_versions: vec![], loaders: vec![], date_published: date.into(), files: vec![],
+        };
+        let stale = vec![
+            mk("0.5.11", "2024-06-29T13:43:41.842Z"),
+            mk("0.5.10", "2024-06-13T21:09:52.183Z"),
+            mk("0.5.12-beta.2", "2025-02-26T00:54:03.278Z"),
+            mk("0.5.13", "2025-03-03T17:45:49.132Z"),
+        ];
+        assert_eq!(newest_version(stale).unwrap().version_number, "0.5.13");
+        let official = vec![
+            mk("0.5.13", "2025-03-03T17:45:49.132919Z"),
+            mk("0.5.11", "2024-06-29T13:43:41.842195Z"),
+        ];
+        assert_eq!(newest_version(official).unwrap().version_number, "0.5.13");
+        assert!(newest_version(vec![]).is_none());
+    }
+
+    #[test]
+    fn non_modrinth_or_already_mirrored_urls_are_skipped() {
+        assert_eq!(mirror_cdn("https://piston-meta.mojang.com/x.json"), None);
+        assert_eq!(mirror_cdn("https://mod.mcimirror.top/data/x.jar"), None);
+    }
+}

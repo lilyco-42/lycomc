@@ -46,3 +46,67 @@ build-from-scratch（薄壳）：lilyco 给四端与命令面，shadcn 给 UI，
 - 兼容性坑：Sodium 中文包 `pack.mcmeta` 是 `pack_format:61 / supported_formats 13..61`（面向 1.21+），而 1.20.1 client jar `version.json` 是 resource pack_format 15，游戏会 `Removed resource pack ... no longer compatible` 直接丢弃。修法：下载后读取本地 client jar 的 `pack_version.resource`，用 zip crate 重写包内 `pack.mcmeta`（保留作者追加的 `//` 注释需截到最后一个 `}` 再 parse，其余条目 raw_copy_file 原样搬运）。
 - 实测：两包同时出现在 `Reloading ResourceManager`，无兼容警告；主菜单「单人游戏/多人游戏/选项...」中文；Sodium 视频设置页「通用/画质/性能/高级、渲染距离、垂直同步」中文。截图见 docs/screenshots/game-zh-{menu,options,sodium}.png。
 - 教训沉淀：⑤ Modrinth CDN 对部分 UA 恒返回 HTTP 400 `OnDemandMigrationSourceStatus`，换 UA / 换 MCIM 镜像 / 换正确文件名即可，别一次失败就判定资源不存在；⑥ 资源包必须核对目标 MC 版本的 `pack_version.resource`，别信 `supported_formats` 上限。
+
+
+## 国内镜像源接入（决策：adopt 现状 + 局部补齐，2026-11-11）
+
+**需求**：m01687「找一下 国内镜像源」→ m01722「继续搞好吧」（授权落地，不再追问）。
+按五信条先做 WebSearch + gh 近义词检索 + 论坛/官方文档引用 + 真机 HTTP 探测，
+再评估主流方案；所有候选均来自真实 gh / 官方页面，不臆造仓库。
+
+**候选与实测（2026-11-11，均为真实 HTTP 结果）**
+- BMCLAPI \`bmclapi2.bangbang93.com\`：清单、version json、maven、assets、fabric-meta
+  （255 项 loader，与官方一致）、forge / neoforge / optifine 元数据全部 200；
+  会 302 到 OpenBMCLAPI 节点（hurtmc / lunar / USTC），**不能写死跳转后 URL**。
+  源：[bangbang93/openbmclapi](https://github.com/bangbang93/openbmclapi) MIT 407★。
+- MCIM \`mod.mcimirror.top\`：Modrinth API/CDN、CurseForge search 200，结构同官方；
+  CDN 路径必须保留 \`/data/\`。源：[mcmod-info-mirror/mcim-rust-api](https://github.com/mcmod-info-mirror/mcim-rust-api) MIT 33★
+  （旧 mcim-api 已归档）。[替换总表](https://www.mcimirror.top/guide/start/getting-started)、
+  [接入登记](https://www.mcimirror.top/guide/rules/register)、[声明](https://www.mcimirror.top/guide/rules/policy)。
+- Java：清华 TUNA \`/Adoptium/{major}/jre/{arch}/{os}/\` 200（17/21/8、x64/aarch64、
+  linux/mac/windows 齐全，文件名 \`OpenJDK{major}U-jre_{arch}_{os}_hotspot_*.tar.gz|zip\`）；
+  华为云 openjdk 17 200；USTC Adoptium 17 404、腾讯云 Adoptium 404、网易 maven TLS 超时。
+- GitHub release：gh-proxy.com 200（~700ms）、ghfast.top 200（~1.0s）、
+  hk.gh-proxy.com 200（~1.2s）、ghproxy.net 403/超时、hub.gitmirror.com TLS EOF。
+- 已死：MCBBS \`download.mcbbs.net\` TLS EOF；\`mod.tianpao.top\` TLS EOF。**不再接入**。
+
+**先例（信条 3）**：[PCL2 ModDownload.vb](https://github.com/Meloong-Git/PCL)、
+[Alicorn mirrors.ts](https://github.com/Andy-K-Sparklight/Alicorn)、
+[Axolotl constants.rs](https://github.com/Axolotl-Launcher/Axolotl) 用的是同一套域名；
+[HMCL](https://github.com/HMCL-dev/HMCL) 10953★ 但 **GPL-3.0 是硬约束**，只研究不合并。
+PCL 为 NOASSERTION、Alicorn 为 GPL-3.0，均不合入本项目。
+
+**决策**
+1. **adopt 现状**：lycomc 已接 BMCLAPI（版本/库/资源）+ MCIM（Modrinth API）+ gh-proxy，
+   覆盖 ≥80% 国内下载路径，按 anti-NIH 不换轮子、不重写下载器。
+2. **局部补齐（本次做，低工时、可回退）**：默认源改 \`bmcl\`；
+   Fabric meta/profile 与其 maven 库走 BMCL；Java 托管 JRE 优先清华 TUNA（linux/mac，
+   失败回落官方 Adoptium）；Modrinth 文件 CDN 优先 MCIM；CFPA 汉化包多代理回落；
+   UA 统一 \`lycomc/0.1\`（MCIM 要求的「名称/版本」格式）。
+3. **不做（ROI 未过门槛）**：CurseForge 完整接入（新 API + 新 UI，工作量大且
+   MCIM 明确「禁止二次封装」）、Forge/NeoForge/OptiFine 安装器（本项目无对应功能，
+   接了也是死代码）、自搭反代（Prism 教程明确个人反代不应公开传播）。
+4. **合规**：MCIM 要求接入登记启动器名与 UA，且「API 下载量不计入 Mod 开发者收益」
+   「禁止二次封装」「公益服务，请不要攻击」；本站仅把 MCIM 作为用户可回落镜像，
+   不二次封装、不对外提供镜像服务。登记属站点人工流程，记录为运维待办。
+   汉化包仅运行时下载、绝不内嵌二进制（CFPA CC BY-NC-SA 4.0 / Sodium MIT）。
+
+**验收**：每个改动有单元测试或真实 HTTP 200；release 构建通过；Web 全链路
+（设置 / 装 Fabric / 装 Mod / 一键汉化 / 启动）实测；文档与 git 提交。
+
+**联调新发现（已修，2026-11-11 傍晚）**：MCIM 的 `/project/{id}/version` 返回的项目列表
+与官方条数相同（13 条），但**顺序过期**——官方把 `mc1.20.1-0.5.13-fabric`(2025-03-03) 排第一，
+MCIM 却把它和 0.5.12-beta.2 追加在数组末尾，首位仍是 0.5.11(2024-06-29)。
+原来 `pick_version` 直接取 `list.into_iter().next()`，镜像优先后就会静默装回一年前的旧 Mod
+（实测装出 `sodium-fabric-0.5.11+mc1.20.1.jar`，与已有 0.5.13 并存会触发 Fabric 重复 mod id）。
+修法：`ModVersion` 新增 `date_published` 字段，`newest_version` 按时间降序稳定排序后再取首位，
+不再信任任何一方的数组顺序；新增回归单测 `newest_version_ignores_stale_mirror_order`（官方序/镜像乱序/空列表）。
+教训 ⑦：**镜像的「结构一致」不等于「顺序一致」**，凡依赖排序的 API 都要用响应里的显式时间字段自己重排。
+
+**实测补记**：清华 TUNA 托管 JRE 真机验证——用 `LYCOMC_DATA_DIR` 隔离数据根、伪造
+`javaVersion.majorVersion=25`（本机无 Java 25），CLI `launch --dry-run` 走通
+「本机缺 Java 25 → 已从国内镜像取得 → 已下载 58.9 MB → Java 25 就绪」，
+落地 `java/25/bin/java` 报 `openjdk version "25.0.5" 2026-10-20 LTS`，192 MB；
+后续因隔离根缺 libraries 而止步，与 JRE 下载路径无关。
+Web 全链路（downloadSource=bmcl）实测：装 Fabric 1.4s、装 Mod 1.4s、一键汉化 2.1s、
+启动 0.7s 全部 done，kill 后 `running=[]`。

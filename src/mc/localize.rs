@@ -50,6 +50,7 @@ fn cfpa_urls(asset: &str) -> Vec<String> {
     vec![
         format!("https://gh-proxy.com/{direct}"),
         format!("https://ghfast.top/{direct}"),
+        format!("https://hk.gh-proxy.com/{direct}"),
         direct,
     ]
 }
@@ -180,10 +181,11 @@ async fn sodium_pack(
         .find(|f| f.primary)
         .or_else(|| mv.files.first())
         .ok_or_else(|| "Sodium 中文包没有可下载文件".to_string())?;
-    let mut urls = vec![f.url.clone()];
+    let mut urls = Vec::new();
     if let Some(m) = modrinth::mirror_cdn(&f.url) {
         urls.push(m);
     }
+    urls.push(f.url.clone());
     progress(super::pct(72.0, format!("下载 Sodium 中文包 {}…", f.filename)));
     let size = fetch_pack(&urls, dest).await?;
     let fmt = resource_pack_format(v, id);
@@ -253,4 +255,20 @@ pub async fn run(
         "packs": packs,
         "localized": true,
     }))
+}
+
+
+#[cfg(test)]
+mod mirror_tests {
+    use super::cfpa_urls;
+
+    #[test]
+    fn cfpa_uses_three_proxies_then_direct() {
+        let urls = cfpa_urls("Minecraft-Mod-Language-Modpack-1-20-Fabric.zip");
+        assert_eq!(urls.len(), 4);
+        assert!(urls[0].starts_with("https://gh-proxy.com/"));
+        assert!(urls[1].starts_with("https://ghfast.top/"));
+        assert!(urls[2].starts_with("https://hk.gh-proxy.com/"));
+        assert!(urls[3].starts_with("https://github.com/CFPAOrg/"));
+    }
 }
