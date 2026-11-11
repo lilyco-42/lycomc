@@ -8,7 +8,7 @@
 |---|---|---|
 | `lycomc` / `lycomc --web` | 本地 Web 控制台（PCL 风界面） | 产品主入口，浏览器里点按钮装版本、启动、管 Mod |
 | `lycomc <子命令>` | CLI | 脚本 / 终端用户，14 个子命令 |
-| `lycomc --tui` | 终端全屏界面 | 无浏览器的机器上选命令、填参数、看结果 |
+| `lycomc --tui` | 终端全屏界面 | 无浏览器的机器上选命令、填参数、看结果（需真 TTY） |
 | `lycomc --mcp` | MCP 服务器 | 交给 AI Agent 调用（写操作走白名单策略） |
 
 ## 实测跑通的链路（真实网络 / 真实 JVM / 真实渲染）
@@ -39,6 +39,20 @@ lycomc --schema             # 全部命令的 JSON 清单（给脚本 / Agent �
 ```
 
 环境变量：`LYCOMC_PORT`（Web 端口，默认 8766）、`LYCOMC_NO_OPEN=1`（不自动开浏览器）、`LYCOMC_DATA_DIR`（数据根）。
+
+## 界面
+
+| 主页 | 运行中 |
+|---|---|
+| ![主页](docs/screenshots/home.png) | ![运行中](docs/screenshots/running.png) |
+| **版本管理** | **下载** |
+| ![版本管理](docs/screenshots/versions.png) | ![下载](docs/screenshots/download.png) |
+| **Mod 管理** | **设置** |
+| ![Mod 管理](docs/screenshots/mods.png) | ![设置](docs/screenshots/settings.png) |
+
+真实启动进主菜单（原版 1.20.1）：
+
+![主菜单](docs/screenshots/game-main-menu.png)
 
 ## 五个页面
 

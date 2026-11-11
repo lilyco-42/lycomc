@@ -65,6 +65,15 @@ fn main() {
         return;
     }
 
+    // --tui 需要真终端：没有 TTY 时 TUI 初始化必然失败并回落到 CLI，
+    // 而 CLI 的 clap 不认识 --tui，会报 "unexpected argument '--tui' found"，
+    // 用户只看到一句莫名其妙的 clap 错误。这里提前给出可执行的提示。
+    if args.iter().any(|a| a == "--tui") && !std::io::IsTerminal::is_terminal(&std::io::stdin()) {
+        eprintln!("lycomc: --tui 需要交互终端（当前 stdin 不是 TTY）。");
+        eprintln!("无终端时请改用：lycomc --web（浏览器界面）或 lycomc <子命令>（脚本友好）");
+        std::process::exit(2);
+    }
+
     let backend = lilyco::detect_registry_backend();
     let policy: Arc<dyn SafetyPolicy> = match backend {
         lilyco::Backend::Mcp => Arc::new(policy::Agent),
