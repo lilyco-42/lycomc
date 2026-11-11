@@ -1,0 +1,923 @@
+//! HTTP 控制台：给 Web UI 用的 REST + SSE 接口。
+//!
+//! 这是四个前端里的「浏览器」那一端，其他三个（CLI / TUI / MCP）走 lilyco 命令面。
+//! 后端只暴露三样东西：MC 内核、任务表、内嵌的前端产物。
+
+use std::collections::HashMap;
+use std::path::{Path as StdPath, PathBuf};
+use std::sync::atomic::AtomicU64;
+use std::sync::{Arc, RwLock};
+
+use axum::extract::{Path, Query, State};
+use axum::http::{header, HeaderValue, StatusCode, Uri};
+use axum::response::sse::{Event as SseEvent, KeepAlive, Sse};
+use axum::response::{IntoResponse, Response};
+use axum::routing::{delete, get, post};
+use axum::{Json, Router};
+use serde::Deserialize;
+use serde_json::{json, Value};
+use tokio::sync::broadcast;
+
+use crate::jobs::{now_ms, Job, JobStore};
+use crate::mc::{self, fabric, install, java, launch, meta, modrinth, paths, Progress};
+use crate::settings::{self, Account, Settings};
+
+// ── 错误形态 ───────────────────────────────────────────────────
+
+/// 统一错误体：{"error": "..."} —— 前端只认这个字段
+pub struct ApiError {
+    status: StatusCode,
+    message: String,
+}
+
+impl ApiError {
+    fn bad(msg: impl Into<String>) -> Self {
+        Self { status: StatusCode::BAD_REQUEST, message: msg.into() }
+    }
+    fn not_found(msg: impl Into<String>) -> Self {
+        Self { status: StatusCode::NOT_FOUND, message: msg.into() }
+    }
+    fn internal(msg: impl Into<String>) -> Self {
+        Self { status: StatusCode::INTERNAL_SERVER_ERROR, message: msg.into() }
+    }
+}
+
+impl IntoResponse for ApiError {
+    fn into_response(self) -> Response {
+        (self.status, Json(json!({ "error": self.message }))).into_response()
+    }
+}
+
+// ── 运行中的游戏进程 ───────────────────────────────────────────
+
+#[derive(Clone)]
+pub struct Running {
+    pub version_id: String,
+    pub account: String,
+    pub started_at: u64,
+    pub log_path: PathBuf,
+}
+
+// ── 共享状态 ───────────────────────────────────────────────────
+
+#[derive(Clone)]
+pub struct AppState {
+    settings: Arc<RwLock<Settings>>,
+    pub jobs: JobStore,
+    pub running: Arc<RwLock<HashMap<u32, Running>>>,
+    /// 远程版本清单缓存，避免每次开页面都打 mojang
+    remote: Arc<RwLock<Option<Value>>>,
+    /// 最近的启动命令（前端展示「将执行什么」）
+    last_cmd: Arc<RwLock<Option<String>>>,
+    pid_seq: Arc<AtomicU64>,
+}
+
+impl AppState {
+    pub fn new(s: Settings) -> Self {
+        Self {
+            settings: Arc::new(RwLock::new(s)),
+            jobs: JobStore::new(),
+            running: Arc::new(RwLock::new(HashMap::new())),
+            remote: Arc::new(RwLock::new(None)),
+            last_cmd: Arc::new(RwLock::new(None)),
+            pid_seq: Arc::new(AtomicU64::new(1)),
+        }
+    }
+
+    pub fn settings(&self) -> Settings {
+        self.settings.read().map(|g| g.clone()).unwrap_or_default()
+    }
+
+    fn set_settings(&self, s: Settings) {
+        if let Ok(mut w) = self.settings.write() {
+            *w = s;
+        }
+    }
+
+    /// 给异步任务用的进度回调（Arc 版，可以 move 进 tokio::spawn）
+    fn sink(&self, job_id: &str) -> Arc<dyn Fn(Progress) + Send + Sync> {
+        Arc::new(self.jobs.sink(job_id))
+    }
+}
+
+// ── 路由 ───────────────────────────────────────────────────────
+
+pub fn router(state: AppState) -> Router {
+    Router::new()
+        .route("/api/health", get(health))
+        .route("/api/state", get(state_all))
+        .route("/api/remote/versions", get(remote_versions))
+        .route("/api/versions/install", post(install_version))
+        .route("/api/versions/{id}", get(get_version).delete(delete_version))
+        .route("/api/launch", post(do_launch))
+        .route("/api/launch/{pid}/kill", post(kill_launch))
+        .route("/api/jobs/{id}", get(get_job))
+        .route("/api/jobs", get(list_jobs))
+        .route("/api/events", get(events))
+        .route("/api/accounts", get(list_accounts).post(add_account))
+        .route("/api/accounts/{name}", delete(del_account))
+        .route("/api/modrinth/search", get(mod_search))
+        .route("/api/mods", get(list_mods))
+        .route("/api/mods/install", post(mod_install))
+        .route("/api/mods/remove", post(mod_remove))
+        .route("/api/settings", get(get_settings).put(put_settings))
+        .route("/api/logs/{versionId}", get(get_logs))
+        .with_state(state)
+        .fallback(static_file)
+}
+
+// ── 元信息 ─────────────────────────────────────────────────────
+
+async fn health() -> Json<Value> {
+    Json(json!({
+        "name": "lycomc",
+        "ok": true,
+        "version": env!("CARGO_PKG_VERSION"),
+        "webMode": if crate::assets::embedded() { "embedded" } else { "missing" },
+        "dataDir": paths::data_dir().display().to_string(),
+    }))
+}
+
+/// 实例摘要：从落盘的 version json 反推，不猜
+fn version_info(id: &str) -> Option<Value> {
+    let (v, p) = launch::instance_json(id).ok()?;
+    let mtime = std::fs::metadata(&p).ok().and_then(|m| m.modified().ok());
+    let installed_at = mtime
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let base = v.inherits_from.clone();
+    let kind = if base.is_some() { "fabric" } else { "vanilla" };
+    Some(json!({
+        "id": id,
+        "kind": kind,
+        "baseVersion": base.unwrap_or_else(|| id.to_string()),
+        "installedAt": installed_at,
+        "javaMajor": v.java_version.as_ref().map(|j| j.major_version).unwrap_or(17),
+        "mainClass": v.main_class.clone().unwrap_or_default(),
+    }))
+}
+
+fn installed_versions() -> Vec<Value> {
+    install::installed_ids().iter().filter_map(|id| version_info(id)).collect()
+}
+
+fn running_list(st: &AppState) -> Vec<Value> {
+    let g = match st.running.read() {
+        Ok(g) => g,
+        Err(_) => return Vec::new(),
+    };
+    let mut v: Vec<Value> = g
+        .iter()
+        .map(|(pid, r)| {
+            json!({
+                "pid": pid,
+                "versionId": r.version_id,
+                // 前端契约用 accountName；account 是老名字，一起给免得两边对不上
+                "accountName": r.account,
+                "account": r.account,
+                "startedAt": r.started_at,
+                "logPath": r.log_path.display().to_string(),
+            })
+        })
+        .collect();
+    v.sort_by(|a, b| b["startedAt"].as_u64().cmp(&a["startedAt"].as_u64()));
+    v
+}
+
+async fn state_all(State(st): State<AppState>) -> Json<Value> {
+    let javas: Vec<Value> = java::scan_system()
+        .into_iter()
+        .map(|j| json!({ "path": j.path, "version": j.version, "source": j.source }))
+        .collect();
+    let remote = st.remote.read().ok().and_then(|g| g.clone());
+    let last_cmd = st.last_cmd.read().ok().and_then(|g| g.clone());
+    Json(json!({
+        "settings": st.settings(),
+        "accounts": settings::load_accounts(),
+        "versions": installed_versions(),
+        "running": running_list(&st),
+        "javas": javas,
+        "remote": remote,
+        "jobs": st.jobs.list(),
+        "lastCommand": last_cmd,
+        "dataDir": paths::data_dir().display().to_string(),
+    }))
+}
+
+// ── 远程版本 ───────────────────────────────────────────────────
+
+#[derive(Deserialize)]
+struct RefreshQ {
+    #[serde(default)]
+    refresh: Option<String>,
+}
+
+async fn remote_versions(
+    State(st): State<AppState>,
+    Query(q): Query<RefreshQ>,
+) -> Result<Json<Value>, ApiError> {
+    let force = q.refresh.as_deref() == Some("1") || q.refresh.as_deref() == Some("true");
+    if !force {
+        if let Ok(g) = st.remote.read() {
+            if let Some(v) = g.as_ref() {
+                return Ok(Json(v.clone()));
+            }
+        }
+    }
+    let s = st.settings();
+    let m = meta::manifest(s.source(), force).await.map_err(ApiError::internal)?;
+    let versions: Vec<Value> = m
+        .versions
+        .iter()
+        .map(|v| {
+            json!({
+                "id": v.id,
+                "type": v.kind,
+                "releaseTime": v.release_time,
+                "installed": install::is_installed(&v.id),
+            })
+        })
+        .collect();
+    let out = json!({
+        "latest": { "release": m.latest.release, "snapshot": m.latest.snapshot },
+        "versions": versions,
+    });
+    if let Ok(mut w) = st.remote.write() {
+        *w = Some(out.clone());
+    }
+    Ok(Json(out))
+}
+
+// ── 安装 / 删除 ────────────────────────────────────────────────
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct InstallReq {
+    version_id: String,
+    #[serde(default)]
+    fabric: Option<bool>,
+    /// fabric 可选指定 loader 版本
+    #[serde(default)]
+    loader: Option<String>,
+}
+
+async fn install_version(
+    State(st): State<AppState>,
+    Json(req): Json<InstallReq>,
+) -> Result<Json<Value>, ApiError> {
+    let id = req.version_id.trim().to_string();
+    if id.is_empty() {
+        return Err(ApiError::bad("缺少 versionId"));
+    }
+    if id.contains('/') || id.contains("..") {
+        return Err(ApiError::bad("非法版本 id"));
+    }
+    let s = st.settings();
+    let fabric_want = req.fabric.unwrap_or(false);
+    let loader = req.loader.clone();
+    let title = if fabric_want { format!("安装 Fabric {id}") } else { format!("安装 {id}") };
+    let job = st.jobs.create("install", title);
+    let st2 = st.clone();
+    let job2 = job.clone();
+    tokio::spawn(async move {
+        let sink = st2.sink(&job2);
+        let r = if fabric_want {
+            fabric::install_fabric(&id, loader.as_deref(), s.source(), s.max_concurrent, &*sink)
+                .await
+                .map(|(iid, _)| json!({ "versionId": iid }))
+        } else {
+            install::install_vanilla(&id, s.source(), s.max_concurrent, &*sink)
+                .await
+                .map(|_| json!({ "versionId": id }))
+        };
+        match r {
+            Ok(v) => st2.jobs.done(&job2, v),
+            Err(e) => st2.jobs.fail(&job2, e),
+        }
+    });
+    Ok(Json(json!({ "jobId": job })))
+}
+
+async fn delete_version(
+    State(st): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<Json<Value>, ApiError> {
+    if id.contains('/') || id.contains("..") {
+        return Err(ApiError::bad("非法版本 id"));
+    }
+    let dir = paths::version_dir(&id);
+    if !dir.is_dir() {
+        return Err(ApiError::not_found(format!("版本 {id} 不存在")));
+    }
+    std::fs::remove_dir_all(&dir).map_err(|e| ApiError::internal(format!("删除失败: {e}")))?;
+    let _ = st;
+    Ok(Json(json!({ "ok": true })))
+}
+
+// ── 启动 ───────────────────────────────────────────────────────
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LaunchReq {
+    version_id: String,
+    account_name: Option<String>,
+    memory_mb: Option<u32>,
+}
+
+async fn do_launch(
+    State(st): State<AppState>,
+    Json(req): Json<LaunchReq>,
+) -> Result<Json<Value>, ApiError> {
+    let id = req.version_id.trim().to_string();
+    if id.is_empty() {
+        return Err(ApiError::bad("缺少 versionId"));
+    }
+    if !install::is_installed(&id) {
+        return Err(ApiError::bad(format!("版本 {id} 尚未安装")));
+    }
+    let s = st.settings();
+    let name = req
+        .account_name
+        .filter(|n| !n.trim().is_empty())
+        .or_else(|| settings::load_accounts().first().map(|a| a.name.clone()))
+        .unwrap_or_else(|| "Steve".to_string());
+    let acc = settings::find_account(&name).unwrap_or_else(|| Account {
+        uuid: mc::offline_uuid(&name),
+        name: name.clone(),
+        kind: "offline".into(),
+    });
+    let memory = req.memory_mb.unwrap_or(s.memory_mb).clamp(512, 65536);
+    let opts = launch::LaunchOpts {
+        id: id.clone(),
+        account: mc::OfflineAccount { name: acc.name.clone(), uuid: acc.uuid.clone() },
+        memory_mb: memory,
+        java_path: s.java_path.clone(),
+        extra_jvm: s.extra_jvm_args.clone(),
+        source: s.source(),
+        concurrency: s.max_concurrent,
+    };
+    let job = st.jobs.create("launch", format!("启动 {id}"));
+    let st2 = st.clone();
+    let job2 = job.clone();
+    let version_id = id.clone();
+    tokio::spawn(async move {
+        let sink = st2.sink(&job2);
+        let prepared = match launch::prepare(&opts, &*sink).await {
+            Ok(p) => p,
+            Err(e) => {
+                st2.jobs.fail(&job2, e);
+                return;
+            }
+        };
+        if let Ok(mut w) = st2.last_cmd.write() {
+            *w = Some(prepared.display_cmd());
+        }
+        st2.jobs.log(&job2, format!("命令: {}", prepared.display_cmd()));
+        match launch::spawn(&prepared) {
+            Ok(child) => {
+                let pid = child.id();
+                if let Ok(mut w) = st2.running.write() {
+                    w.insert(
+                        pid,
+                        Running {
+                            version_id: version_id.clone(),
+                            account: opts.account.name.clone(),
+                            started_at: now_ms(),
+                            log_path: prepared.log_path.clone(),
+                        },
+                    );
+                }
+                let log_path = prepared.log_path.clone();
+                st2.jobs.done(
+                    &job2,
+                    json!({ "pid": pid, "logPath": log_path.display().to_string() }),
+                );
+                // 收尸：进程退出后从运行表里摘掉，顺便记一行退出码
+                tokio::task::spawn_blocking(move || {
+                    let mut child = child;
+                    let code = child.wait().ok().and_then(|s| s.code());
+                    // 运行表在 st3 里，spawn_blocking 里不能用 st2（已 move），故用全局注册表
+                    crate::api::reap(pid, code);
+                });
+            }
+            Err(e) => st2.jobs.fail(&job2, e),
+        }
+    });
+    Ok(Json(json!({ "jobId": job })))
+}
+
+/// 进程退出后清理运行表（spawn_blocking 里没法带 AppState，走这张全局表）
+static GLOBAL_RUNNING: std::sync::OnceLock<Arc<RwLock<HashMap<u32, Running>>>> =
+    std::sync::OnceLock::new();
+
+pub fn set_global_running(r: Arc<RwLock<HashMap<u32, Running>>>) {
+    let _ = GLOBAL_RUNNING.set(r);
+}
+
+pub fn reap(pid: u32, code: Option<i32>) {
+    if let Some(r) = GLOBAL_RUNNING.get() {
+        let log_path = r.read().ok().and_then(|g| g.get(&pid).map(|x| x.log_path.clone()));
+        if let Ok(mut w) = r.write() {
+            w.remove(&pid);
+        }
+        if let Some(p) = log_path {
+            let line = match code {
+                Some(c) => format!("[lycomc] 游戏进程 {pid} 已退出，退出码 {c}"),
+                None => format!("[lycomc] 游戏进程 {pid} 已退出（被信号终止）"),
+            };
+            let mut opts = std::fs::OpenOptions::new();
+            opts.create(true).append(true);
+            if let Ok(mut f) = opts.open(&p) {
+                use std::io::Write;
+                let _ = writeln!(f, "{line}");
+            }
+            println!("{line}");
+        }
+    }
+}
+
+async fn kill_launch(
+    State(st): State<AppState>,
+    Path(pid): Path<u32>,
+) -> Result<Json<Value>, ApiError> {
+    let known = st.running.read().map(|g| g.contains_key(&pid)).unwrap_or(false);
+    if !known {
+        return Err(ApiError::not_found(format!("没有 pid {pid} 的游戏进程")));
+    }
+    // SIGTERM 让 MC 有机会存档，给它 3 秒再 SIGKILL
+    unsafe {
+        libc::kill(pid as i32, libc::SIGTERM);
+    }
+    let st2 = st.clone();
+    tokio::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+        let still = st2.running.read().map(|g| g.contains_key(&pid)).unwrap_or(false);
+        if still {
+            unsafe {
+                libc::kill(pid as i32, libc::SIGKILL);
+            }
+        }
+    });
+    Ok(Json(json!({ "ok": true })))
+}
+
+// ── 任务 / 事件 ────────────────────────────────────────────────
+
+async fn get_job(
+    State(st): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<Json<Job>, ApiError> {
+    st.jobs.get(&id).map(Json).ok_or_else(|| ApiError::not_found(format!("任务不存在: {id}")))
+}
+
+async fn list_jobs(State(st): State<AppState>) -> Json<Value> {
+    Json(json!({ "jobs": st.jobs.list() }))
+}
+
+/// 全局事件流：所有任务的变化都推出来，前端按 id 过滤。
+/// 事件名按状态分 progress / done / error，SSE 客户端可以直接 addEventListener。
+async fn events(
+    State(st): State<AppState>,
+) -> Sse<impl futures_util::Stream<Item = Result<SseEvent, std::convert::Infallible>>> {
+    let rx = st.jobs.subscribe();
+    let initial = st.jobs.list();
+    let stream = async_stream_next(initial, rx);
+    Sse::new(stream).keep_alive(KeepAlive::default())
+}
+
+fn async_stream_next(
+    initial: Vec<Job>,
+    mut rx: broadcast::Receiver<Job>,
+) -> impl futures_util::Stream<Item = Result<SseEvent, std::convert::Infallible>> {
+    async_stream::stream! {
+        for j in initial {
+            yield Ok(sse_event(&j));
+        }
+        loop {
+            match rx.recv().await {
+                Ok(job) => yield Ok(sse_event(&job)),
+                Err(broadcast::error::RecvError::Lagged(_)) => continue,
+                Err(broadcast::error::RecvError::Closed) => break,
+            }
+        }
+    }
+}
+
+fn sse_event(job: &Job) -> SseEvent {
+    let name = match job.state {
+        crate::jobs::State::Running => "progress",
+        crate::jobs::State::Done => "done",
+        crate::jobs::State::Error => "error",
+    };
+    SseEvent::default()
+        .event(name)
+        .data(serde_json::to_string(job).unwrap_or_else(|_| "{}".into()))
+}
+
+// ── 账号 ───────────────────────────────────────────────────────
+
+async fn list_accounts() -> Json<Value> {
+    Json(json!({ "accounts": settings::load_accounts() }))
+}
+
+#[derive(Deserialize)]
+struct AccountReq {
+    name: String,
+}
+
+async fn add_account(Json(req): Json<AccountReq>) -> Result<Json<Account>, ApiError> {
+    settings::add_account(&req.name).map(Json).map_err(ApiError::bad)
+}
+
+async fn del_account(Path(name): Path<String>) -> Result<Json<Value>, ApiError> {
+    settings::remove_account(&name).map_err(ApiError::bad)?;
+    Ok(Json(json!({ "ok": true })))
+}
+
+// ── 模组 ───────────────────────────────────────────────────────
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ModSearchQ {
+    #[serde(default)]
+    q: Option<String>,
+    #[serde(default, alias = "version_id")]
+    version_id: Option<String>,
+}
+
+/// 实例是不是 fabric：决定 Modrinth 的 loader 过滤条件
+fn loader_of(id: &str) -> &'static str {
+    match launch::instance_json(id) {
+        Ok((v, _)) if v.inherits_from.is_some() => "fabric",
+        _ => "fabric",
+    }
+}
+
+fn game_version_of(id: &str) -> String {
+    if let Ok((v, _)) = launch::instance_json(id) {
+        if let Some(base) = v.inherits_from {
+            return base;
+        }
+        return v.id;
+    }
+    id.to_string()
+}
+
+async fn mod_search(
+    State(st): State<AppState>,
+    Query(q): Query<ModSearchQ>,
+) -> Result<Json<Value>, ApiError> {
+    let _ = &st;
+    let query = q.q.unwrap_or_default();
+    let vid = q.version_id.filter(|v| !v.trim().is_empty());
+    let gv = vid.as_deref().map(game_version_of);
+    let loader = vid.as_deref().map(loader_of);
+    let r = modrinth::search(&query, gv.as_deref(), loader)
+        .await
+        .map_err(ApiError::internal)?;
+    Ok(Json(json!({ "hits": r.hits, "total": r.total_hits })))
+}
+
+async fn list_mods(State(st): State<AppState>, Query(q): Query<ModSearchQ>) -> Json<Value> {
+    let _ = &st;
+    let id = q.version_id.unwrap_or_default();
+    if id.is_empty() {
+        return Json(json!({ "mods": [] }));
+    }
+    Json(json!({ "mods": modrinth::list_mods(&id) }))
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ModInstallReq {
+    version_id: String,
+    project_id: String,
+}
+
+async fn mod_install(
+    State(st): State<AppState>,
+    Json(req): Json<ModInstallReq>,
+) -> Result<Json<Value>, ApiError> {
+    if !install::is_installed(&req.version_id) {
+        return Err(ApiError::bad(format!("版本 {} 尚未安装", req.version_id)));
+    }
+    let gv = game_version_of(&req.version_id);
+    let loader = loader_of(&req.version_id).to_string();
+    let job = st.jobs.create("mods", format!("安装模组 {}", req.project_id));
+    let st2 = st.clone();
+    let job2 = job.clone();
+    let vid = req.version_id.clone();
+    let pid = req.project_id.clone();
+    tokio::spawn(async move {
+        let sink = st2.sink(&job2);
+        match modrinth::install_mod(&vid, &pid, &gv, &loader, &*sink).await {
+            Ok(p) => st2.jobs.done(&job2, json!({ "file": p.display().to_string() })),
+            Err(e) => st2.jobs.fail(&job2, e),
+        }
+    });
+    Ok(Json(json!({ "jobId": job })))
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ModRemoveReq {
+    #[serde(alias = "version_id")]
+    version_id: String,
+    file: String,
+}
+
+async fn mod_remove(
+    State(st): State<AppState>,
+    Json(req): Json<ModRemoveReq>,
+) -> Result<Json<Value>, ApiError> {
+    let _ = st;
+    modrinth::remove_mod(&req.version_id, &req.file).map_err(ApiError::bad)?;
+    Ok(Json(json!({ "ok": true })))
+}
+
+// ── 设置 / 日志 ────────────────────────────────────────────────
+
+async fn get_settings(State(st): State<AppState>) -> Json<Settings> {
+    Json(st.settings())
+}
+
+/// 设置的部分更新载荷。
+///
+/// 前端只提交「改动过的字段」（Partial<Settings>），所以这里每个字段都必须是
+/// Option：缺省 = 保持原值。若直接用 Json<Settings>，serde 的 #[serde(default)]
+/// 会把没传的字段一律拉回默认值——用户改一下内存就会把 selectVersion 清空、
+/// 在版本页切实例又会把内存从 6G 打回 4G。
+#[derive(Deserialize, Default)]
+#[serde(rename_all = "camelCase", default)]
+struct SettingsPatch {
+    memory_mb: Option<u32>,
+    java_path: Option<Option<String>>,
+    extra_jvm_args: Option<Vec<String>>,
+    select_version: Option<Option<String>>,
+    download_source: Option<String>,
+    max_concurrent: Option<usize>,
+    close_on_launch: Option<bool>,
+}
+
+impl SettingsPatch {
+    fn apply(self, mut s: Settings) -> Settings {
+        if let Some(v) = self.memory_mb {
+            s.memory_mb = v;
+        }
+        if let Some(v) = self.java_path {
+            s.java_path = v;
+        }
+        if let Some(v) = self.extra_jvm_args {
+            s.extra_jvm_args = v;
+        }
+        if let Some(v) = self.select_version {
+            s.select_version = v;
+        }
+        if let Some(v) = self.download_source {
+            s.download_source = v;
+        }
+        if let Some(v) = self.max_concurrent {
+            s.max_concurrent = v;
+        }
+        if let Some(v) = self.close_on_launch {
+            s.close_on_launch = v;
+        }
+        s
+    }
+}
+
+async fn put_settings(
+    State(st): State<AppState>,
+    Json(patch): Json<SettingsPatch>,
+) -> Result<Json<Settings>, ApiError> {
+    let merged = patch.apply(st.settings());
+    let saved = settings::save(&merged).map_err(ApiError::bad)?;
+    st.set_settings(saved.clone());
+    Ok(Json(saved))
+}
+
+/// 单个实例详情（UI 的版本详情面板用，不必拉整个 /api/state）。
+async fn get_version(
+    State(st): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<Json<Value>, ApiError> {
+    if id.contains('/') || id.contains("..") {
+        return Err(ApiError::bad("非法版本 id"));
+    }
+    if !install::is_installed(&id) {
+        return Err(ApiError::not_found(format!("版本 {id} 未安装")));
+    }
+    let mut info = version_info(&id).ok_or_else(|| ApiError::internal("读取版本元数据失败"))?;
+    let mods = modrinth::list_mods(&id);
+    let running = st
+        .running
+        .read()
+        .ok()
+        .map(|g| {
+            g.iter()
+                .filter(|(_, r)| r.version_id == id)
+                .map(|(pid, _)| json!({ "pid": pid }))
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    if let Some(obj) = info.as_object_mut() {
+        obj.insert("mods".into(), json!(mods));
+        obj.insert("running".into(), json!(running));
+    }
+    Ok(Json(info))
+}
+
+async fn get_logs(
+    State(st): State<AppState>,
+    Path(id): Path<String>,
+) -> Json<Value> {
+    // 优先给「正在跑的那个进程」的日志，否则给最新一份历史日志
+    let running_log = st
+        .running
+        .read()
+        .ok()
+        .and_then(|g| {
+            g.values()
+                .filter(|r| r.version_id == id)
+                .max_by_key(|r| r.started_at)
+                .map(|r| r.log_path.clone())
+        });
+    let path = match running_log {
+        Some(p) => Some(p),
+        None => {
+            let dir = paths::logs_dir();
+            let prefix = format!("{id}-");
+            let mut best: Option<(std::time::SystemTime, PathBuf)> = None;
+            if let Ok(rd) = std::fs::read_dir(&dir) {
+                for e in rd.flatten() {
+                    let name = e.file_name().to_string_lossy().to_string();
+                    if !name.starts_with(&prefix) || !name.ends_with(".log") {
+                        continue;
+                    }
+                    if let Ok(m) = e.metadata() {
+                        if let Ok(t) = m.modified() {
+                            if best.as_ref().map(|(bt, _)| t > *bt).unwrap_or(true) {
+                                best = Some((t, e.path()));
+                            }
+                        }
+                    }
+                }
+            }
+            best.map(|(_, p)| p)
+        }
+    };
+    let lines = path.map(|p| launch::tail(&p, 500)).unwrap_or_default();
+    Json(json!({ "versionId": id, "lines": lines }))
+}
+
+// ── 静态文件 ───────────────────────────────────────────────────
+
+async fn static_file(uri: Uri) -> Response {
+    let path = uri.path();
+    if path.starts_with("/api/") {
+        return (StatusCode::NOT_FOUND, Json(json!({ "error": "未知接口" }))).into_response();
+    }
+    match crate::assets::get(path) {
+        Some(f) => {
+            let mime = if StdPath::new(path).extension().is_none() {
+                mime_guess::mime::TEXT_HTML_UTF_8
+            } else {
+                mime_guess::from_path(path).first_or_octet_stream()
+            };
+            let cache: &'static str = if path.starts_with("/assets/") {
+                "public, max-age=31536000, immutable"
+            } else {
+                "no-cache"
+            };
+            let mut resp = (StatusCode::OK, f.contents().to_vec()).into_response();
+            resp.headers_mut().insert(
+                header::CONTENT_TYPE,
+                HeaderValue::from_str(mime.as_ref())
+                    .unwrap_or(HeaderValue::from_static("application/octet-stream")),
+            );
+            resp.headers_mut()
+                .insert(header::CACHE_CONTROL, HeaderValue::from_static(cache));
+            resp
+        }
+        None => (StatusCode::NOT_FOUND, Json(json!({ "error": "页面不存在" }))).into_response(),
+    }
+}
+
+// ── 服务 ───────────────────────────────────────────────────────
+
+fn port() -> u16 {
+    for key in ["LYCOMC_PORT", "LILYCO_PORT"] {
+        if let Ok(v) = std::env::var(key) {
+            if let Ok(p) = v.parse::<u16>() {
+                return p;
+            }
+        }
+    }
+    8766
+}
+
+fn state_file() -> PathBuf {
+    paths::data_dir().join("web.port")
+}
+
+fn remembered_port() -> Option<u16> {
+    std::fs::read_to_string(state_file()).ok().and_then(|t| t.trim().parse::<u16>().ok())
+}
+
+fn remember_port(p: u16) {
+    if let Some(d) = state_file().parent() {
+        let _ = std::fs::create_dir_all(d);
+    }
+    let _ = std::fs::write(state_file(), p.to_string());
+}
+
+async fn alive_at(p: u16) -> bool {
+    let client = match reqwest::Client::builder()
+        .timeout(std::time::Duration::from_millis(900))
+        .build()
+    {
+        Ok(c) => c,
+        Err(_) => return false,
+    };
+    let url = format!("http://127.0.0.1:{p}/api/health");
+    match client.get(&url).send().await {
+        Ok(r) => match r.json::<Value>().await {
+            Ok(v) => v.get("name").and_then(|n| n.as_str()) == Some("lycomc"),
+            Err(_) => false,
+        },
+        Err(_) => false,
+    }
+}
+
+fn maybe_open_browser(url: &str) {
+    if std::env::var("LYCOMC_NO_OPEN").map(|v| v == "1").unwrap_or(false) {
+        return;
+    }
+    if std::env::var("DISPLAY").is_err() && std::env::var("WAYLAND_DISPLAY").is_err() {
+        return;
+    }
+    let _ = std::process::Command::new("xdg-open")
+        .arg(url)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn();
+}
+
+pub fn serve() {
+    let _ = paths::ensure_all();
+    let s = settings::load();
+    let port = port();
+    let st = AppState::new(s);
+    set_global_running(Arc::clone(&st.running));
+    let rt = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .expect("tokio runtime");
+    rt.block_on(async move {
+        if let Some(p) = remembered_port() {
+            if alive_at(p).await {
+                let url = format!("http://127.0.0.1:{p}");
+                println!("lycomc 已在运行: {url}");
+                maybe_open_browser(&url);
+                return;
+            }
+        }
+        let app = router(st);
+        let mut listener = None;
+        let mut chosen = port;
+        let mut last_err = String::new();
+        for candidate in port..port.saturating_add(20) {
+            let addr = std::net::SocketAddr::from(([127, 0, 0, 1], candidate));
+            match tokio::net::TcpListener::bind(addr).await {
+                Ok(l) => {
+                    listener = Some(l);
+                    chosen = candidate;
+                    break;
+                }
+                Err(e) => last_err = format!("{e}"),
+            }
+        }
+        let Some(listener) = listener else {
+            eprintln!(
+                "lycomc: 绑定 127.0.0.1:{port}..{} 全部失败: {last_err}",
+                port.saturating_add(20)
+            );
+            std::process::exit(1);
+        };
+        let url = format!("http://127.0.0.1:{chosen}");
+        remember_port(chosen);
+        println!("lycomc Web 控制台: {url}");
+        if crate::assets::embedded() {
+            println!("前端已编入二进制（webMode=embedded）");
+        } else {
+            println!("警告：web/dist 为空，页面不可用（请先在 web/ 里 pnpm build）");
+        }
+        println!("数据目录: {}", paths::data_dir().display());
+        maybe_open_browser(&url);
+        if let Err(e) = axum::serve(listener, app).await {
+            eprintln!("lycomc: HTTP 服务异常退出: {e}");
+        }
+    });
+}

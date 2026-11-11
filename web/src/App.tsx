@@ -1,103 +1,81 @@
-import { useState } from "react";
-import { Bot, Download, FolderOpen, Globe, ListVideo, Settings2, Zap } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Toaster } from "@/components/ui/sonner";
-import { DownloadPanel } from "@/components/download-panel";
-import { JobsPanel } from "@/components/jobs-panel";
-import { FilesPanel } from "@/components/files-panel";
-import { SettingsPanel } from "@/components/settings-panel";
-import { CommandsPanel } from "@/components/commands-panel";
-import { PlatformsPanel } from "@/components/platforms-panel";
-import { useHealth } from "@/hooks/useHealth";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { AppDataProvider } from "@/components/app-data-provider";
+import { AppSidebar } from "@/components/app-sidebar";
+import { useAppData } from "@/context/app-data-context";
+import { useRoutePath } from "@/lib/router";
+import { HomePage } from "@/pages/home-page";
+import { VersionsPage } from "@/pages/versions-page";
+import { DownloadPage } from "@/pages/download-page";
+import { ModsPage } from "@/pages/mods-page";
+import { SettingsPage } from "@/pages/settings-page";
+import { NotFoundPage } from "@/pages/not-found-page";
 
-const TABS = [
-  { value: "download", label: "下载", icon: Download },
-  { value: "jobs", label: "任务", icon: ListVideo },
-  { value: "files", label: "文件", icon: FolderOpen },
-  { value: "settings", label: "设置", icon: Settings2 },
-  { value: "platforms", label: "平台", icon: Globe },
-  { value: "commands", label: "命令（AI）", icon: Bot },
-] as const;
-
-function App() {
-  const [tab, setTab] = useState<string>("download");
-  /** 平台页点示例链接后回填给下载页；置空再设值可让同一个链接重复触发 */
-  const [exampleUrl, setExampleUrl] = useState<string>("");
-  const { health } = useHealth();
-
-  function handleUseExample(url: string) {
-    setTab("download");
-    if (exampleUrl === url) {
-      setExampleUrl("");
-      window.setTimeout(() => setExampleUrl(url), 0);
-      return;
-    }
-    setExampleUrl(url);
-  }
+function RouteView() {
+  const path = useRoutePath();
+  const { backendDown } = useAppData();
 
   return (
-    <div className="min-h-dvh bg-background text-foreground">
-      <div className="mx-auto w-full max-w-5xl px-4 pt-8 pb-16 sm:px-6">
-        <header className="flex flex-wrap items-center justify-between gap-3 pb-6">
-          <div className="flex items-center gap-2.5">
-            <span className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-              <Zap className="size-5" />
-            </span>
-            <div className="leading-tight">
-              <h1 className="text-lg font-semibold tracking-tight">lycodl</h1>
-              <p className="text-xs text-muted-foreground">视频下载器 · 由 yt-dlp 内核驱动</p>
-            </div>
+    <main className="page-glow min-w-0 flex-1 overflow-y-auto">
+      <div className="mx-auto w-full max-w-4xl px-6 py-6">
+        {backendDown ? (
+          <div className="mb-4">
+            <BackendBanner />
           </div>
-          <Badge variant="outline" className="h-6 gap-1.5 px-2.5 font-mono text-xs">
-            yt-dlp {health?.ytdlpVersion ?? "未就绪"}
-          </Badge>
-        </header>
-
-        <Tabs value={tab} onValueChange={setTab} className="gap-5">
-          <TabsList className="h-9 w-full justify-start gap-1 overflow-x-auto p-1 sm:w-fit">
-            {TABS.map((item) => {
-              const Icon = item.icon;
-              return (
-                <TabsTrigger key={item.value} value={item.value} className="px-3">
-                  <Icon />
-                  {item.label}
-                </TabsTrigger>
-              );
-            })}
-          </TabsList>
-
-          <TabsContent value="download">
-            <DownloadPanel onJobCreated={() => setTab("jobs")} exampleUrl={exampleUrl} />
-          </TabsContent>
-          <TabsContent value="jobs">
-            <JobsPanel />
-          </TabsContent>
-          <TabsContent value="files">
-            <FilesPanel />
-          </TabsContent>
-          <TabsContent value="settings">
-            <SettingsPanel />
-          </TabsContent>
-          <TabsContent value="platforms">
-            <PlatformsPanel onUseExample={handleUseExample} />
-          </TabsContent>
-          <TabsContent value="commands">
-            <CommandsPanel />
-          </TabsContent>
-        </Tabs>
-
-        <footer className="mt-12 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4 text-xs text-muted-foreground">
-          <span>
-            {health !== null
-              ? health.name + " v" + health.version + " · " + health.webMode
-              : "lycodl"}
-          </span>
-          <span>内核为独立二进制，可热更新</span>
-        </footer>
+        ) : null}
+        <PageSwitch path={path} />
       </div>
-      <Toaster position="top-center" theme="dark" richColors closeButton />
+    </main>
+  );
+}
+
+function BackendBanner() {
+  const { reload } = useAppData();
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3.5 py-2.5 text-sm text-amber-700 dark:text-amber-300">
+      <span className="font-medium">后端未就绪</span>
+      <span className="text-amber-700/80 dark:text-amber-300/80">
+        连不上 lycomc 服务，页面仍可浏览，数据会在服务恢复后加载。
+      </span>
+      <button
+        type="button"
+        onClick={reload}
+        className="ml-auto rounded-lg border border-amber-500/40 px-2 py-1 text-xs font-medium hover:bg-amber-500/10"
+      >
+        重新连接
+      </button>
     </div>
+  );
+}
+
+function PageSwitch({ path }: { path: string }) {
+  switch (path) {
+    case "/":
+      return <HomePage />;
+    case "/versions":
+      return <VersionsPage />;
+    case "/download":
+      return <DownloadPage />;
+    case "/mods":
+      return <ModsPage />;
+    case "/settings":
+      return <SettingsPage />;
+    default:
+      return <NotFoundPage />;
+  }
+}
+
+function App() {
+  return (
+    <AppDataProvider>
+      <TooltipProvider>
+        <div className="flex h-dvh w-full overflow-hidden bg-background text-foreground">
+          <AppSidebar />
+          <RouteView />
+        </div>
+        <Toaster position="top-center" richColors closeButton />
+      </TooltipProvider>
+    </AppDataProvider>
   );
 }
 

@@ -1,4 +1,4 @@
-/** 人类可读的格式化工具：体积、速度、时长、剩余时间、时间戳。 */
+/** 人类可读格式化：体积、速度、时间、下载量、版本类型。 */
 
 const BYTE_UNITS = ["B", "KB", "MB", "GB", "TB", "PB"];
 
@@ -31,51 +31,34 @@ export function formatSpeed(bytesPerSecond: number | null | undefined): string {
   return formatBytes(bytesPerSecond) + "/s";
 }
 
-export function formatDuration(seconds: number | null | undefined): string {
-  if (seconds === null || seconds === undefined || !Number.isFinite(seconds) || seconds < 0) {
+/** 后端时间戳可能是秒、毫秒或 ISO 字符串，统一成毫秒。 */
+export function toMillis(value: number | string | null | undefined): number {
+  if (value === null || value === undefined) {
+    return Number.NaN;
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (trimmed === "") {
+      return Number.NaN;
+    }
+    const asNumber = Number(trimmed);
+    if (Number.isFinite(asNumber) && trimmed.length <= 13) {
+      return toMillis(asNumber);
+    }
+    return Date.parse(trimmed);
+  }
+  if (!Number.isFinite(value) || value <= 0) {
+    return Number.NaN;
+  }
+  return value < 1_000_000_000_000 ? value * 1000 : value;
+}
+
+export function formatDateTime(value: number | string | null | undefined): string {
+  const millis = toMillis(value);
+  if (!Number.isFinite(millis)) {
     return "—";
   }
-  const total = Math.round(seconds);
-  const hours = Math.floor(total / 3600);
-  const minutes = Math.floor((total % 3600) / 60);
-  const secs = total % 60;
-  return hours > 0
-    ? hours + ":" + pad(minutes) + ":" + pad(secs)
-    : pad(minutes) + ":" + pad(secs);
-}
-
-function pad(value: number): string {
-  return value.toString().padStart(2, "0");
-}
-
-export function formatEta(seconds: number | null | undefined): string {
-  if (seconds === null || seconds === undefined || !Number.isFinite(seconds) || seconds < 0) {
-    return "—";
-  }
-  const total = Math.round(seconds);
-  if (total < 60) {
-    return total + " 秒";
-  }
-  const minutes = Math.floor(total / 60);
-  const secs = total % 60;
-  if (minutes < 60) {
-    return secs > 0 ? minutes + " 分 " + secs + " 秒" : minutes + " 分";
-  }
-  const hours = Math.floor(minutes / 60);
-  const restMinutes = minutes % 60;
-  return restMinutes > 0 ? hours + " 小时 " + restMinutes + " 分" : hours + " 小时";
-}
-
-/** 后端时间戳可能是秒或毫秒，统一换算成毫秒。 */
-export function toMillis(value: number): number {
-  return value > 0 && value < 1_000_000_000_000 ? value * 1000 : value;
-}
-
-export function formatDateTime(value: number | null | undefined): string {
-  if (value === null || value === undefined || !Number.isFinite(value) || value <= 0) {
-    return "—";
-  }
-  const date = new Date(toMillis(value));
+  const date = new Date(millis);
   if (Number.isNaN(date.getTime())) {
     return "—";
   }
@@ -89,6 +72,77 @@ export function formatDateTime(value: number | null | undefined): string {
   }).format(date);
 }
 
+export function formatDate(value: number | string | null | undefined): string {
+  const millis = toMillis(value);
+  if (!Number.isFinite(millis)) {
+    return "—";
+  }
+  const date = new Date(millis);
+  if (Number.isNaN(date.getTime())) {
+    return "—";
+  }
+  return new Intl.DateTimeFormat("zh-CN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
+/** 相对时间：刚刚 / 3 小时前 / 2 天前。 */
+export function formatSince(value: number | string | null | undefined): string {
+  const millis = toMillis(value);
+  if (!Number.isFinite(millis)) {
+    return "—";
+  }
+  const diff = Date.now() - millis;
+  if (diff < 0) {
+    return "刚刚";
+  }
+  const minutes = Math.floor(diff / 60_000);
+  if (minutes < 1) {
+    return "刚刚";
+  }
+  if (minutes < 60) {
+    return minutes + " 分钟前";
+  }
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) {
+    return hours + " 小时前";
+  }
+  const days = Math.floor(hours / 24);
+  if (days < 30) {
+    return days + " 天前";
+  }
+  const months = Math.floor(days / 30);
+  if (months < 12) {
+    return months + " 个月前";
+  }
+  return Math.floor(months / 12) + " 年前";
+}
+
+export function formatDownloads(count: number | null | undefined): string {
+  if (count === null || count === undefined || !Number.isFinite(count) || count < 0) {
+    return "—";
+  }
+  if (count < 10_000) {
+    return count.toString();
+  }
+  return new Intl.NumberFormat("zh-CN", { notation: "compact", maximumFractionDigits: 1 }).format(
+    count,
+  );
+}
+
+export function formatMemory(mb: number | null | undefined): string {
+  if (mb === null || mb === undefined || !Number.isFinite(mb)) {
+    return "—";
+  }
+  if (mb >= 1024) {
+    const gb = mb / 1024;
+    return (Number.isInteger(gb) ? gb.toString() : gb.toFixed(1)) + " GB";
+  }
+  return mb + " MB";
+}
+
 export function clampPercent(percent: number | null | undefined): number {
   if (percent === null || percent === undefined || !Number.isFinite(percent)) {
     return 0;
@@ -97,5 +151,45 @@ export function clampPercent(percent: number | null | undefined): number {
 }
 
 export function formatPercent(percent: number | null | undefined): string {
-  return clampPercent(percent).toFixed(1) + "%";
+  return Math.round(clampPercent(percent)).toString() + "%";
+}
+
+/** Mojang 版本类型 -> 中文标签 */
+export function versionTypeLabel(type: string | null | undefined): string {
+  switch ((type ?? "").toLowerCase()) {
+    case "release":
+      return "正式版";
+    case "snapshot":
+      return "快照";
+    case "old_beta":
+      return "远古 Beta";
+    case "old_alpha":
+      return "远古 Alpha";
+    default:
+      return type === null || type === undefined || type === "" ? "未知" : type;
+  }
+}
+
+/** Java 主版本能否跑某个 MC 版本（只做粗略提示，真正的判断在后端） */
+export function javaHintFor(javaMajor: number): string {
+  if (!Number.isFinite(javaMajor) || javaMajor <= 0) {
+    return "未知";
+  }
+  return "Java " + javaMajor;
+}
+
+export function shortenMiddle(text: string, max = 44): string {
+  if (text.length <= max) {
+    return text;
+  }
+  const head = Math.ceil((max - 1) / 2);
+  const tail = Math.floor((max - 1) / 2);
+  return text.slice(0, head) + "…" + text.slice(text.length - tail);
+}
+
+export function shortUuid(uuid: string | null | undefined): string {
+  if (!uuid) {
+    return "—";
+  }
+  return uuid.length > 13 ? uuid.slice(0, 8) + "…" + uuid.slice(-4) : uuid;
 }

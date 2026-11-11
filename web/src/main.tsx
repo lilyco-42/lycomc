@@ -1,5 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { ThemeProvider } from "next-themes";
 import "./index.css";
 import App from "./App.tsx";
 
@@ -10,6 +11,8 @@ if (container === null) {
 
 createRoot(container).render(
   <StrictMode>
-    <App />
+    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} disableTransitionOnChange>
+      <App />
+    </ThemeProvider>
   </StrictMode>,
 );
