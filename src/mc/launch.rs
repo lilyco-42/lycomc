@@ -23,6 +23,8 @@ pub struct LaunchOpts {
     pub extra_jvm: Vec<String>,
     pub source: Source,
     pub concurrency: usize,
+    /// 游戏界面语言：启动前写进 options.txt 的 lang:
+    pub game_lang: String,
 }
 
 /// 组装好的启动计划（不含进程，便于先展示「将执行什么」再真跑）
@@ -240,6 +242,11 @@ pub async fn prepare(opts: &LaunchOpts, progress: ProgressFn<'_>) -> Result<Prep
         .unwrap_or_else(|| "legacy".to_string());
     let kind = v.kind.clone().unwrap_or_else(|| "release".to_string());
     let game_dir = dir.clone();
+    // 每次启动都把设置里的语言写回 options.txt：游戏与 Mod 界面默认中文。
+    // 写失败只警告，不阻断启动（实例目录可能是只读的）。
+    if let Err(e) = super::options::set_lang(&opts.id, &opts.game_lang) {
+        progress(super::logline(8.0, format!("写入游戏语言失败（不影响启动）: {e}")));
+    }
     let launcher_version = env!("CARGO_PKG_VERSION").to_string();
 
     let vars: Vec<(&str, String)> = vec![

@@ -18,7 +18,7 @@ GET    /api/health                     -> ok,version,webMode,dataDir
 GET    /api/state                      -> settings,accounts,versions[],running[],javas[],remote?
 GET    /api/remote/versions?refresh=1  -> latest{release,snapshot}, versions[{id,type,releaseTime}]
 POST   /api/versions/install           body {versionId, fabric?:bool} -> {jobId}
-GET    /api/versions/:id               -> VersionInfo & {mods:[{file,name,size}], running:[{pid}]}
+GET    /api/versions/:id               -> VersionInfo & {mods:[{file,name,size}], running:[{pid}], lang?, resourcePacks:string[], localized:bool}
 DELETE /api/versions/:id               -> {ok}
 POST   /api/launch                     body {versionId, accountName, memoryMb?} -> {jobId}
 POST   /api/launch/:pid/kill           -> {ok}
@@ -33,13 +33,15 @@ GET    /api/mods?versionId=            -> {mods:[{file,name,size}]}
 POST   /api/mods/remove                body {versionId,file} -> {ok}
 GET    /api/settings                   -> Settings
 PUT    /api/settings                   -> Settings（部分更新：只改请求体里出现的键，缺省字段保持原值；显式传 null 才清空 javaPath / selectVersion）
+POST   /api/localize                   body {versionId} -> {jobId}（异步汉化：写 lang + 下载并启用汉化资源包，进度走 /api/events）
 GET    /api/logs/:versionId            -> {lines:string[]}
 
 ## 类型
-VersionInfo = {id, kind:"vanilla"|"fabric", baseVersion, installedAt, javaMajor}
+VersionInfo = {id, kind:"vanilla"|"fabric", baseVersion, installedAt, javaMajor, lang?, resourcePacks:string[], localized:bool}
 JavaInfo = {path, version:number, source:"system"|"managed"}
 Account = {name, uuid, kind:"offline"}
-Settings = {memoryMb, javaPath?, extraJvmArgs[], selectVersion?, downloadSource:"mojang"|"bmcl", maxConcurrent, closeOnLaunch}
+Settings = {memoryMb, javaPath?, extraJvmArgs[], selectVersion?, downloadSource:"mojang"|"bmcl", maxConcurrent, closeOnLaunch, gameLang:string}
+// gameLang 默认 "zh_cn"，只允许 [a-z_]；启动前由 launch::prepare 写入实例 options.txt 的 lang 行
 Job = {id, kind, title, state:"running"|"done"|"error", progress:0-100, message, logs[], result?, createdAt}
 
 ## 前端
@@ -49,3 +51,4 @@ Job = {id, kind, title, state:"running"|"done"|"error", progress:0-100, message,
 ## 变更记录
 - 2026-11-11 PUT /api/settings 由「整体覆盖」改为「部分更新」。旧实现直接反序列化成 Settings，serde 的 default 属性会把缺省字段填回默认值，于是前端只提交 {selectVersion} 时会静默把 memoryMb 打回 4096、清空 extraJvmArgs。现改为 SettingsPatch（全 Option + apply 合并），与前端 saveSettings(patch) 的增量语义对齐。
 - 2026-11-11 新增 GET /api/versions/:id（版本详情面板用，省掉整份 /api/state）。
+- 2026-11-11 新增「一键汉化」契约：POST /api/localize；GET /api/versions/:id 返回 lang / resourcePacks / localized；Settings 增加 gameLang（默认 zh_cn）。汉化包仅运行时下载到实例 resourcepacks/，绝不内嵌进二进制（CFPA 包为 CC BY-NC-SA 4.0，Sodium 中文包为 MIT）。

@@ -18,6 +18,8 @@
 - **Fabric**：装 `fabric-loader-0.20.1-1.20.1`，启动日志 `Loading 59 mods:` + Sodium 生效。
 - **Modrinth**：装 Sodium / Fabric API 到实例 `mods/`，列表可读、可删。
 - **Web 全链路**：首页点「启动游戏」→ SSE 进度 + 日志尾 → 「游戏运行中 PID」→「结束进程」。
+- **中文本地化**：`gameLang` 默认 `zh_cn`（启动前写入实例 `options.txt`）；「版本管理 → 一键汉化」异步装 CFPA 模组汉化包与 Sodium 中文包，游戏主菜单与 Mod 设置页均中文。汉化包仅运行时下载、不内嵌二进制。
+- **国内镜像**：下载源支持 Mojang / BMCLAPI；Modrinth API 与 CDN 自动回落 MCIM 中国镜像，CFPA 资源包经 gh-proxy.com 加速。
 
 > 唯一已知无害报错：`UnsatisfiedLinkError: libflite.so`（Narrator 语音库，系统未装，不影响游戏）。
 
@@ -36,6 +38,7 @@ lycomc list                 # 已装实例
 lycomc javas                # 系统 Java 探测
 lycomc mod-search --query sodium --version-id 1.20.1
 lycomc --schema             # 全部命令的 JSON 清单（给脚本 / Agent 看）
+# Web 控制台：版本管理页点「一键汉化」，设置页选「游戏语言」
 ```
 
 环境变量：`LYCOMC_PORT`（Web 端口，默认 8766）、`LYCOMC_NO_OPEN=1`（不自动开浏览器）、`LYCOMC_DATA_DIR`（数据根）。
@@ -54,13 +57,19 @@ lycomc --schema             # 全部命令的 JSON 清单（给脚本 / Agent �
 
 ![主菜单](docs/screenshots/game-main-menu.png)
 
+中文本地化实测（Fabric 1.20.1 + Sodium，游戏内截图）：
+
+| 中文主菜单 | 中文选项页 | 中文 Mod 设置页（Sodium） |
+|---|---|---|
+| ![中文主菜单](docs/screenshots/game-zh-menu.png) | ![中文选项页](docs/screenshots/game-zh-options.png) | ![Sodium 中文](docs/screenshots/game-zh-sodium.png) |
+
 ## 五个页面
 
 - **主页**：巨型渐变启动按钮（PCL 风）、实例卡、分配内存、运行中 PID + 结束进程、SSE 实时进度与日志尾、远程最新版、Java 状态。
-- **版本管理**：已装实例列表、切换当前实例、删除、看详情（Mod 数 / 运行中）。
+- **版本管理**：已装实例列表、切换当前实例、删除、看详情（Mod 数 / 运行中）、一键汉化（已汉化显示徽章）。
 - **下载**：远程 900+ 版本（正式版 / 快照 / 全部）、搜索、分页、一键安装（可同时装 Fabric）。
 - **Mod 管理**：Modrinth 搜索（400ms 去抖）+ 一键装（自动拉依赖）+ 已装列表删除。
-- **设置**：内存滑块、Java 运行时选择、额外 JVM 参数、下载源（Mojang / BMCLAPI）、并发数、关闭行为、离线账号。
+- **设置**：内存滑块、Java 运行时选择、额外 JVM 参数、下载源（Mojang / BMCLAPI）、并发数、关闭行为、游戏语言（默认简体中文）、离线账号。
 
 ## 架构
 
@@ -79,7 +88,9 @@ src/
     fabric.rs    Fabric loader 元数据与合并
     launch.rs    参数拼装、natives 补齐、子进程与日志
     java.rs      Java 探测与 Adoptium 下载
-    modrinth.rs  Modrinth 搜索 / 安装 / 删除
+    modrinth.rs  Modrinth 搜索 / 安装 / 删除（MCIM 镜像回落）
+    options.rs   options.txt 原子改写（lang / resourcePacks）
+    localize.rs  一键汉化：CFPA + Sodium 资源包下载、pack_format 兼容重写
 web/          React 19 + shadcn/ui + Tailwind 4 + hash 路由，构建产物被 include_dir! 编进二进制
 ```
 
@@ -89,6 +100,7 @@ web/          React 19 + shadcn/ui + Tailwind 4 + hash 路由，构建产物被 
 
 - [docs/DECISION.md](docs/DECISION.md) —— lyco 预研：候选对比、niche 知识、为什么自研薄壳
 - [docs/CONTRACT.md](docs/CONTRACT.md) —— 前后端契约（HTTP API、类型、数据根布局、变更记录）
+- [docs/DECISION.md](docs/DECISION.md) 末节 —— 本地化 / 镜像源调研与许可说明（CFPA 包 CC BY-NC-SA 4.0、Sodium 中文包 MIT）；本项目二进制不含第三方汉化资源，用户点「一键汉化」时自行下载。
 
 ## License
 

@@ -3,6 +3,7 @@ import {
   Coffee,
   Gauge,
   HardDriveDownload,
+  Languages,
   Loader2,
   MemoryStick,
   RotateCw,
@@ -34,7 +35,7 @@ import { ErrorAlert } from "@/components/error-alert";
 import { AccountsCard, AccountsCardSkeleton } from "@/components/accounts-card";
 import { useAppData } from "@/context/app-data-context";
 import { errorMessage, type DownloadSource, type Settings } from "@/lib/api";
-import { formatMemory, shortenMiddle } from "@/lib/format";
+import { GAME_LANGS, formatMemory, shortenMiddle } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const MEMORY_MIN = 512;
@@ -69,6 +70,7 @@ export function SettingsPage() {
       draft.downloadSource !== settings.downloadSource ||
       draft.maxConcurrent !== settings.maxConcurrent ||
       draft.closeOnLaunch !== settings.closeOnLaunch ||
+      (draft.gameLang ?? "zh_cn") !== (settings.gameLang ?? "zh_cn") ||
       jvmArgsText.trim() !== settings.extraJvmArgs.join("\n")
     );
   }, [draft, settings, jvmArgsText]);
@@ -92,6 +94,7 @@ export function SettingsPage() {
       downloadSource: draft.downloadSource,
       maxConcurrent: draft.maxConcurrent,
       closeOnLaunch: draft.closeOnLaunch,
+      gameLang: draft.gameLang ?? "zh_cn",
     };
     setSaving(true);
     setSaveError(null);
@@ -346,6 +349,47 @@ export function SettingsPage() {
               默认 8；网络不稳时调到 4 以下更少出现校验失败。
             </p>
           </div>
+        </div>
+
+        <div className="card-soft rounded-2xl border border-border bg-card p-4">
+          <SectionHeader
+            icon={Languages}
+            title="游戏语言"
+            description="启动时写入 options.txt 的 lang"
+            action={
+              <Badge variant="outline" className="font-mono">
+                {current.gameLang ?? "zh_cn"}
+              </Badge>
+            }
+          />
+          <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,15rem)_1fr] sm:items-center">
+            <Select
+              value={current.gameLang ?? "zh_cn"}
+              onValueChange={(value) => { update("gameLang", value); }}
+            >
+              <SelectTrigger className="w-full" aria-label="游戏语言">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {GAME_LANGS.map((lang) => (
+                  <SelectItem key={lang.value} value={lang.value}>
+                    {lang.label}
+                    <span className="ml-1.5 font-mono text-[10px] text-muted-foreground">
+                      {lang.value}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] leading-relaxed text-muted-foreground">
+              启动时写入 options.txt；模组界面中文需要配合「一键汉化」（版本管理 → 一键汉化）安装的中文资源包。
+            </p>
+          </div>
+          {(current.gameLang ?? "zh_cn") === "en_us" ? (
+            <p className="mt-2 rounded-lg bg-amber-500/10 px-2.5 py-1.5 text-[11px] text-amber-700 dark:text-amber-400">
+              当前是英文界面。想玩中文请选「简体中文」，并在版本管理里对实例点一次「一键汉化」。
+            </p>
+          ) : null}
         </div>
 
         <div className="card-soft rounded-2xl border border-border bg-card p-4">

@@ -195,6 +195,7 @@ fn run_launch(app: &LaunchCmd, ctx: &Context) -> Result<Value, AppError> {
         extra_jvm: s.extra_jvm_args.clone(),
         source: s.source(),
         concurrency: s.max_concurrent,
+        game_lang: s.game_lang.clone(),
     };
     let rep = reporter(ctx);
     let prepared = block_on(launch::prepare(&opts, &rep)).map_err(AppError::Runtime)?;

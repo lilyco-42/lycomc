@@ -49,12 +49,18 @@ export function normalizeVersion(raw: unknown): VersionInfo | null {
   const installedAtRaw = raw["installedAt"];
   const installedAt =
     typeof installedAtRaw === "number" || typeof installedAtRaw === "string" ? installedAtRaw : 0;
+  const packsRaw = raw["resourcePacks"] ?? raw["resource_packs"];
   return {
     id,
     kind,
     baseVersion: str(raw["baseVersion"]) ?? str(raw["base"]) ?? id,
     installedAt,
     javaMajor: num(raw["javaMajor"], 0),
+    lang: str(raw["lang"]) ?? str(raw["language"]),
+    resourcePacks: Array.isArray(packsRaw)
+      ? packsRaw.filter((item): item is string => typeof item === "string")
+      : [],
+    localized: raw["localized"] === true,
   };
 }
 
@@ -124,6 +130,7 @@ export const DEFAULT_SETTINGS: Settings = {
   downloadSource: "mojang",
   maxConcurrent: 8,
   closeOnLaunch: false,
+  gameLang: "zh_cn",
 };
 
 export function normalizeSettings(raw: unknown): Settings {
@@ -142,6 +149,7 @@ export function normalizeSettings(raw: unknown): Settings {
     downloadSource: source === "bmcl" ? "bmcl" : "mojang",
     maxConcurrent: num(raw["maxConcurrent"], DEFAULT_SETTINGS.maxConcurrent),
     closeOnLaunch: raw["closeOnLaunch"] === true,
+    gameLang: str(raw["gameLang"]) ?? DEFAULT_SETTINGS.gameLang,
   };
 }
 

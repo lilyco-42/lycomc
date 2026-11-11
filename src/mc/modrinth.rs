@@ -8,6 +8,9 @@ use std::path::PathBuf;
 use super::meta;
 
 const API: &str = "https://api.modrinth.com/v2";
+/// MCIM 中国镜像：官方 API / CDN 不可达时回落（结构一致，下载不计入作者收益）
+const MIRROR_API: &str = "https://mod.mcimirror.top/modrinth/v2";
+const MIRROR_CDN: &str = "https://mod.mcimirror.top";
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Default)]
 pub struct Hit {
@@ -176,18 +179,50 @@ pub fn remove_mod(instance_id: &str, file: &str) -> Result<(), String> {
     std::fs::remove_file(&p).map_err(|e| format!("删除失败: {e}"))
 }
 
+/// 官方 API URL -> MCIM 镜像 URL（只换前缀，路径结构一致）
+fn mirror_api(url: &str) -> Option<String> {
+    url.strip_prefix(API).map(|rest| format!("{MIRROR_API}{rest}"))
+}
+
+/// Modrinth CDN URL -> MCIM 镜像；路径必须保留 /data/ 前缀。
+pub fn mirror_cdn(url: &str) -> Option<String> {
+    if let Some(rest) = url.strip_prefix("https://cdn.modrinth.com") {
+        return Some(format!("{MIRROR_CDN}{rest}"));
+    }
+    if url.starts_with(MIRROR_CDN) {
+        return None;
+    }
+    None
+}
+
 async fn fetch(url: &str) -> Result<String, String> {
     let c = meta::client();
-    let r = c
-        .get(url)
-        .header("User-Agent", "lycomc/0.1 (Minecraft launcher)")
-        .send()
-        .await
-        .map_err(|e| format!("请求 Modrinth 失败: {e}"))?;
-    if !r.status().is_success() {
-        return Err(format!("Modrinth 返回 HTTP {}", r.status()));
+    let mut candidates = vec![url.to_string()];
+    // BMCL / 国内网络下优先试镜像，失败回落官方
+    if let Some(m) = mirror_api(url) {
+        candidates.insert(0, m);
     }
-    r.text().await.map_err(|e| e.to_string())
+    let mut last = String::new();
+    for u in &candidates {
+        let r = match c
+            .get(u)
+            .header("User-Agent", "lycomc/0.1 (Minecraft launcher)")
+            .send()
+            .await
+        {
+            Ok(r) => r,
+            Err(e) => {
+                last = format!("请求 Modrinth 失败: {e}");
+                continue;
+            }
+        };
+        if !r.status().is_success() {
+            last = format!("Modrinth 返回 HTTP {}", r.status());
+            continue;
+        }
+        return r.text().await.map_err(|e| e.to_string());
+    }
+    Err(last)
 }
 
 /// 极简 urlencode（只处理我们真正会发的字符）

@@ -19,7 +19,7 @@ use serde_json::{json, Value};
 use tokio::sync::broadcast;
 
 use crate::jobs::{now_ms, Job, JobStore};
-use crate::mc::{self, fabric, install, java, launch, meta, modrinth, paths, Progress};
+use crate::mc::{self, fabric, install, java, launch, localize, meta, modrinth, options, paths, Progress};
 use crate::settings::{self, Account, Settings};
 
 // ── 错误形态 ───────────────────────────────────────────────────
@@ -121,6 +121,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/mods/install", post(mod_install))
         .route("/api/mods/remove", post(mod_remove))
         .route("/api/settings", get(get_settings).put(put_settings))
+        .route("/api/localize", post(localize_version))
         .route("/api/logs/{versionId}", get(get_logs))
         .with_state(state)
         .fallback(static_file)
@@ -148,6 +149,7 @@ fn version_info(id: &str) -> Option<Value> {
         .unwrap_or(0);
     let base = v.inherits_from.clone();
     let kind = if base.is_some() { "fabric" } else { "vanilla" };
+    let (lang, packs, localized) = options::status(id);
     Some(json!({
         "id": id,
         "kind": kind,
@@ -155,6 +157,9 @@ fn version_info(id: &str) -> Option<Value> {
         "installedAt": installed_at,
         "javaMajor": v.java_version.as_ref().map(|j| j.major_version).unwrap_or(17),
         "mainClass": v.main_class.clone().unwrap_or_default(),
+        "lang": lang,
+        "resourcePacks": packs,
+        "localized": localized,
     }))
 }
 
@@ -299,6 +304,44 @@ async fn install_version(
     Ok(Json(json!({ "jobId": job })))
 }
 
+// ── 一键汉化 ───────────────────────────────────────────────────
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LocalizeReq {
+    version_id: String,
+}
+
+async fn localize_version(
+    State(st): State<AppState>,
+    Json(req): Json<LocalizeReq>,
+) -> Result<Json<Value>, ApiError> {
+    let id = req.version_id.trim().to_string();
+    if id.is_empty() {
+        return Err(ApiError::bad("缺少 versionId"));
+    }
+    if id.contains('/') || id.contains("..") {
+        return Err(ApiError::bad("非法版本 id"));
+    }
+    if !install::is_installed(&id) {
+        return Err(ApiError::bad(format!("版本 {id} 尚未安装")));
+    }
+    let s = st.settings();
+    let lang = s.game_lang.clone();
+    let source = s.source();
+    let job = st.jobs.create("localize", format!("汉化 {id}"));
+    let st2 = st.clone();
+    let job2 = job.clone();
+    tokio::spawn(async move {
+        let sink = st2.sink(&job2);
+        match localize::run(&id, &lang, source, &*sink).await {
+            Ok(v) => st2.jobs.done(&job2, v),
+            Err(e) => st2.jobs.fail(&job2, e),
+        }
+    });
+    Ok(Json(json!({ "jobId": job })))
+}
+
 async fn delete_version(
     State(st): State<AppState>,
     Path(id): Path<String>,
@@ -356,6 +399,7 @@ async fn do_launch(
         extra_jvm: s.extra_jvm_args.clone(),
         source: s.source(),
         concurrency: s.max_concurrent,
+        game_lang: s.game_lang.clone(),
     };
     let job = st.jobs.create("launch", format!("启动 {id}"));
     let st2 = st.clone();
@@ -658,6 +702,7 @@ struct SettingsPatch {
     download_source: Option<String>,
     max_concurrent: Option<usize>,
     close_on_launch: Option<bool>,
+    game_lang: Option<String>,
 }
 
 impl SettingsPatch {
@@ -682,6 +727,9 @@ impl SettingsPatch {
         }
         if let Some(v) = self.close_on_launch {
             s.close_on_launch = v;
+        }
+        if let Some(v) = self.game_lang {
+            s.game_lang = v;
         }
         s
     }

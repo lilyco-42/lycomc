@@ -193,3 +193,24 @@ export function shortUuid(uuid: string | null | undefined): string {
   }
   return uuid.length > 13 ? uuid.slice(0, 8) + "…" + uuid.slice(-4) : uuid;
 }
+
+/** 游戏语言（options.txt 的 lang）可选值；设置页与版本页共用。 */
+export interface GameLangOption {
+  value: string;
+  label: string;
+}
+
+export const GAME_LANGS: GameLangOption[] = [
+  { value: "zh_cn", label: "简体中文" },
+  { value: "zh_tw", label: "繁體中文" },
+  { value: "en_us", label: "English（英文）" },
+  { value: "ja_jp", label: "日本語" },
+];
+
+export function gameLangLabel(code: string | null | undefined): string {
+  if (code === null || code === undefined || code.trim() === "") {
+    return "未知";
+  }
+  const found = GAME_LANGS.find((item) => item.value === code);
+  return found !== undefined ? found.label : code;
+}

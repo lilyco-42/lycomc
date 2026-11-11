@@ -22,6 +22,8 @@ export interface Settings {
   downloadSource: DownloadSource;
   maxConcurrent: number;
   closeOnLaunch: boolean;
+  /** 游戏内语言（启动时写入 options.txt 的 lang），如 zh_cn / en_us */
+  gameLang?: string;
 }
 
 export type AccountKind = "offline";
@@ -40,6 +42,12 @@ export interface VersionInfo {
   baseVersion: string;
   installedAt: number | string;
   javaMajor: number;
+  /** options.txt 里的语言代码（后端实例详情提供时才有） */
+  lang?: string | null;
+  /** 已启用的资源包（options.txt 的 resourcePacks） */
+  resourcePacks?: string[];
+  /** 是否已安装中文本地化资源包 */
+  localized?: boolean;
 }
 
 export interface JavaInfo {
@@ -244,6 +252,13 @@ export const api = {
 
   deleteVersion: (id: string) =>
     request<OkResponse>("/api/versions/" + encodeURIComponent(id), { method: "DELETE" }),
+
+  /** 单个实例详情（含 lang / resourcePacks / localized）；结果交给 normalizeVersion 收敛 */
+  version: (id: string) => request<unknown>("/api/versions/" + encodeURIComponent(id)),
+
+  /** 一键汉化：下载中文资源包 + 写入 options.txt，异步任务，进度走 /api/events */
+  localize: (versionId: string) =>
+    request<InstallResponse>("/api/localize", jsonBody({ versionId })),
 
   launch: (versionId: string, accountName: string, memoryMb?: number) =>
     request<LaunchResponse>(

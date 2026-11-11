@@ -21,6 +21,8 @@ pub struct Settings {
     pub max_concurrent: usize,
     /// 启动游戏后是否关掉启动器
     pub close_on_launch: bool,
+    /// 游戏内语言（每次启动写入 options.txt 的 lang）
+    pub game_lang: String,
 }
 
 impl Default for Settings {
@@ -33,6 +35,7 @@ impl Default for Settings {
             download_source: "mojang".into(),
             max_concurrent: 16,
             close_on_launch: false,
+            game_lang: "zh_cn".into(),
         }
     }
 }
@@ -62,6 +65,12 @@ impl Settings {
             self.select_version = None;
         }
         self.extra_jvm_args.retain(|a| !a.trim().is_empty());
+        let g = self.game_lang.trim().to_lowercase();
+        if g.is_empty() || !g.chars().all(|c| c.is_ascii_lowercase() || c == '_') {
+            self.game_lang = "zh_cn".into();
+        } else {
+            self.game_lang = g;
+        }
     }
 
     pub fn source(&self) -> crate::mc::meta::Source {

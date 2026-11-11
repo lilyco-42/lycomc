@@ -5,6 +5,7 @@ import {
   Coffee,
   Download,
   FileClock,
+  Languages,
   Loader2,
   Play,
   RotateCw,
@@ -28,12 +29,15 @@ import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { BackendNotice } from "@/components/backend-notice";
 import { ErrorAlert } from "@/components/error-alert";
+import { JobProgressCard } from "@/components/job-progress-card";
 import { VersionAvatar } from "@/components/version-avatar";
 import { VersionKindBadge } from "@/components/version-badge";
 import { useAppData } from "@/context/app-data-context";
-import { api, errorMessage, type VersionInfo } from "@/lib/api";
-import { formatDateTime, formatSince, shortenMiddle } from "@/lib/format";
+import { api, errorMessage, isBackendDown, type Job, type VersionInfo } from "@/lib/api";
+import { formatDateTime, formatSince, gameLangLabel, shortenMiddle } from "@/lib/format";
 import { navigate } from "@/lib/router";
+import { useJobTracker } from "@/lib/use-job";
+import { useVersionDetails, type VersionDetail } from "@/lib/use-version-details";
 import { cn } from "@/lib/utils";
 
 type SortKey = "installed" | "name" | "kind";
@@ -49,6 +53,10 @@ export function VersionsPage() {
   const [busyAction, setBusyAction] = useState<"delete" | "select" | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [sort, setSort] = useState<SortKey>("installed");
+  // 汉化任务：jobId 走 SSE 进度，target 只用于标题与按钮 loading 态
+  const [localizeTarget, setLocalizeTarget] = useState<string | null>(null);
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [detailNonce, setDetailNonce] = useState(0);
 
   const selectedId = settings?.selectVersion ?? versions[0]?.id ?? null;
 
@@ -75,6 +83,27 @@ export function VersionsPage() {
     () => new Set(running.map((item) => item.versionId).filter((id) => id !== "")),
     [running],
   );
+
+  const versionIds = useMemo(() => versions.map((version) => version.id), [versions]);
+  // lang / resourcePacks / localized 来自实例详情接口；接口不存在时静默降级为「未知」
+  const details = useVersionDetails(versionIds, detailNonce);
+
+  // 汉化任务结束：刷新实例列表与详情（语言/资源包变了）
+  const handleLocalizeFinished = useCallback(
+    (finishedJob: Job) => {
+      setLocalizeTarget(null);
+      setDetailNonce((value) => value + 1);
+      reload();
+      if (finishedJob.state === "done") {
+        toast.success("汉化完成", { description: finishedJob.title });
+      } else {
+        toast.error("汉化失败", { description: finishedJob.message });
+      }
+    },
+    [reload],
+  );
+
+  const { job, live, reset } = useJobTracker(jobId, { onFinished: handleLocalizeFinished });
 
   const handleDelete = useCallback(
     async (target: VersionInfo) => {
@@ -116,6 +145,31 @@ export function VersionsPage() {
     [saveSettings],
   );
 
+  const handleLocalize = useCallback(
+    async (target: VersionInfo, alreadyLocalized: boolean) => {
+      setActionError(null);
+      setLocalizeTarget(target.id);
+      reset();
+      try {
+        const result = await api.localize(target.id);
+        setJobId(result.jobId);
+        toast.info((alreadyLocalized ? "开始重新汉化 " : "开始汉化 ") + target.id, {
+          description: "下载中文资源包并写入 options.txt，进度见下方",
+        });
+      } catch (cause: unknown) {
+        setLocalizeTarget(null);
+        const message = errorMessage(cause);
+        setActionError(message);
+        toast.error("提交汉化任务失败", {
+          description: isBackendDown(cause)
+            ? "后端未就绪，或还没有实装 /api/localize 接口。"
+            : message,
+        });
+      }
+    },
+    [reset],
+  );
+
   return (
     <div>
       <PageHeader
@@ -139,6 +193,31 @@ export function VersionsPage() {
         {backendDown ? <BackendNotice onRetry={reload} retrying={loading} /> : null}
         {error !== null && !backendDown ? (
           <ErrorAlert title="读取版本列表失败" message={error} onRetry={reload} />
+        ) : null}
+
+        {jobId !== null ? (
+          <JobProgressCard
+            job={job}
+            live={live}
+            waiting={job === null}
+            title={job?.title ?? "汉化 " + (localizeTarget ?? "")}
+            onDismiss={() => {
+              setJobId(null);
+              reset();
+            }}
+            footer={
+              job?.state === "error" ? (
+                <span className="flex items-center gap-1.5 text-xs text-destructive">
+                  <TriangleAlert className="size-3.5" />
+                  资源包下载失败时可在设置里换下载源后重试
+                </span>
+              ) : job?.state === "done" ? (
+                <span className="text-xs text-muted-foreground">
+                  已写入 options.txt 与 resourcepacks/，启动游戏即为中文界面
+                </span>
+              ) : null
+            }
+          />
         ) : null}
 
         {versions.length > 0 ? (
@@ -201,6 +280,8 @@ export function VersionsPage() {
                 selected={version.id === selectedId}
                 expanded={expanded === version.id}
                 running={runningIds.has(version.id)}
+                detail={details[version.id]}
+                localizing={localizeTarget === version.id}
                 busy={busyId === version.id}
                 busyAction={busyId === version.id ? busyAction : null}
                 onToggle={() => {
@@ -213,6 +294,9 @@ export function VersionsPage() {
                 }}
                 onLaunch={() => { navigate("/"); }}
                 onMods={() => { navigate("/mods"); }}
+                onLocalize={() => {
+                  void handleLocalize(version, details[version.id]?.localized === true);
+                }}
               />
             ))}
           </ul>
@@ -264,6 +348,9 @@ interface VersionRowProps {
   selected: boolean;
   expanded: boolean;
   running: boolean;
+  /** 实例详情（语言 / 资源包 / 是否已汉化），拉取失败时为 undefined */
+  detail: VersionDetail | undefined;
+  localizing: boolean;
   busy: boolean;
   busyAction: "delete" | "select" | null;
   onToggle: () => void;
@@ -271,6 +358,7 @@ interface VersionRowProps {
   onDelete: () => void;
   onLaunch: () => void;
   onMods: () => void;
+  onLocalize: () => void;
 }
 
 function VersionRow({
@@ -278,6 +366,8 @@ function VersionRow({
   selected,
   expanded,
   running,
+  detail,
+  localizing,
   busy,
   busyAction,
   onToggle,
@@ -285,7 +375,9 @@ function VersionRow({
   onDelete,
   onLaunch,
   onMods,
+  onLocalize,
 }: VersionRowProps) {
+  const localized = detail?.localized === true;
   return (
     <li
       className={cn(
@@ -320,14 +412,34 @@ function VersionRow({
                 运行中
               </Badge>
             ) : null}
+            {localized ? (
+              <Badge
+                variant="outline"
+                className="gap-1 border-sky-500/40 bg-sky-500/10 text-sky-600 dark:text-sky-400"
+              >
+                <Languages />
+                中文
+              </Badge>
+            ) : null}
           </div>
           <p className="mt-0.5 truncate text-xs text-muted-foreground">
             基础版本 {version.baseVersion} · Java {version.javaMajor || "?"} · 安装于{" "}
             {formatSince(version.installedAt)}
+            {detail !== undefined ? " · 语言 " + gameLangLabel(detail.lang) : ""}
           </p>
         </button>
 
         <div className="flex items-center gap-1.5">
+          <Button
+            variant="outline"
+            size="xs"
+            onClick={onLocalize}
+            disabled={busy || localizing}
+            title="下载中文资源包并写入 options.txt，让游戏与 Mod 界面变中文"
+          >
+            {localizing ? <Loader2 className="animate-spin" /> : <Languages />}
+            {localized ? "重新汉化" : "一键汉化"}
+          </Button>
           {!selected ? (
             <Button variant="outline" size="xs" onClick={onSelect} disabled={busy}>
               {busyAction === "select" ? <Loader2 className="animate-spin" /> : <Star />}
@@ -371,6 +483,26 @@ function VersionRow({
               label="资源复用"
               value={version.kind === "fabric" ? "复用 " + version.baseVersion + " 的 jar 与资源" : "独立 jar 与资源"}
             />
+            <DetailRow
+              icon={Languages}
+              label="游戏语言"
+              value={
+                detail === undefined
+                  ? "未知（后端未提供实例详情）"
+                  : gameLangLabel(detail.lang) + (localized ? " · 已装汉化包" : "")
+              }
+            />
+            <DetailRow
+              icon={Boxes}
+              label="已启用资源包"
+              value={
+                detail === undefined
+                  ? "未知"
+                  : detail.resourcePacks.length === 0
+                    ? "无（原版默认）"
+                    : detail.resourcePacks.length + " 个：" + detail.resourcePacks.join("、")
+              }
+            />
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <Button variant="outline" size="xs" onClick={onLaunch}>
@@ -379,6 +511,10 @@ function VersionRow({
             </Button>
             <Button variant="outline" size="xs" onClick={onMods}>
               管理 Mod
+            </Button>
+            <Button variant="outline" size="xs" onClick={onLocalize} disabled={busy || localizing}>
+              {localizing ? <Loader2 className="animate-spin" /> : <Languages />}
+              {localized ? "重新汉化" : "一键汉化"}
             </Button>
             <span className="ml-auto font-mono text-[10px] text-muted-foreground">
               id: {shortenMiddle(version.id, 30)}

@@ -6,6 +6,8 @@ pub mod java;
 pub mod install;
 pub mod launch;
 pub mod meta;
+pub mod localize;
+pub mod options;
 pub mod modrinth;
 pub mod paths;
 
