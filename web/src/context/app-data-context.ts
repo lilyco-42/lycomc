@@ -33,7 +33,7 @@ export interface AppDataValue {
   reloadRemote: (refresh?: boolean) => void;
   /** 当前选中版本（settings.selectVersion 优先，否则第一个已装实例） */
   selectedVersion: VersionInfo | null;
-  /** 当前选中账号（第一个离线账号） */
+  /** 当前选中账号（账号列表第一项，可能是离线或微软正版） */
   currentAccount: Account | null;
 }
 

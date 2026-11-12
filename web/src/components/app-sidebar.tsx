@@ -1,16 +1,33 @@
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { SkinAvatar } from "@/components/skin-avatar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useAppData } from "@/context/app-data-context";
+import { type AccountSkin } from "@/lib/api";
+import { loadAccountSkinByKey, skinKeyFor } from "@/lib/account-skin";
 import { NAV_ITEMS } from "@/lib/nav";
 import { normalizeHash, useRoutePath } from "@/lib/router";
 import { shortUuid } from "@/lib/format";
+import { useKeyedFetch } from "@/lib/use-keyed-fetch";
 import { cn } from "@/lib/utils";
 
-/** 左侧固定竖栏：logo + 导航 + 底部账号 / 主题切换。 */
+/** 左侧固定竖栏：logo + 导航 + 底部账号皮肤 / 主题切换。 */
 export function AppSidebar() {
   const path = useRoutePath();
   const { currentAccount, running, backendDown, versions } = useAppData();
+  const skinKey = currentAccount !== null ? skinKeyFor(currentAccount) : "";
+  const { data: skin } = useKeyedFetch<AccountSkin>(skinKey, loadAccountSkinByKey);
+
+  const isMicrosoft = currentAccount?.kind === "microsoft";
+  const needsLogin = isMicrosoft && currentAccount !== null && !currentAccount.hasSession;
+  const skinUrl = currentAccount?.skinUrl ?? skin?.skinUrl ?? null;
+  const skinModel = currentAccount?.skinModel ?? skin?.skinModel ?? "classic";
+  const useBuiltinFallback = skin?.fallback === true && currentAccount?.skinUrl === undefined;
+  const accountName = currentAccount !== null ? currentAccount.name : "未登录";
+  const tooltip =
+    currentAccount === null
+      ? "还没有账号，去「设置」里添加或进行正版登录"
+      : (isMicrosoft ? "微软正版账号 · UUID " : "离线账号 · UUID ") + shortUuid(currentAccount.uuid);
 
   return (
     <aside className="flex w-[200px] shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
@@ -68,19 +85,40 @@ export function AppSidebar() {
         ) : null}
 
         <div className="rounded-xl border border-sidebar-border bg-background/50 p-2.5">
-          <p className="text-[11px] text-muted-foreground">当前账号</p>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <p className="mt-0.5 truncate text-sm font-medium text-sidebar-foreground">
-                {currentAccount !== null ? currentAccount.name : "未登录"}
-              </p>
-            </TooltipTrigger>
-            <TooltipContent>
-              {currentAccount !== null
-                ? "离线账号 · UUID " + shortUuid(currentAccount.uuid)
-                : "还没有离线账号，去「设置」里添加一个"}
-            </TooltipContent>
-          </Tooltip>
+          <div className="flex items-center gap-2.5">
+            <SkinAvatar
+              skinUrl={skinUrl}
+              model={skinModel}
+              size={40}
+              fallback={useBuiltinFallback}
+              title={"当前账号 " + accountName + " 的皮肤头像"}
+              className="size-10 rounded-xl ring-1 ring-sidebar-border"
+            />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] text-muted-foreground">当前账号</p>
+                  <p className="truncate text-sm font-medium text-sidebar-foreground">{accountName}</p>
+                  <div className="mt-0.5 flex items-center gap-1">
+                    {currentAccount !== null ? (
+                      <Badge
+                        variant={isMicrosoft ? "secondary" : "outline"}
+                        className="h-4 px-1 text-[9px]"
+                      >
+                        {isMicrosoft ? "正版" : "离线账号"}
+                      </Badge>
+                    ) : null}
+                    {needsLogin ? (
+                      <Badge variant="destructive" className="h-4 px-1 text-[9px]">
+                        需重新登录
+                      </Badge>
+                    ) : null}
+                  </div>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>{tooltip}</TooltipContent>
+            </Tooltip>
+          </div>
         </div>
 
         <div className="flex items-center justify-between">

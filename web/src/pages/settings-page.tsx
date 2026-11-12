@@ -4,6 +4,7 @@ import {
   Gauge,
   HardDriveDownload,
   Languages,
+  ShieldCheck,
   Loader2,
   MemoryStick,
   RotateCw,
@@ -120,7 +121,7 @@ export function SettingsPage() {
   if (loading && settings === null) {
     return (
       <div>
-        <PageHeader title="设置" description="启动参数、下载源与账号。" />
+        <PageHeader title="设置" description="启动参数、下载源、账号与皮肤预览。" />
         <div className="space-y-3">
           <Skeleton className="h-52 w-full rounded-2xl" />
           <Skeleton className="h-40 w-full rounded-2xl" />
@@ -133,7 +134,7 @@ export function SettingsPage() {
   if (settings === null) {
     return (
       <div>
-        <PageHeader title="设置" description="启动参数、下载源与账号。" />
+        <PageHeader title="设置" description="启动参数、下载源、账号与皮肤预览。" />
         <div className="space-y-3">
           {backendDown ? <BackendNotice onRetry={reload} retrying={loading} /> : null}
           <ErrorAlert
@@ -143,9 +144,16 @@ export function SettingsPage() {
             offline={backendDown}
           />
           <div className="rounded-2xl border border-dashed border-border bg-muted/25 px-4 py-6 text-sm text-muted-foreground">
-            后端就绪后这里会显示内存、Java 路径、JVM 参数、下载源与账号管理。你仍然可以先在下面添加账号（需要后端支持）。
+            后端就绪后这里会显示内存、Java 路径、JVM 参数、下载源、账号与皮肤预览。你仍然可以先在下面添加离线账号或进行微软正版登录（需要后端支持）。
           </div>
+          <div className="space-y-2 pt-1">
+          <SectionHeader
+            icon={ShieldCheck}
+            title="账号与皮肤"
+            description="正版账号显示皮肤头像与预览；离线账号永远可直接启动，不需要刷新登录。"
+          />
           <AccountsCard />
+        </div>
         </div>
       </div>
     );
@@ -416,7 +424,14 @@ export function SettingsPage() {
           </div>
         </div>
 
-        <AccountsCard />
+        <div className="space-y-2 pt-1">
+          <SectionHeader
+            icon={ShieldCheck}
+            title="账号与皮肤"
+            description="正版账号显示皮肤头像与预览；离线账号永远可直接启动，不需要刷新登录。"
+          />
+          <AccountsCard />
+        </div>
       </div>
     </div>
   );

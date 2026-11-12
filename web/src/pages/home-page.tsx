@@ -125,7 +125,7 @@ export function HomePage() {
       return;
     }
     if (accountName === "") {
-      toast.error("还没有离线账号", { description: "去「设置 → 账号」加一个用户名。" });
+      toast.error("还没有账号", { description: "去「设置 → 账号与皮肤」添加账号或进行微软正版登录。" });
       navigate("/settings");
       return;
     }
@@ -421,7 +421,7 @@ function VersionHeroCard({
             ) : (
               <Button variant="outline" size="sm" onClick={onAddAccount}>
                 <UserRound />
-                添加离线账号
+                添加账号
               </Button>
             )}
           </div>

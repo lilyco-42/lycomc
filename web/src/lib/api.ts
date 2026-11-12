@@ -26,12 +26,27 @@ export interface Settings {
   gameLang?: string;
 }
 
-export type AccountKind = "offline";
+export type AccountKind = "offline" | "microsoft";
+
+/** 皮肤模型：classic = Steve 粗手臂，slim = Alex 细手臂。 */
+export type SkinModel = "classic" | "slim";
+
+/** 皮肤来源，由 GET /api/accounts/:name/skin 给出。 */
+export type SkinSource = "microsoft" | "mojang" | "default";
 
 export interface Account {
   name: string;
   uuid: string;
   kind: AccountKind;
+  /** 是否仍有可用会话；微软账号过期后为 false，需要刷新登录 */
+  hasSession: boolean;
+  /** 是否拥有 Minecraft 正版授权（后端能判定时才有） */
+  entitled?: boolean;
+  skinUrl?: string | null;
+  capeUrl?: string | null;
+  skinModel?: SkinModel;
+  /** 会话过期时间（后端给的数字时间戳） */
+  expiresAt?: number;
 }
 
 export type VersionKind = "vanilla" | "fabric";
@@ -117,6 +132,40 @@ export interface LaunchResponse {
 
 export interface OkResponse {
   ok: true;
+}
+
+/** 微软设备代码登录：POST /api/auth/microsoft/start 的返回值。 */
+export interface MicrosoftStartResponse {
+  userCode: string;
+  verificationUri: string;
+  /** 设备代码有效秒数 */
+  expiresIn: number;
+  /** 建议轮询间隔（秒） */
+  interval: number;
+  message: string;
+}
+
+/** 微软设备代码登录轮询结果（判别联合）。 */
+export type MicrosoftPollResponse =
+  | { status: "pending"; interval: number; message: string }
+  | { status: "done"; account: Account }
+  | { status: "expired"; message: string };
+
+/** 刷新微软登录后的账号（后端绝不下发 token）。 */
+export interface MicrosoftRefreshResponse {
+  account: Account;
+}
+
+/** GET /api/accounts/:name/skin 的皮肤元数据。 */
+export interface AccountSkin {
+  name: string;
+  uuid: string;
+  skinUrl: string | null;
+  capeUrl: string | null;
+  skinModel: SkinModel;
+  source: SkinSource;
+  /** true 表示后端已回退到内置 Steve / Alex */
+  fallback: boolean;
 }
 
 /** Modrinth 搜索结果条目（字段按 Modrinth v2 search 语义，缺失字段容错） */
@@ -277,6 +326,26 @@ export const api = {
 
   deleteAccount: (name: string) =>
     request<OkResponse>("/api/accounts/" + encodeURIComponent(name), { method: "DELETE" }),
+
+  /** ===== 微软正版登录（设备代码流程） ===== */
+  microsoftStart: () =>
+    request<MicrosoftStartResponse>("/api/auth/microsoft/start", jsonBody({})),
+
+  microsoftPoll: () =>
+    request<MicrosoftPollResponse>("/api/auth/microsoft/poll", jsonBody({})),
+
+  microsoftRefresh: (name: string) =>
+    request<MicrosoftRefreshResponse>("/api/auth/microsoft/refresh", jsonBody({ name })),
+
+  microsoftLogout: (name: string) =>
+    request<OkResponse>("/api/auth/microsoft/logout", jsonBody({ name })),
+
+  accountSkin: (name: string) =>
+    request<AccountSkin>("/api/accounts/" + encodeURIComponent(name) + "/skin"),
+
+  /** 同源皮肤图片代理：返回可直接放进 <img src> / canvas 的地址（恒定有图，不会裂）。 */
+  skinImage: (url: string, model: SkinModel = "classic") =>
+    "/api/skin/image?" + new URLSearchParams({ url, model }).toString(),
 
   modrinthSearch: (q: string, versionId?: string, type: ModrinthType = "mod") => {
     const params = new URLSearchParams({ q: q, type });

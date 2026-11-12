@@ -233,6 +233,8 @@ pub fn save_accounts(list: &[Account]) -> Result<(), String> {
     // accounts.json 含微软 refresh/access token：只允许本人读写（0600），
     // 并且先写临时文件再原子 rename，避免中途崩溃留下半截 JSON。
     let tmp = p.with_extension("json.tmp");
+    // 若旧版曾留下 0644 的临时文件，先删掉，确保本次是全新 0600 inode
+    let _ = std::fs::remove_file(&tmp);
     let mut opts = std::fs::OpenOptions::new();
     opts.write(true).create(true).truncate(true);
     #[cfg(unix)]

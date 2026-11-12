@@ -1,5 +1,5 @@
 /** 把后端返回的松散数据（尤其是契约未细化的 running[]）收敛成前端类型。 */
-import { isRecord, type Account, type JavaInfo, type RemoteData, type RemoteVersion, type RunningInstance, type Settings, type StateResponse, type VersionInfo } from "@/lib/api";
+import { isRecord, type Account, type AccountSkin, type JavaInfo, type RemoteData, type RemoteVersion, type RunningInstance, type Settings, type StateResponse, type VersionInfo } from "@/lib/api";
 
 function str(value: unknown): string | null {
   return typeof value === "string" && value.trim() !== "" ? value.trim() : null;
@@ -78,6 +78,10 @@ export function normalizeVersions(raw: unknown): VersionInfo[] {
   return result;
 }
 
+/**
+ * 账号归一化：离线老数据没有 kind / hasSession 也照常显示；
+ * 微软账号带会话状态、皮肤 URL 与皮肤模型，但绝不包含 token。
+ */
 export function normalizeAccount(raw: unknown): Account | null {
   if (!isRecord(raw)) {
     return null;
@@ -86,7 +90,53 @@ export function normalizeAccount(raw: unknown): Account | null {
   if (name === null) {
     return null;
   }
-  return { name, uuid: str(raw["uuid"]) ?? "", kind: "offline" };
+  const kind = raw["kind"] === "microsoft" ? "microsoft" : "offline";
+  const skinUrl = str(raw["skinUrl"]) ?? str(raw["skin_url"]);
+  const capeUrl = str(raw["capeUrl"]) ?? str(raw["cape_url"]);
+  const modelRaw = raw["skinModel"] ?? raw["skin_model"];
+  const account: Account = {
+    name,
+    uuid: str(raw["uuid"]) ?? "",
+    kind,
+    // 后端的 hasSession 只表示「微软会话是否有效」；离线账号永远可启动，前端 UI 仍必须按 kind 分支
+    hasSession: kind === "offline" ? true : raw["hasSession"] === true,
+    skinUrl,
+    capeUrl,
+    skinModel: modelRaw === "slim" ? "slim" : "classic",
+  };
+  if (raw["entitled"] === true || raw["entitled"] === false) {
+    account.entitled = raw["entitled"];
+  }
+  if (typeof raw["expiresAt"] === "number" && Number.isFinite(raw["expiresAt"])) {
+    account.expiresAt = raw["expiresAt"];
+  }
+  return account;
+}
+
+/** GET /api/accounts/:name/skin 的元数据归一化（字段缺失也能显示内置兜底头像）。 */
+export function normalizeAccountSkin(raw: unknown): AccountSkin | null {
+  if (!isRecord(raw)) {
+    return null;
+  }
+  const name = str(raw["name"]);
+  if (name === null) {
+    return null;
+  }
+  const sourceRaw = raw["source"];
+  const source =
+    sourceRaw === "microsoft" || sourceRaw === "mojang" || sourceRaw === "default"
+      ? sourceRaw
+      : "default";
+  const modelRaw = raw["skinModel"] ?? raw["skin_model"];
+  return {
+    name,
+    uuid: str(raw["uuid"]) ?? "",
+    skinUrl: str(raw["skinUrl"]) ?? str(raw["skin_url"]),
+    capeUrl: str(raw["capeUrl"]) ?? str(raw["cape_url"]),
+    skinModel: modelRaw === "slim" ? "slim" : "classic",
+    source,
+    fallback: raw["fallback"] === true,
+  };
 }
 
 export function normalizeAccounts(raw: unknown): Account[] {
