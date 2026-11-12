@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { CircleAlert, FileClock, Loader2, Play, Power, RotateCw, Settings2, Square, UserRound } from "lucide-react";
+import { Boxes, CircleAlert, Cpu, FileClock, Globe, Loader2, Play, Power, RotateCw, Settings2, ShieldCheck, Sparkles, Square, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/empty-state";
+import { SkinAvatar } from "@/components/skin-avatar";
 import { LaunchButton } from "@/components/launch-button";
 import { VersionAvatar } from "@/components/version-avatar";
 import { VersionKindBadge } from "@/components/version-badge";
@@ -15,11 +16,13 @@ import { RemoteLatestCard } from "@/components/remote-latest-card";
 import { JobProgressCard } from "@/components/job-progress-card";
 import { BackendNotice } from "@/components/backend-notice";
 import { useAppData } from "@/context/app-data-context";
-import { api, errorMessage, type Account, type Job, type VersionInfo } from "@/lib/api";
+import { api, errorMessage, type AccountSkin, type Job, type VersionInfo } from "@/lib/api";
+import { loadAccountSkinByKey, skinKeyFor } from "@/lib/account-skin";
 import { formatMemory, formatSince } from "@/lib/format";
 import { navigate } from "@/lib/router";
 import { pickPid, tailLogs, useJobTracker } from "@/lib/use-job";
 import { cn } from "@/lib/utils";
+import { useKeyedFetch } from "@/lib/use-keyed-fetch";
 
 const LOG_CACHE_KEY = "lycomc.home.logTail";
 
@@ -64,6 +67,11 @@ export function HomePage() {
   // 账号：用户没手动挑过就跟随全局第一个（派生，无需 effect）
   const [pickedAccount, setPickedAccount] = useState<string | null>(null);
   const accountName = pickedAccount ?? currentAccount?.name ?? "";
+  const skinKey = currentAccount !== null ? skinKeyFor(currentAccount) : "";
+  const { data: skin } = useKeyedFetch<AccountSkin>(skinKey, loadAccountSkinByKey);
+  const skinUrl = skin?.skinUrl ?? currentAccount?.skinUrl ?? null;
+  const skinModel = skin?.skinModel ?? currentAccount?.skinModel ?? "classic";
+  const useBuiltinFallback = skin?.fallback === true;
 
   const [launching, setLaunching] = useState(false);
   const [jobId, setJobId] = useState<string | null>(null);
@@ -178,10 +186,10 @@ export function HomePage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {backendDown ? <BackendNotice onRetry={reload} retrying={loading} /> : null}
       {error !== null && !backendDown ? (
-        <div className="flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+        <div className="card-soft flex items-center gap-2 rounded-xl border border-destructive/30 bg-card px-3 py-2 text-sm text-destructive">
           <CircleAlert className="size-4 shrink-0" />
           <span className="min-w-0 flex-1 truncate">读取状态失败：{error}</span>
           <Button variant="outline" size="xs" onClick={reload}>
@@ -191,37 +199,129 @@ export function HomePage() {
         </div>
       ) : null}
 
-      <div className="flex flex-col gap-4 lg:flex-row">
-        <div className="min-w-0 flex-1 space-y-4">
-          <VersionHeroCard
+      <div className="flex flex-col gap-5 xl:flex-row">
+        <aside className="w-full shrink-0 xl:w-[320px]">
+          <div className="card-soft flex min-h-[560px] flex-col items-center rounded-2xl border border-border bg-card px-6 py-8">
+            <div className="flex flex-1 flex-col items-center justify-center text-center">
+              <SkinAvatar
+                skinUrl={skinUrl}
+                model={skinModel}
+                size={96}
+                fallback={useBuiltinFallback}
+                title={"当前账号 " + accountName + " 的皮肤头像"}
+                className="size-24 rounded-2xl ring-2 ring-pcl-6"
+              />
+              <p className="mt-5 text-xl font-semibold tracking-tight text-foreground">
+                {accountName === "" ? "未登录" : accountName}
+              </p>
+              <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                <ShieldCheck className="size-3.5 text-primary" />
+                {currentAccount?.kind === "microsoft" ? "正版验证" : "离线账号"}
+              </p>
+
+              <div className="mt-6 w-full space-y-2">
+                {versions.length > 0 ? (
+                  <Select
+                    value={version?.id ?? ""}
+                    onValueChange={(value) => { void handleSelectVersion(value); }}
+                  >
+                    <SelectTrigger size="sm" className="w-full justify-start bg-pcl-8/60 dark:bg-muted">
+                      <Boxes className="size-3.5 text-primary" />
+                      <SelectValue placeholder="选择实例" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {versions.map((item) => (
+                        <SelectItem key={item.id} value={item.id}>
+                          {item.id}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : null}
+
+                {accounts.length > 0 ? (
+                  <Select value={accountName} onValueChange={setPickedAccount}>
+                    <SelectTrigger size="sm" className="w-full justify-start bg-pcl-8/60 dark:bg-muted">
+                      <UserRound className="size-3.5 text-primary" />
+                      <SelectValue placeholder="选择账号" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {accounts.map((item) => (
+                        <SelectItem key={item.name} value={item.name}>
+                          {item.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Button variant="outline" size="sm" className="w-full" onClick={() => { navigate("/settings"); }}>
+                    <UserRound />
+                    添加账号
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-7 w-full space-y-2.5">
+              <LaunchButton
+                onClick={() => { void handleLaunch(); }}
+                disabled={!hasVersion || (isRunning && !launching)}
+                launching={launching && (job === null || job.state === "running")}
+                running={isRunning}
+                label={isRunning ? "游戏正在运行" : "启动游戏"}
+                hint={hasVersion ? version.id + " · " + formatMemory(settings?.memoryMb ?? null) : undefined}
+              />
+              <div className="grid grid-cols-2 gap-2.5">
+                <Button variant="outline" size="lg" className="h-10" onClick={() => { navigate("/versions"); }}>
+                  <Boxes />
+                  实例选择
+                </Button>
+                <Button variant="outline" size="lg" className="h-10" onClick={() => { navigate("/settings"); }}>
+                  <Settings2 />
+                  实例设置
+                </Button>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        <div className="min-w-0 flex-1 space-y-5">
+          <WelcomeCard />
+          <LaunchOverviewCard
             version={version}
-            account={currentAccount}
-            accountName={accountName}
-            accounts={accounts}
-            versions={versions}
             runningCount={running.length}
             memoryMb={settings?.memoryMb ?? null}
-            onSelectVersion={handleSelectVersion}
-            onSelectAccount={setPickedAccount}
-            onAddAccount={() => { navigate("/settings"); }}
+            downloadSource={settings?.downloadSource ?? "mojang"}
           />
 
-          <LaunchButton
-            onClick={() => { void handleLaunch(); }}
-            disabled={!hasVersion || (isRunning && !launching)}
-            launching={launching && (job === null || job.state === "running")}
-            running={isRunning}
-            label={isRunning ? "游戏正在运行" : "启动游戏"}
-            hint={hasVersion ? version.id + " · " + formatMemory(settings?.memoryMb ?? null) : undefined}
+          <div className="grid gap-5 lg:grid-cols-2">
+            <RemoteLatestCard
+              remote={remote}
+              loading={remoteLoading}
+              error={remoteError}
+              onRefresh={() => { reloadRemote(true); }}
+            />
+            <JavaStatusCard
+              javas={javas}
+              loading={loading}
+              requiredMajor={version?.javaMajor}
+              javaPath={settings?.javaPath ?? null}
+            />
+          </div>
+
+          <QuickSettingsCard
+            memoryMb={settings?.memoryMb ?? null}
+            downloadSource={settings?.downloadSource ?? "mojang"}
+            closeOnLaunch={settings?.closeOnLaunch ?? false}
           />
 
           {isRunning || jobId !== null ? (
-            <div className="card-soft rounded-2xl border border-border bg-card p-4">
+            <div className="card-soft rounded-xl border border-border bg-card p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <span className="relative flex size-2.5">
-                    <span className="absolute inline-flex size-2.5 animate-ping rounded-full bg-emerald-500 opacity-70" />
-                    <span className="relative inline-flex size-2.5 rounded-full bg-emerald-500" />
+                    <span className="absolute inline-flex size-2.5 animate-ping rounded-full bg-pcl-3 opacity-70" />
+                    <span className="relative inline-flex size-2.5 rounded-full bg-pcl-3" />
                   </span>
                   <p className="text-sm font-semibold">
                     {isRunning ? "游戏运行中" : "启动中"}
@@ -300,151 +400,121 @@ export function HomePage() {
             />
           ) : null}
         </div>
-
-        <div className="w-full shrink-0 space-y-4 lg:w-72">
-          <RemoteLatestCard
-            remote={remote}
-            loading={remoteLoading}
-            error={remoteError}
-            onRefresh={() => { reloadRemote(true); }}
-          />
-          <JavaStatusCard
-            javas={javas}
-            loading={loading}
-            requiredMajor={version?.javaMajor}
-            javaPath={settings?.javaPath ?? null}
-          />
-          <QuickSettingsCard
-            memoryMb={settings?.memoryMb ?? null}
-            downloadSource={settings?.downloadSource ?? "mojang"}
-            closeOnLaunch={settings?.closeOnLaunch ?? false}
-          />
-        </div>
       </div>
     </div>
   );
 }
-
-interface VersionHeroCardProps {
+interface LaunchOverviewCardProps {
   version: VersionInfo | null;
-  account: Account | null;
-  accountName: string;
-  accounts: Account[];
-  versions: VersionInfo[];
   runningCount: number;
   memoryMb: number | null;
-  onSelectVersion: (id: string) => Promise<void>;
-  onSelectAccount: (name: string) => void;
-  onAddAccount: () => void;
+  downloadSource: "mojang" | "bmcl";
 }
 
-/** 左上大卡片：当前版本 + 账号，可直接在这里切换。 */
-function VersionHeroCard({
-  version,
-  accountName,
-  accounts,
-  versions,
-  runningCount,
-  memoryMb,
-  onSelectVersion,
-  onSelectAccount,
-  onAddAccount,
-}: VersionHeroCardProps) {
+/** 欢迎卡：对应 PCL.Proto 首页右上方的说明卡，文案与代码全自研。 */
+function WelcomeCard() {
   return (
-    <div className="card-soft relative overflow-hidden rounded-2xl border border-border bg-card p-5">
-      <div className="pointer-events-none absolute -top-24 -right-16 size-64 rounded-full bg-primary/10 blur-3xl" />
-      <div className="relative flex flex-wrap items-start gap-4">
-        {version !== null ? (
-          <VersionAvatar kind={version.kind} label={version.id} size="lg" />
-        ) : (
-          <div className="flex size-16 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
-            <CircleAlert className="size-6" />
+    <div className="card-soft rounded-xl border border-border bg-card p-5">
+      <div className="flex items-start gap-3">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-pcl-7 text-primary dark:bg-muted">
+          <Sparkles className="size-5" />
+        </span>
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold text-primary">欢迎来到 LilyCraft!</h2>
+          <div className="mt-2 rounded-lg border-l-[3px] border-primary bg-pcl-8/70 px-3 py-2 text-[13px] leading-relaxed text-muted-foreground dark:bg-muted/60">
+            选择实例与账号，一键启动 Minecraft；下载、Mod、Java 与设置都收纳在左侧导航中。
           </div>
-        )}
-
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="truncate text-xl font-semibold tracking-tight">
-              {version !== null ? version.id : "未选择版本"}
-            </h1>
-            {version !== null ? <VersionKindBadge kind={version.kind} /> : null}
-            {runningCount > 0 ? (
-              <Badge
-                variant="outline"
-                className="gap-1 border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-              >
-                <span className="size-1.5 rounded-full bg-emerald-500" />
-                运行中
-              </Badge>
-            ) : null}
-          </div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {version !== null
-              ? "基础版本 " + version.baseVersion + " · 需要 Java " + (version.javaMajor || "?") +
-                (version.installedAt ? " · 安装于 " + formatSince(version.installedAt) : "")
-              : "去「版本管理」或「下载」页装一个客户端实例"}
+          <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
+            本项目使用 lilyco 内核与自研 shadcn 界面，视觉层级参考 PCL.Proto 的蓝色卡片布局，未复用其代码或资源。
           </p>
-
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            {versions.length > 0 ? (
-              <Select
-                value={version?.id ?? ""}
-                onValueChange={(value) => { void onSelectVersion(value); }}
-              >
-                <SelectTrigger size="sm" className="min-w-40">
-                  <SelectValue placeholder="选择版本" />
-                </SelectTrigger>
-                <SelectContent>
-                  {versions.map((item) => (
-                    <SelectItem key={item.id} value={item.id}>
-                      {item.id}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : null}
-
-            {accounts.length > 0 ? (
-              <Select value={accountName} onValueChange={onSelectAccount}>
-                <SelectTrigger size="sm" className="min-w-32">
-                  <UserRound className="size-3.5 text-muted-foreground" />
-                  <SelectValue placeholder="选择账号" />
-                </SelectTrigger>
-                <SelectContent>
-                  {accounts.map((item) => (
-                    <SelectItem key={item.name} value={item.name}>
-                      {item.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : (
-              <Button variant="outline" size="sm" onClick={onAddAccount}>
-                <UserRound />
-                添加账号
-              </Button>
-            )}
-          </div>
-        </div>
-
-        <div className="flex shrink-0 flex-col items-end gap-1 text-right">
-          <p className="text-[11px] text-muted-foreground">分配内存</p>
-          <p className="font-mono text-sm font-semibold">{formatMemory(memoryMb)}</p>
-          <Button
-            variant="ghost"
-            size="xs"
-            className="text-muted-foreground"
-            onClick={() => { navigate("/settings"); }}
-          >
-            <Settings2 />
-            调整
-          </Button>
         </div>
       </div>
     </div>
   );
 }
 
+/** 右栏概览：把旧版大 Hero 拆成 PCL 风的双列信息卡。 */
+function LaunchOverviewCard({
+  version,
+  runningCount,
+  memoryMb,
+  downloadSource,
+}: LaunchOverviewCardProps) {
+  return (
+    <div className="card-soft rounded-xl border border-border bg-card p-5">
+      <div className="mb-4 flex items-center gap-2">
+        <span className="brand-gradient h-4 w-1 rounded-full" />
+        <h2 className="text-sm font-semibold text-primary">启动选项</h2>
+        {runningCount > 0 ? (
+          <Badge variant="outline" className="gap-1 border-pcl-4/50 bg-pcl-7 text-pcl-2 dark:text-pcl-5">
+            <span className="size-1.5 rounded-full bg-pcl-3" />
+            运行中
+          </Badge>
+        ) : null}
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="flex min-w-0 items-center gap-3 rounded-xl border border-border bg-pcl-8/50 p-3 dark:bg-pcl-8/50 dark:bg-muted/40">
+          {version !== null ? (
+            <VersionAvatar kind={version.kind} label={version.id} size="sm" />
+          ) : (
+            <span className="flex size-10 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+              <CircleAlert className="size-5" />
+            </span>
+          )}
+          <div className="min-w-0">
+            <p className="text-[11px] text-muted-foreground">当前实例</p>
+            <div className="flex items-center gap-1.5">
+              <p className="truncate text-sm font-semibold">{version !== null ? version.id : "未选择版本"}</p>
+              {version !== null ? <VersionKindBadge kind={version.kind} /> : null}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 rounded-xl border border-border bg-pcl-8/50 p-3 dark:bg-pcl-8/50 dark:bg-muted/40">
+          <span className="flex size-10 items-center justify-center rounded-xl bg-card text-primary ring-1 ring-border">
+            <Cpu className="size-5" />
+          </span>
+          <div>
+            <p className="text-[11px] text-muted-foreground">Java 主版本</p>
+            <p className="text-sm font-semibold">
+              {version !== null ? "Java " + (version.javaMajor || "?") : "未选择"}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 rounded-xl border border-border bg-pcl-8/50 p-3 dark:bg-pcl-8/50 dark:bg-muted/40">
+          <span className="flex size-10 items-center justify-center rounded-xl bg-card text-primary ring-1 ring-border">
+            <Sparkles className="size-5" />
+          </span>
+          <div>
+            <p className="text-[11px] text-muted-foreground">分配内存</p>
+            <p className="font-mono text-sm font-semibold">{formatMemory(memoryMb)}</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 rounded-xl border border-border bg-pcl-8/50 p-3 dark:bg-pcl-8/50 dark:bg-muted/40">
+          <span className="flex size-10 items-center justify-center rounded-xl bg-card text-primary ring-1 ring-border">
+            <Globe className="size-5" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-[11px] text-muted-foreground">下载源</p>
+            <p className="truncate text-sm font-semibold">
+              {downloadSource === "bmcl" ? "BMCLAPI 国内镜像" : "Mojang 官方"}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {version !== null ? (
+        <p className="mt-3 text-xs text-muted-foreground">
+          基础版本 {version.baseVersion}
+          {version.installedAt ? " · 安装于 " + formatSince(version.installedAt) : ""}
+        </p>
+      ) : null}
+    </div>
+  );
+}
 interface LogTailCardProps {
   lines: string[];
   versionId: string;
@@ -468,7 +538,7 @@ function LogTailCard({ lines, versionId, error }: LogTailCardProps) {
       {error !== null ? (
         <p className="px-4 py-3 text-xs text-destructive">读取日志失败：{error}</p>
       ) : (
-        <div className="max-h-56 overflow-y-auto bg-muted/30 px-4 py-2 font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-muted-foreground">
+        <div className="max-h-56 overflow-y-auto bg-pcl-8/50 dark:bg-muted/40 px-4 py-2 font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-muted-foreground">
           {lines.slice(-80).map((line, index) => (
             <div key={index} className="break-all">
               {line}
@@ -489,7 +559,7 @@ interface QuickSettingsCardProps {
 function QuickSettingsCard({ memoryMb, downloadSource, closeOnLaunch }: QuickSettingsCardProps) {
   return (
     <div className="card-soft rounded-2xl border border-border bg-card p-4">
-      <p className="text-sm font-semibold">启动配置</p>
+      <p className="text-sm font-semibold text-primary">启动选项</p>
       <div className="mt-2.5 space-y-1.5 text-xs">
         <Row label="内存" value={formatMemory(memoryMb)} />
         <Separator />
@@ -521,15 +591,12 @@ function Row({ label, value }: { label: string; value: string }) {
 
 function HomeSkeleton() {
   return (
-    <div className="flex flex-col gap-4 lg:flex-row">
-      <div className="min-w-0 flex-1 space-y-4">
-        <Skeleton className="h-40 w-full rounded-2xl" />
-        <Skeleton className="h-16 w-full rounded-2xl" />
-        <Skeleton className="h-24 w-full rounded-2xl" />
-      </div>
-      <div className="w-full shrink-0 space-y-4 lg:w-72">
-        <Skeleton className="h-44 w-full rounded-2xl" />
-        <Skeleton className="h-40 w-full rounded-2xl" />
+    <div className="flex flex-col gap-5 xl:flex-row">
+      <Skeleton className="h-[560px] w-full rounded-2xl xl:w-[320px]" />
+      <div className="min-w-0 flex-1 space-y-5">
+        <Skeleton className="h-28 w-full rounded-xl" />
+        <Skeleton className="h-56 w-full rounded-xl" />
+        <Skeleton className="h-44 w-full rounded-xl" />
       </div>
     </div>
   );

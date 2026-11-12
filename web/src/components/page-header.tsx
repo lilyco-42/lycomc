@@ -6,13 +6,16 @@ interface PageHeaderProps {
   action?: ReactNode;
 }
 
-/** 每个页面顶部的大标题区。 */
+/** 页面标题：PCL 风蓝色小标题 + 辅助说明。 */
 export function PageHeader({ title, description, action }: PageHeaderProps) {
   return (
     <div className="flex flex-wrap items-end justify-between gap-3 pb-5">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">{title}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+        <div className="mb-1.5 flex items-center gap-2">
+          <span className="brand-gradient h-4 w-1 rounded-full" />
+          <h1 className="text-lg font-semibold tracking-tight text-primary">{title}</h1>
+        </div>
+        <p className="pl-3 text-[13px] text-muted-foreground">{description}</p>
       </div>
       {action ? <div className="flex items-center gap-2">{action}</div> : null}
     </div>

@@ -47,17 +47,17 @@ export function RemoteLatestCard({
             <Skeleton className="h-11 w-full" />
           </>
         ) : error !== null && latest === null ? (
-          <p className="rounded-xl bg-muted/40 px-3 py-2.5 text-xs text-muted-foreground">
+          <p className="rounded-xl bg-pcl-8/50 dark:bg-muted/40 px-3 py-2.5 text-xs text-muted-foreground">
             拿不到远程版本：{error}
           </p>
         ) : latest === null ? (
-          <p className="rounded-xl bg-muted/40 px-3 py-2.5 text-xs text-muted-foreground">
+          <p className="rounded-xl bg-pcl-8/50 dark:bg-muted/40 px-3 py-2.5 text-xs text-muted-foreground">
             还没有远程版本数据，点右上角刷新试试。
           </p>
         ) : (
           <>
-            <RemoteRow label="正式版" value={latest.release} tone="cyan" />
-            <RemoteRow label="快照" value={latest.snapshot} tone="violet" />
+            <RemoteRow label="正式版" value={latest.release} tone="release" />
+            <RemoteRow label="快照" value={latest.snapshot} tone="snapshot" />
           </>
         )}
       </div>
@@ -73,17 +73,17 @@ export function RemoteLatestCard({
 interface RemoteRowProps {
   label: string;
   value: string;
-  tone: "cyan" | "violet";
+  tone: "release" | "snapshot";
 }
 
 function RemoteRow({ label, value, tone }: RemoteRowProps) {
   return (
-    <div className="flex items-center justify-between rounded-xl border border-border bg-muted/30 px-2.5 py-2">
+    <div className="flex items-center justify-between rounded-xl border border-border bg-pcl-8/50 dark:bg-muted/40 px-2.5 py-2">
       <span className="text-xs text-muted-foreground">{label}</span>
       <span
         className={cn(
           "font-mono text-sm font-semibold",
-          tone === "cyan" ? "text-cyan-600 dark:text-cyan-300" : "text-violet-600 dark:text-violet-300",
+          tone === "release" ? "text-pcl-2 dark:text-pcl-5" : "text-pcl-3 dark:text-pcl-6",
         )}
       >
         {value === "" ? "未知" : value}

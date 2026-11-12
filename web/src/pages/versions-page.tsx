@@ -226,7 +226,7 @@ export function VersionsPage() {
               共 <span className="font-semibold text-foreground">{versions.length}</span> 个实例
               {selectedId !== null ? " · 当前 " + selectedId : ""}
             </p>
-            <div className="flex items-center gap-1 rounded-lg bg-muted/60 p-0.5">
+            <div className="flex items-center gap-1 rounded-lg bg-pcl-7 p-0.5 dark:bg-muted">
               {(
                 [
                   { key: "installed", label: "安装时间" },
@@ -241,7 +241,7 @@ export function VersionsPage() {
                   className={cn(
                     "rounded-md px-2 py-1 text-[11px] font-medium transition-colors",
                     sort === item.key
-                      ? "bg-background text-foreground shadow-sm"
+                      ? "bg-card text-primary shadow-sm"
                       : "text-muted-foreground hover:text-foreground",
                   )}
                 >
@@ -406,16 +406,16 @@ function VersionRow({
             {running ? (
               <Badge
                 variant="outline"
-                className="gap-1 border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                className="gap-1 border-pcl-4/50 bg-pcl-7 text-pcl-2 dark:text-pcl-5"
               >
-                <span className="size-1.5 rounded-full bg-emerald-500" />
+                <span className="size-1.5 rounded-full bg-pcl-3" />
                 运行中
               </Badge>
             ) : null}
             {localized ? (
               <Badge
                 variant="outline"
-                className="gap-1 border-sky-500/40 bg-sky-500/10 text-sky-600 dark:text-sky-400"
+                className="gap-1 border-pcl-4/40 bg-pcl-8 text-pcl-3 dark:text-pcl-5"
               >
                 <Languages />
                 中文
@@ -473,7 +473,7 @@ function VersionRow({
       </div>
 
       {expanded ? (
-        <div className="border-t border-border bg-muted/25 px-3.5 py-3">
+        <div className="border-t border-border bg-pcl-8/60 dark:bg-muted/30 px-3.5 py-3">
           <div className="grid gap-3 sm:grid-cols-2">
             <DetailRow icon={FileClock} label="安装时间" value={formatDateTime(version.installedAt)} />
             <DetailRow icon={Coffee} label="Java 主版本" value={"Java " + (version.javaMajor || "未知")} />

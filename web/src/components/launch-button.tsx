@@ -11,7 +11,7 @@ interface LaunchButtonProps {
   className?: string;
 }
 
-/** PCL 风的巨型启动按钮：渐变底 + 高光 + 呼吸阴影。 */
+/** PCL.Proto 风启动按钮：白底、蓝色描边与蓝字，而非旧版巨型渐变。 */
 export function LaunchButton({
   disabled = false,
   launching = false,
@@ -27,29 +27,26 @@ export function LaunchButton({
       onClick={onClick}
       disabled={disabled || launching}
       className={cn(
-        "group relative flex h-16 w-full items-center justify-center gap-3 overflow-hidden rounded-2xl text-lg font-semibold tracking-wide transition-all",
-        "brand-gradient text-white shadow-lg shadow-primary/25",
-        "hover:shadow-xl hover:shadow-primary/30 hover:brightness-105",
-        "active:translate-y-px active:brightness-95",
-        "disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:brightness-100",
+        "group flex min-h-14 w-full items-center justify-center gap-3 rounded-xl border-2 border-primary bg-card px-4 py-2.5 text-primary transition-all",
+        "hover:bg-pcl-8 hover:shadow-[0_8px_20px_-12px_var(--primary)] dark:hover:bg-muted",
+        "active:translate-y-px",
+        "disabled:cursor-not-allowed disabled:border-muted disabled:bg-muted disabled:text-muted-foreground disabled:opacity-70",
         className,
       )}
     >
-      <span className="pointer-events-none absolute inset-0 bg-linear-to-b from-white/25 to-transparent opacity-60" />
-      <span className="pointer-events-none absolute -top-16 -left-10 size-40 rounded-full bg-white/20 blur-2xl transition-transform duration-700 group-hover:translate-x-24" />
       {launching ? (
-        <Loader2 className="size-6 animate-spin" />
+        <Loader2 className="size-5 animate-spin" />
       ) : running ? (
-        <Square className="size-5" />
+        <Square className="size-4" />
       ) : (
-        <Play className="size-6 fill-current" />
+        <Play className="size-5 fill-current" />
       )}
-      <span className="relative">{launching ? "启动中…" : running ? "正在运行" : label}</span>
-      {hint ? (
-        <span className="relative ml-1 hidden text-xs font-normal text-white/75 sm:inline">
-          {hint}
-        </span>
-      ) : null}
+      <span className="flex flex-col items-center leading-tight">
+        <span className="text-base font-semibold">{launching ? "启动中…" : running ? "正在运行" : label}</span>
+        {hint ? (
+          <span className="mt-0.5 text-[11px] font-normal text-muted-foreground">{hint}</span>
+        ) : null}
+      </span>
     </button>
   );
 }

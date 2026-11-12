@@ -15,7 +15,7 @@ export function VersionKindBadge({ kind, className }: VersionKindBadgeProps) {
       <Badge
         variant="outline"
         className={cn(
-          "gap-1 border-violet-500/30 bg-violet-500/10 text-violet-600 dark:text-violet-300",
+          "gap-1 border-pcl-4/40 bg-pcl-7 text-pcl-2 dark:bg-muted dark:text-pcl-6",
           className,
         )}
       >
@@ -28,7 +28,7 @@ export function VersionKindBadge({ kind, className }: VersionKindBadgeProps) {
     <Badge
       variant="outline"
       className={cn(
-        "gap-1 border-cyan-500/30 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300",
+        "gap-1 border-pcl-3/40 bg-pcl-8 text-pcl-3 dark:bg-muted dark:text-pcl-5",
         className,
       )}
     >

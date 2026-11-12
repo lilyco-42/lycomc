@@ -2,11 +2,12 @@ import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 
-/** 深浅色切换。next-themes 在挂载前 resolvedTheme 为 undefined，此时按深色渲染（与 index.html 一致）。 */
-export function ThemeToggle() {
+/** 深浅色切换。默认亮色；resolvedTheme 未就绪时按亮色渲染。 */
+export function ThemeToggle({ className }: { className?: string }) {
   const { resolvedTheme, setTheme } = useTheme();
-  const isDark = resolvedTheme !== "light";
+  const isDark = resolvedTheme === "dark";
 
   return (
     <Tooltip>
@@ -14,7 +15,7 @@ export function ThemeToggle() {
         <Button
           variant="ghost"
           size="icon"
-          className="text-muted-foreground hover:text-foreground"
+          className={cn("text-muted-foreground hover:text-foreground", className)}
           onClick={() => {
             setTheme(isDark ? "light" : "dark");
           }}

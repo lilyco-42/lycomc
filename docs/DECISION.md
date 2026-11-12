@@ -208,3 +208,9 @@ cargo test（解析逻辑单测：device code / XBL / XSTS / MC token / textures
 ### 验证 Verify / 源
 - `gh repo view PCL-Community/PCL.Proto`、`gh api repos/.../license`、`README-CN.md`、`packages/components/README.md` 与 `package.json`、`git/trees/main?recursive=1`（760 paths → `/home/lilyco/.cache/pcl-proto-paths.txt`）、`screenshot.png`（2572499 B → `/home/lilyco/.cache/pcl-proto-screenshot.png`）。
 - 证据缓存：`/home/lilyco/.cache/pcl-proto-{LICENSE.txt,README-CN.md,AGENTS.md,paths.txt,screenshot.png}`。
+
+## 全 UI 迁移验收收尾（2026-11-13）
+
+- 用户目标 /gaol「做好视觉 所有ui 迁移 https://github.com/PCL-Community/PCL.Proto/」已按前述 adopt A（参考视觉自研）执行；适用范围为现有 6 个 Web 路由与全局组件，不引入 PCL.Proto 代码、资源、组件包、Tauri/Bun，也不改名以 PCL 开头。
+- 实现清单、构建/测试、CDP 六页 0 skeleton、主题与微软登录对话框交互冒烟、证据哈希、合规扫描及目标边界详见 docs/UI-MIGRATION.md。
+- 验收结论：视觉迁移完成；全平台 Windows / Android / 鸿蒙、服务器游玩、四平台实机演示仍属另一目标，未因本次提交而达成。

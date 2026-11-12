@@ -22,11 +22,11 @@ export function BackendNotice({ onRetry, retrying = false }: BackendNoticeProps)
   }, []);
 
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3.5 py-2.5 text-sm text-amber-700 dark:text-amber-300">
+    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-pcl-4/40 bg-pcl-7 px-3.5 py-2.5 text-sm text-pcl-2 dark:text-pcl-5">
       <PlugZap className="size-4 shrink-0" />
       <p className="min-w-0 flex-1">
         <span className="font-medium">后端未就绪</span>
-        <span className="text-amber-700/80 dark:text-amber-300/80">
+        <span className="text-pcl-2 dark:text-pcl-5">
           　连不上 lycomc 服务，正在等待 {dots} 页面可以正常浏览，数据会在服务恢复后加载。
         </span>
       </p>

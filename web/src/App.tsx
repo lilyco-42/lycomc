@@ -1,6 +1,7 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppDataProvider } from "@/components/app-data-provider";
+import { AppTopbar } from "@/components/app-topbar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { useAppData } from "@/context/app-data-context";
 import { useRoutePath } from "@/lib/router";
@@ -17,9 +18,9 @@ function RouteView() {
 
   return (
     <main className="page-glow min-w-0 flex-1 overflow-y-auto">
-      <div className="mx-auto w-full max-w-4xl px-6 py-6">
+      <div className="mx-auto w-full max-w-[1200px] px-6 py-6 md:px-8 md:py-8">
         {backendDown ? (
-          <div className="mb-4">
+          <div className="mb-5">
             <BackendBanner />
           </div>
         ) : null}
@@ -32,15 +33,15 @@ function RouteView() {
 function BackendBanner() {
   const { reload } = useAppData();
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3.5 py-2.5 text-sm text-amber-700 dark:text-amber-300">
+    <div className="card-soft flex flex-wrap items-center gap-3 rounded-xl border border-pcl-4/40 bg-card px-4 py-3 text-sm text-pcl-2 dark:text-pcl-5">
       <span className="font-medium">后端未就绪</span>
-      <span className="text-amber-700/80 dark:text-amber-300/80">
+      <span className="text-pcl-2 dark:text-pcl-5">
         连不上 lycomc 服务，页面仍可浏览，数据会在服务恢复后加载。
       </span>
       <button
         type="button"
         onClick={reload}
-        className="ml-auto rounded-lg border border-amber-500/40 px-2 py-1 text-xs font-medium hover:bg-amber-500/10"
+        className="ml-auto rounded-lg border border-pcl-4/50 px-2 py-1 text-xs font-medium hover:bg-pcl-7"
       >
         重新连接
       </button>
@@ -69,9 +70,12 @@ function App() {
   return (
     <AppDataProvider>
       <TooltipProvider>
-        <div className="flex h-dvh w-full overflow-hidden bg-background text-foreground">
-          <AppSidebar />
-          <RouteView />
+        <div className="flex h-dvh w-full flex-col overflow-hidden bg-background text-foreground">
+          <AppTopbar />
+          <div className="flex min-h-0 flex-1 overflow-hidden">
+            <AppSidebar />
+            <RouteView />
+          </div>
         </div>
         <Toaster position="top-center" richColors closeButton />
       </TooltipProvider>

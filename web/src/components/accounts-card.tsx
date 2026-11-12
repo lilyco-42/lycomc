@@ -62,7 +62,7 @@ function AccountRow({
   const removing = busyKey === account.name + ":remove";
 
   return (
-    <div className="rounded-xl border border-border bg-muted/30 p-2.5">
+    <div className="rounded-xl border border-border bg-pcl-8/50 dark:bg-muted/40 p-2.5">
       <div className="flex flex-wrap items-center gap-2.5">
         <SkinAvatar
           skinUrl={skinUrl}
@@ -76,7 +76,7 @@ function AccountRow({
           <div className="flex flex-wrap items-center gap-1.5">
             <p className="truncate text-sm font-medium">{account.name}</p>
             {index === 0 ? (
-              <Badge variant="outline" className="h-4 gap-0.5 px-1 text-[10px] text-emerald-600 dark:text-emerald-400">
+              <Badge variant="outline" className="h-4 gap-0.5 px-1 text-[10px] text-pcl-2 dark:text-pcl-5">
                 <CircleCheck />
                 默认
               </Badge>
@@ -150,13 +150,13 @@ function AccountRow({
       </div>
 
       {needsLogin ? (
-        <p className="mt-2 rounded-lg bg-amber-500/10 px-2.5 py-1.5 text-[11px] text-amber-700 dark:text-amber-400">
+        <p className="mt-2 rounded-lg bg-pcl-7 px-2.5 py-1.5 text-[11px] text-pcl-2 dark:text-pcl-5">
           微软登录态已失效。点「刷新登录」尝试静默续期；若仍失败，请点「重新登录」完成设备代码授权。
         </p>
       ) : null}
 
       {account.entitled === false ? (
-        <p className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-[11px] leading-relaxed text-amber-700 dark:text-amber-400">
+        <p className="mt-2 rounded-lg border border-pcl-4/40 bg-pcl-7 px-2.5 py-1.5 text-[11px] leading-relaxed text-pcl-2 dark:text-pcl-5">
           未检测到正版授权，请购买 Minecraft 后再使用正版登录。
           <a
             href="https://www.minecraft.net/"
@@ -171,7 +171,7 @@ function AccountRow({
       ) : null}
 
       {isMicrosoft ? (
-        <div className="mt-2 flex items-center gap-3 rounded-lg border border-border/70 bg-background/60 p-2">
+        <div className="mt-2 flex items-center gap-3 rounded-lg border border-border/70 bg-pcl-8/70 dark:bg-pcl-8/50 dark:bg-muted/40 p-2">
           <SkinAvatar
             skinUrl={skinUrl}
             model={skinModel}
@@ -340,7 +340,7 @@ export function AccountsCard() {
       {formError !== null ? (
         <p className="mt-1.5 text-xs text-destructive">{formError}</p>
       ) : backendDown ? (
-        <p className="mt-1.5 flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
+        <p className="mt-1.5 flex items-center gap-1 text-xs text-pcl-2 dark:text-pcl-5">
           <CircleAlert className="size-3.5" />
           后端未就绪，暂时无法读取或保存账号；后端恢复后重试即可。
         </p>

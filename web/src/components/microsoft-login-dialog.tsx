@@ -269,7 +269,7 @@ export function MicrosoftLoginDialog({ trigger, onDone }: MicrosoftLoginDialogPr
         </DialogHeader>
 
         {starting ? (
-          <div className="flex items-center gap-2 rounded-xl bg-muted/40 p-4 text-sm text-muted-foreground">
+          <div className="flex items-center gap-2 rounded-xl bg-pcl-8/50 dark:bg-muted/40 p-4 text-sm text-muted-foreground">
             <Loader2 className="size-4 animate-spin" />
             正在获取设备代码…
           </div>
@@ -277,7 +277,7 @@ export function MicrosoftLoginDialog({ trigger, onDone }: MicrosoftLoginDialogPr
 
         {start !== null && !starting ? (
           <div className="space-y-3">
-            <div className="rounded-xl border border-border bg-muted/30 p-3">
+            <div className="rounded-xl border border-border bg-pcl-8/50 dark:bg-muted/40 p-3">
               <p className="text-xs font-medium text-muted-foreground">一次性设备代码</p>
               <div className="mt-2 flex items-center gap-2">
                 <Input
@@ -303,14 +303,14 @@ export function MicrosoftLoginDialog({ trigger, onDone }: MicrosoftLoginDialogPr
                 {formatCountdown(remaining)}
               </Badge>
               {copied ? (
-                <Badge variant="secondary" className="gap-1 text-emerald-600 dark:text-emerald-400">
+                <Badge variant="secondary" className="gap-1 text-pcl-2 dark:text-pcl-5">
                   <CircleCheck />
                   已复制
                 </Badge>
               ) : null}
             </div>
             <p className="break-all text-[11px] text-muted-foreground">{start.verificationUri}</p>
-            <div className="rounded-xl border border-border bg-background/60 p-2.5 text-xs leading-relaxed text-muted-foreground">
+            <div className="rounded-xl border border-border bg-pcl-8/70 dark:bg-pcl-8/50 dark:bg-muted/40 p-2.5 text-xs leading-relaxed text-muted-foreground">
               {expired ? "设备代码已过期，请重新登录。" : message}
             </div>
             {expired ? (

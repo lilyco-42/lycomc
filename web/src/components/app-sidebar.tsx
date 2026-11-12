@@ -1,7 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { SkinAvatar } from "@/components/skin-avatar";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { useAppData } from "@/context/app-data-context";
 import { type AccountSkin } from "@/lib/api";
 import { loadAccountSkinByKey, skinKeyFor } from "@/lib/account-skin";
@@ -11,7 +10,7 @@ import { shortUuid } from "@/lib/format";
 import { useKeyedFetch } from "@/lib/use-keyed-fetch";
 import { cn } from "@/lib/utils";
 
-/** 左侧固定竖栏：logo + 导航 + 底部账号皮肤 / 主题切换。 */
+/** 浅蓝分组侧栏：分组标题 + 蓝色竖条激活项 + 底部账号卡。 */
 export function AppSidebar() {
   const path = useRoutePath();
   const { currentAccount, running, backendDown, versions } = useAppData();
@@ -20,10 +19,8 @@ export function AppSidebar() {
 
   const isMicrosoft = currentAccount?.kind === "microsoft";
   const needsLogin = isMicrosoft && currentAccount !== null && !currentAccount.hasSession;
-  // 优先采用皮肤详情里的 URL / 模型，确保 slim 皮肤与内置兜底模型一致。
   const skinUrl = skin?.skinUrl ?? currentAccount?.skinUrl ?? null;
   const skinModel = skin?.skinModel ?? currentAccount?.skinModel ?? "classic";
-  // fallback=true 时无条件使用内置 Steve / Alex，不再代理可能已失效的官方 URL。
   const useBuiltinFallback = skin?.fallback === true;
   const accountName = currentAccount !== null ? currentAccount.name : "未登录";
   const tooltip =
@@ -32,61 +29,82 @@ export function AppSidebar() {
       : (isMicrosoft ? "微软正版账号 · UUID " : "离线账号 · UUID ") + shortUuid(currentAccount.uuid);
 
   return (
-    <aside className="flex w-[200px] shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
-      <div className="flex items-center gap-2.5 px-4 pt-5 pb-4">
-        <span className="brand-gradient flex size-9 shrink-0 items-center justify-center rounded-xl text-sm font-bold text-white shadow-md">
-          LC
-        </span>
-        <div className="min-w-0 leading-tight">
-          <p className="truncate text-sm font-semibold tracking-tight text-sidebar-foreground">
-            LilyCraft
-          </p>
-          <p className="truncate text-[11px] text-muted-foreground">启动器</p>
+    <aside className="flex w-[190px] shrink-0 flex-col border-r border-sidebar-border bg-sidebar md:w-[204px]">
+      <div className="flex flex-1 flex-col gap-5 overflow-y-auto px-3 py-5">
+        <div>
+          <p className="px-3 pb-2 text-[11px] font-medium tracking-wide text-muted-foreground">游戏</p>
+          <nav className="flex flex-col gap-0.5">
+            {NAV_ITEMS.map((item) => {
+              const Icon = item.icon;
+              const active = path === normalizeHash(item.to);
+              return (
+                <a
+                  key={item.to}
+                  href={item.to === "/" ? "#/" : "#" + item.to}
+                  className={cn(
+                    "group relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors",
+                    active
+                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                      : "text-sidebar-foreground/75 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground",
+                  )}
+                >
+                  {active ? (
+                    <span className="brand-gradient absolute top-1/2 left-0 h-5 w-[3px] -translate-y-1/2 rounded-full" />
+                  ) : null}
+                  <Icon className={cn("size-4 shrink-0", active ? "text-primary" : "text-muted-foreground")} />
+                  <span className="truncate">{item.label}</span>
+                  {item.to === "/versions" && versions.length > 0 ? (
+                    <span className="ml-auto rounded-full bg-pcl-7 px-1.5 py-0.5 text-[10px] font-semibold text-pcl-2">
+                      {versions.length}
+                    </span>
+                  ) : null}
+                </a>
+              );
+            })}
+          </nav>
+        </div>
+
+        <div>
+          <p className="px-3 pb-2 text-[11px] font-medium tracking-wide text-muted-foreground">启动器</p>
+          <div className="flex flex-col gap-0.5">
+            <a href="#/settings" className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] text-sidebar-foreground/75 transition-colors hover:bg-sidebar-accent/70 hover:text-sidebar-foreground">
+              <span className="size-4 rounded-full border-2 border-pcl-4" />
+              个性化
+            </a>
+            <a href="#/settings" className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] text-sidebar-foreground/75 transition-colors hover:bg-sidebar-accent/70 hover:text-sidebar-foreground">
+              <span className="size-4 rounded-md border-2 border-pcl-4" />
+              语言与杂项
+            </a>
+          </div>
+        </div>
+
+        <div>
+          <p className="px-3 pb-2 text-[11px] font-medium tracking-wide text-muted-foreground">社区资源</p>
+          <div className="flex flex-col gap-0.5">
+            <a href="#/mods" className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] text-sidebar-foreground/75 transition-colors hover:bg-sidebar-accent/70 hover:text-sidebar-foreground">
+              <span className="size-4 rotate-45 rounded-[3px] border-2 border-pcl-4" />
+              模组管理
+            </a>
+            <a href="#/download" className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] text-sidebar-foreground/75 transition-colors hover:bg-sidebar-accent/70 hover:text-sidebar-foreground">
+              <span className="size-4 rounded-[3px] border-2 border-pcl-4" />
+              安装包
+            </a>
+          </div>
         </div>
       </div>
 
-      <nav className="flex flex-1 flex-col gap-1 px-2.5">
-        {NAV_ITEMS.map((item) => {
-          const Icon = item.icon;
-          const active = path === normalizeHash(item.to);
-          return (
-            <a
-              key={item.to}
-              href={item.to === "/" ? "#/" : "#" + item.to}
-              className={cn(
-                "group relative flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-colors",
-                active
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                  : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
-              )}
-            >
-              {active ? (
-                <span className="brand-gradient absolute top-1/2 left-0 h-5 w-[3px] -translate-y-1/2 rounded-full" />
-              ) : null}
-              <Icon className={cn("size-4 shrink-0", active ? "text-primary" : "")} />
-              <span className="truncate">{item.label}</span>
-              {item.to === "/versions" && versions.length > 0 ? (
-                <span className="ml-auto rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
-                  {versions.length}
-                </span>
-              ) : null}
-            </a>
-          );
-        })}
-      </nav>
-
-      <div className="space-y-2 px-2.5 pb-4">
+      <div className="space-y-2 border-t border-sidebar-border px-3 py-3">
         {running.length > 0 ? (
-          <div className="flex items-center gap-2 rounded-lg bg-emerald-500/10 px-2.5 py-1.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+          <div className="flex items-center gap-2 rounded-lg bg-pcl-7 px-2.5 py-1.5 text-[11px] font-medium text-pcl-2 dark:text-pcl-5">
             <span className="relative flex size-2">
-              <span className="absolute inline-flex size-2 animate-ping rounded-full bg-emerald-500 opacity-70" />
-              <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
+              <span className="absolute inline-flex size-2 animate-ping rounded-full bg-pcl-3 opacity-70" />
+              <span className="relative inline-flex size-2 rounded-full bg-pcl-3" />
             </span>
             游戏运行中（{running.length}）
           </div>
         ) : null}
 
-        <div className="rounded-xl border border-sidebar-border bg-background/50 p-2.5">
+        <div className="rounded-xl border border-sidebar-border bg-pcl-8/60 p-2.5 dark:bg-muted/50">
           <div className="flex items-center gap-2.5">
             <SkinAvatar
               skinUrl={skinUrl}
@@ -129,16 +147,14 @@ export function AppSidebar() {
             className={cn(
               "h-5 gap-1 text-[10px]",
               backendDown
-                ? "border-amber-500/40 text-amber-600 dark:text-amber-400"
-                : "border-emerald-500/40 text-emerald-600 dark:text-emerald-400",
+                ? "border-pcl-4/50 text-pcl-2 dark:text-pcl-5"
+                : "border-pcl-4/50 text-pcl-2 dark:text-pcl-5",
             )}
           >
-            <span
-              className={cn("size-1.5 rounded-full", backendDown ? "bg-amber-500" : "bg-emerald-500")}
-            />
+            <span className={cn("size-1.5 rounded-full", backendDown ? "bg-pcl-4" : "bg-pcl-3")} />
             {backendDown ? "未连接" : "已连接"}
           </Badge>
-          <ThemeToggle />
+          <span className="text-[10px] text-muted-foreground">LilyCraft 0.1</span>
         </div>
       </div>
     </aside>

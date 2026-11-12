@@ -15,7 +15,7 @@ const SIZES = {
   lg: "size-16 text-sm rounded-2xl",
 } as const;
 
-/** 版本方块图标：Fabric 用紫渐变，原版用青蓝渐变，中间垫版本号首段。 */
+/** 版本方块图标：Fabric 用深蓝，原版用亮蓝，统一在 PCL 蓝色层级内。 */
 export function VersionAvatar({ kind, label, size = "md", className }: VersionAvatarProps) {
   const short = label.replace(/^fabric-/, "").split("-")[0] ?? label;
   return (
@@ -30,8 +30,8 @@ export function VersionAvatar({ kind, label, size = "md", className }: VersionAv
         className={cn(
           "absolute inset-0",
           kind === "fabric"
-            ? "bg-linear-to-br from-violet-400 to-purple-600"
-            : "bg-linear-to-br from-sky-400 to-cyan-600",
+            ? "bg-linear-to-br from-pcl-2 to-pcl-4"
+            : "bg-linear-to-br from-pcl-3 to-pcl-5",
         )}
       />
       <span className="absolute inset-0 bg-linear-to-b from-white/30 to-transparent opacity-70" />

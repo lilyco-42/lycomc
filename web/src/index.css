@@ -41,6 +41,14 @@
     --color-background: var(--background);
     --color-brand-from: var(--brand-from);
     --color-brand-to: var(--brand-to);
+    --color-pcl-1: var(--pcl-1);
+    --color-pcl-2: var(--pcl-2);
+    --color-pcl-3: var(--pcl-3);
+    --color-pcl-4: var(--pcl-4);
+    --color-pcl-5: var(--pcl-5);
+    --color-pcl-6: var(--pcl-6);
+    --color-pcl-7: var(--pcl-7);
+    --color-pcl-8: var(--pcl-8);
     --radius-sm: calc(var(--radius) * 0.6);
     --radius-md: calc(var(--radius) * 0.8);
     --radius-lg: var(--radius);
@@ -50,81 +58,94 @@
     --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* 浅色：冷调灰蓝背景 + 白色卡片 + 青蓝主色（PCL 观感） */
+/* LilyCraft 视觉基线：参考 PCL.Proto 的蓝色层级，代码与数值映射全自研。
+   8 级蓝色仅作设计 token，未复制其任何 CSS / 组件 / 图片资源。 */
 :root {
-    --background: oklch(0.975 0.006 250);
-    --foreground: oklch(0.22 0.02 260);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.22 0.02 260);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.22 0.02 260);
-    --primary: oklch(0.58 0.15 248);
-    --primary-foreground: oklch(0.99 0.005 250);
-    --secondary: oklch(0.955 0.01 250);
-    --secondary-foreground: oklch(0.28 0.03 258);
-    --muted: oklch(0.955 0.008 250);
-    --muted-foreground: oklch(0.52 0.02 255);
-    --accent: oklch(0.945 0.022 245);
-    --accent-foreground: oklch(0.32 0.06 250);
-    --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.9 0.012 250);
-    --input: oklch(0.9 0.012 250);
-    --ring: oklch(0.65 0.11 245);
-    --chart-1: oklch(0.72 0.13 220);
-    --chart-2: oklch(0.62 0.16 262);
-    --chart-3: oklch(0.66 0.16 300);
-    --chart-4: oklch(0.75 0.14 190);
-    --chart-5: oklch(0.55 0.12 275);
-    --radius: 0.75rem;
-    --sidebar: oklch(0.965 0.008 250);
-    --sidebar-foreground: oklch(0.24 0.02 260);
-    --sidebar-primary: oklch(0.58 0.15 248);
-    --sidebar-primary-foreground: oklch(0.99 0.005 250);
-    --sidebar-accent: oklch(0.93 0.022 245);
-    --sidebar-accent-foreground: oklch(0.32 0.07 250);
-    --sidebar-border: oklch(0.9 0.012 250);
-    --sidebar-ring: oklch(0.65 0.11 245);
-    --brand-from: oklch(0.72 0.14 215);
-    --brand-to: oklch(0.56 0.2 285);
-    --card-shadow: 0 1px 2px oklch(0.3 0.03 250 / 6%), 0 12px 28px -18px oklch(0.3 0.05 250 / 28%);
+    --pcl-1: #323b47;
+    --pcl-2: #1662b6;
+    --pcl-3: #2078da;
+    --pcl-4: #5291df;
+    --pcl-5: #9ec1ee;
+    --pcl-6: #d8e6f8;
+    --pcl-7: #e1ecfa;
+    --pcl-8: #ebf2fc;
+
+    --background: #f7fbff;
+    --foreground: #323b47;
+    --card: #ffffff;
+    --card-foreground: #323b47;
+    --popover: #ffffff;
+    --popover-foreground: #323b47;
+    --primary: #2078da;
+    --primary-foreground: #ffffff;
+    --secondary: #e1ecfa;
+    --secondary-foreground: #1662b6;
+    --muted: #ebf2fc;
+    --muted-foreground: #6b7a8d;
+    --accent: #d8e6f8;
+    --accent-foreground: #1662b6;
+    --destructive: #d64545;
+    --border: #d8e6f8;
+    --input: #c7dcf5;
+    --ring: #5291df;
+    --chart-1: #2078da;
+    --chart-2: #5291df;
+    --chart-3: #1662b6;
+    --chart-4: #9ec1ee;
+    --chart-5: #6b7a8d;
+    --radius: 0.875rem;
+    --sidebar: #ffffff;
+    --sidebar-foreground: #323b47;
+    --sidebar-primary: #2078da;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: #e1ecfa;
+    --sidebar-accent-foreground: #1662b6;
+    --sidebar-border: #e1ecfa;
+    --sidebar-ring: #5291df;
+    --brand-from: #2078da;
+    --brand-to: #1662b6;
+    --topbar-from: #2078da;
+    --topbar-to: #1662b6;
+    --page-from: #e1ecfa;
+    --page-to: #f2f8ff;
+    --card-shadow: 0 2px 10px rgb(32 59 100 / 6%), 0 18px 32px -24px rgb(22 98 182 / 38%);
 }
 
-/* 深色：深蓝灰底 + 青蓝主色（默认） */
+/* 深色仍是同一套蓝色层级，只是把底与卡片压暗，避免回到旧版紫青深色。 */
 .dark {
-    --background: oklch(0.19 0.014 258);
-    --foreground: oklch(0.96 0.005 250);
-    --card: oklch(0.235 0.016 258);
-    --card-foreground: oklch(0.96 0.005 250);
-    --popover: oklch(0.245 0.016 258);
-    --popover-foreground: oklch(0.96 0.005 250);
-    --primary: oklch(0.76 0.12 213);
-    --primary-foreground: oklch(0.18 0.02 258);
-    --secondary: oklch(0.29 0.018 258);
-    --secondary-foreground: oklch(0.94 0.005 250);
-    --muted: oklch(0.29 0.018 258);
-    --muted-foreground: oklch(0.72 0.015 255);
-    --accent: oklch(0.31 0.03 250);
-    --accent-foreground: oklch(0.95 0.01 250);
-    --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 14%);
-    --ring: oklch(0.6 0.09 245);
-    --chart-1: oklch(0.79 0.12 205);
-    --chart-2: oklch(0.7 0.15 265);
-    --chart-3: oklch(0.74 0.16 305);
-    --chart-4: oklch(0.82 0.13 185);
-    --chart-5: oklch(0.66 0.13 280);
-    --sidebar: oklch(0.165 0.013 258);
-    --sidebar-foreground: oklch(0.93 0.006 250);
-    --sidebar-primary: oklch(0.76 0.12 213);
-    --sidebar-primary-foreground: oklch(0.18 0.02 258);
-    --sidebar-accent: oklch(0.28 0.03 252);
-    --sidebar-accent-foreground: oklch(0.96 0.01 250);
-    --sidebar-border: oklch(1 0 0 / 8%);
-    --sidebar-ring: oklch(0.6 0.09 245);
-    --brand-from: oklch(0.8 0.13 200);
-    --brand-to: oklch(0.66 0.19 288);
-    --card-shadow: 0 1px 2px oklch(0 0 0 / 30%), 0 16px 36px -22px oklch(0 0 0 / 70%);
+    --background: #101827;
+    --foreground: #e8f1fc;
+    --card: #172235;
+    --card-foreground: #e8f1fc;
+    --popover: #172235;
+    --popover-foreground: #e8f1fc;
+    --primary: #5291df;
+    --primary-foreground: #101827;
+    --secondary: #1e2c42;
+    --secondary-foreground: #d8e6f8;
+    --muted: #1e2c42;
+    --muted-foreground: #9ec1ee;
+    --accent: #22344f;
+    --accent-foreground: #e1ecfa;
+    --destructive: #f07373;
+    --border: #293b56;
+    --input: #293b56;
+    --ring: #5291df;
+    --sidebar: #141f31;
+    --sidebar-foreground: #e8f1fc;
+    --sidebar-primary: #5291df;
+    --sidebar-primary-foreground: #101827;
+    --sidebar-accent: #22344f;
+    --sidebar-accent-foreground: #e1ecfa;
+    --sidebar-border: #293b56;
+    --sidebar-ring: #5291df;
+    --brand-from: #5291df;
+    --brand-to: #2078da;
+    --topbar-from: #1c4f96;
+    --topbar-to: #1662b6;
+    --page-from: #16233a;
+    --page-to: #101827;
+    --card-shadow: 0 2px 10px rgb(0 0 0 / 28%), 0 18px 36px -24px rgb(0 0 0 / 70%);
 }
 
 @layer base {
@@ -138,7 +159,7 @@
     @apply font-sans;
   }
   ::selection {
-    background: color-mix(in oklch, var(--primary) 30%, transparent);
+    background: color-mix(in oklch, var(--primary) 26%, transparent);
   }
   ::-webkit-scrollbar {
     width: 10px;
@@ -151,26 +172,26 @@
     border-radius: 9999px;
     border: 2px solid transparent;
     background-clip: content-box;
-    background-color: color-mix(in oklch, var(--foreground) 22%, transparent);
+    background-color: color-mix(in oklch, var(--pcl-4) 55%, transparent);
   }
   ::-webkit-scrollbar-thumb:hover {
-    background-color: color-mix(in oklch, var(--foreground) 34%, transparent);
+    background-color: color-mix(in oklch, var(--pcl-3) 70%, transparent);
   }
 }
 
-/* 主色渐变：logo、启动按钮、强调块 */
+/* 蓝色标题栏 / 主区渐变 / 卡片 / 主色渐变 */
+@utility topbar-gradient {
+  background-image: linear-gradient(100deg, var(--topbar-from), var(--topbar-to));
+}
+
+@utility page-glow {
+  background-image: linear-gradient(158deg, var(--page-from), var(--page-to));
+}
+
 @utility brand-gradient {
   background-image: linear-gradient(135deg, var(--brand-from), var(--brand-to));
 }
 
-/* 柔和卡片阴影 */
 @utility card-soft {
   box-shadow: var(--card-shadow);
-}
-
-/* 主内容区的柔和背景光 */
-@utility page-glow {
-  background-image:
-    radial-gradient(60rem 32rem at 8% -10%, color-mix(in oklch, var(--brand-from) 14%, transparent), transparent 70%),
-    radial-gradient(52rem 28rem at 100% 0%, color-mix(in oklch, var(--brand-to) 12%, transparent), transparent 72%);
 }

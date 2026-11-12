@@ -181,14 +181,14 @@ export function ModsPage() {
           {isFabric ? (
             <Badge
               variant="outline"
-              className="border-violet-500/30 bg-violet-500/10 text-violet-600 dark:text-violet-300"
+              className="border-pcl-4/40 bg-pcl-8 text-pcl-3 dark:text-pcl-5"
             >
               Fabric 实例
             </Badge>
           ) : versionId !== "" ? (
             <Badge
               variant="outline"
-              className="border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-300"
+              className="border-pcl-4/40 bg-pcl-7 text-pcl-2 dark:text-pcl-5"
             >
               原版实例，装 Mod 需先安装 Fabric
             </Badge>
@@ -328,7 +328,7 @@ export function ModsPage() {
                     key={file.file}
                     className="card-soft flex items-center gap-2.5 rounded-xl border border-border bg-card px-3 py-2.5"
                   >
-                    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-pcl-7 text-pcl-2 dark:text-pcl-5">
                       <Puzzle className="size-4" />
                     </span>
                     <div className="min-w-0 flex-1">

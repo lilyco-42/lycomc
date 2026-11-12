@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
+import { SectionHeader } from "@/components/section-header";
 import { BackendNotice } from "@/components/backend-notice";
 import { ErrorAlert } from "@/components/error-alert";
 import { JobProgressCard } from "@/components/job-progress-card";
@@ -125,6 +126,37 @@ export function DownloadPage() {
         ) : null}
         {submitError !== null ? <ErrorAlert title="提交安装失败" message={submitError} /> : null}
 
+        <div className="card-soft rounded-2xl border border-border bg-card p-4">
+          <SectionHeader
+            icon={Sparkles}
+            title="最新版本"
+            description={"已获取 " + counts.all + " 个远程版本"}
+          />
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <div className="flex items-center gap-3 rounded-xl border border-border bg-pcl-8/50 p-3 dark:bg-muted/40">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-pcl-7 text-pcl-2 dark:bg-muted dark:text-pcl-5">
+                <Sparkles className="size-4" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[11px] text-muted-foreground">最新正式版</p>
+                <p className="truncate font-mono text-sm font-semibold text-pcl-2">
+                  {remote?.latest.release || "未知"}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 rounded-xl border border-border bg-pcl-8/50 p-3 dark:bg-muted/40">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-pcl-7 text-pcl-3 dark:bg-muted dark:text-pcl-6">
+                <Layers className="size-4" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[11px] text-muted-foreground">最新快照</p>
+                <p className="truncate font-mono text-sm font-semibold text-pcl-3">
+                  {remote?.latest.snapshot || "未知"}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
         <div className="card-soft rounded-2xl border border-border bg-card p-3.5">
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative min-w-48 flex-1">
@@ -136,10 +168,10 @@ export function DownloadPage() {
                   setLimit(PAGE_SIZE);
                 }}
                 placeholder="搜索版本号，例如 1.20.1 / 24w14a"
-                className="h-8 pl-8"
+                className="h-9 bg-pcl-8/50 pl-8"
               />
             </div>
-            <div className="flex items-center gap-1 rounded-lg bg-muted/60 p-0.5">
+            <div className="grid w-full grid-cols-3 gap-1 rounded-lg bg-pcl-7 p-1 dark:bg-muted sm:w-auto">
               {(
                 [
                   { key: "release", label: "正式版", count: counts.release },
@@ -155,9 +187,9 @@ export function DownloadPage() {
                     setLimit(PAGE_SIZE);
                   }}
                   className={cn(
-                    "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors",
+                    "flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
                     typeFilter === item.key
-                      ? "bg-background text-foreground shadow-sm"
+                      ? "bg-card text-primary shadow-sm"
                       : "text-muted-foreground hover:text-foreground",
                   )}
                 >
@@ -172,7 +204,7 @@ export function DownloadPage() {
             <div className="flex items-center gap-2.5">
               <Switch id="with-fabric" checked={withFabric} onCheckedChange={setWithFabric} />
               <Label htmlFor="with-fabric" className="gap-1.5 text-xs font-normal">
-                <Layers className="size-3.5 text-violet-500" />
+                <Layers className="size-3.5 text-primary" />
                 同时安装 Fabric
               </Label>
               <span className="text-[11px] text-muted-foreground">
@@ -264,8 +296,8 @@ export function DownloadPage() {
                       className={cn(
                         "flex size-8 shrink-0 items-center justify-center rounded-lg text-[10px] font-semibold",
                         version.type === "release"
-                          ? "bg-cyan-500/10 text-cyan-700 dark:text-cyan-300"
-                          : "bg-violet-500/10 text-violet-700 dark:text-violet-300",
+                          ? "bg-pcl-7 text-pcl-2 dark:bg-muted dark:text-pcl-6"
+                          : "bg-pcl-8 text-pcl-3 dark:bg-muted dark:text-pcl-5",
                       )}
                     >
                       {version.type === "release" ? "R" : "S"}
@@ -274,7 +306,7 @@ export function DownloadPage() {
                       <div className="flex items-center gap-1.5">
                         <span className="truncate font-mono text-sm font-medium">{version.id}</span>
                         {installed ? (
-                          <Badge variant="outline" className="h-4 shrink-0 px-1 text-[10px] text-emerald-600 dark:text-emerald-400">
+                          <Badge variant="outline" className="h-4 shrink-0 px-1 text-[10px] text-pcl-2 dark:text-pcl-5">
                             已安装
                           </Badge>
                         ) : null}

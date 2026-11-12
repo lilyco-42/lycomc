@@ -11,7 +11,7 @@ if (container === null) {
 
 createRoot(container).render(
   <StrictMode>
-    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} disableTransitionOnChange>
+    <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} disableTransitionOnChange>
       <App />
     </ThemeProvider>
   </StrictMode>,

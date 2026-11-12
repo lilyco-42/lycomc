@@ -143,7 +143,7 @@ export function SettingsPage() {
             onRetry={reload}
             offline={backendDown}
           />
-          <div className="rounded-2xl border border-dashed border-border bg-muted/25 px-4 py-6 text-sm text-muted-foreground">
+          <div className="rounded-2xl border border-dashed border-border bg-pcl-8/60 dark:bg-muted/30 px-4 py-6 text-sm text-muted-foreground">
             后端就绪后这里会显示内存、Java 路径、JVM 参数、下载源、账号与皮肤预览。你仍然可以先在下面添加离线账号或进行微软正版登录（需要后端支持）。
           </div>
           <div className="space-y-2 pt-1">
@@ -182,6 +182,7 @@ export function SettingsPage() {
       />
 
       <div className="space-y-3">
+        <p className="text-sm font-semibold text-primary">启动选项</p>
         {backendDown ? <BackendNotice onRetry={reload} retrying={loading} /> : null}
         {error !== null && !backendDown ? (
           <ErrorAlert title="读取设置失败" message={error} onRetry={reload} />
@@ -299,9 +300,9 @@ export function SettingsPage() {
             rows={4}
             placeholder={"-XX:+UseG1GC\n-Dfile.encoding=UTF-8"}
             className={cn(
-              "mt-3 w-full resize-y rounded-xl border border-input bg-transparent px-2.5 py-2 font-mono text-xs",
+              "mt-3 w-full resize-y rounded-xl border border-input bg-pcl-8/60 px-2.5 py-2 font-mono text-xs",
               "outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30",
-              "dark:bg-input/30",
+              "dark:bg-muted/60",
             )}
           />
           <p className="mt-1.5 text-[11px] text-muted-foreground">
@@ -394,7 +395,7 @@ export function SettingsPage() {
             </p>
           </div>
           {(current.gameLang ?? "zh_cn") === "en_us" ? (
-            <p className="mt-2 rounded-lg bg-amber-500/10 px-2.5 py-1.5 text-[11px] text-amber-700 dark:text-amber-400">
+            <p className="mt-2 rounded-lg border-l-[3px] border-primary bg-pcl-8/70 px-2.5 py-1.5 text-[11px] text-pcl-2 dark:bg-muted/60 dark:text-pcl-5">
               当前是英文界面。想玩中文请选「简体中文」，并在版本管理里对实例点一次「一键汉化」。
             </p>
           ) : null}
@@ -402,7 +403,7 @@ export function SettingsPage() {
 
         <div className="card-soft rounded-2xl border border-border bg-card p-4">
           <SectionHeader icon={SlidersHorizontal} title="启动器行为" />
-          <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-border bg-muted/30 px-3 py-2.5">
+          <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-border bg-pcl-8/50 px-3 py-2.5 dark:bg-pcl-8/50 dark:bg-muted/40">
             <div className="min-w-0">
               <p className="text-sm font-medium">启动游戏后关闭启动器</p>
               <p className="text-[11px] text-muted-foreground">

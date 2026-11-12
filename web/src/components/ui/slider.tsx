@@ -23,11 +23,11 @@ function Slider({
     >
       <SliderPrimitive.Track
         data-slot="slider-track"
-        className="relative h-1.5 w-full grow overflow-hidden rounded-full bg-muted"
+        className="relative h-1.5 w-full grow overflow-hidden rounded-full bg-pcl-7 dark:bg-muted"
       >
         <SliderPrimitive.Range
           data-slot="slider-range"
-          className="absolute h-full bg-primary"
+          className="absolute h-full bg-linear-to-r from-pcl-3 to-pcl-2"
         />
       </SliderPrimitive.Track>
       {thumbs.map((_, index) => (

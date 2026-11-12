@@ -44,7 +44,7 @@ export function JobProgressCard({
   }, [lines.length]);
 
   const stateBadge = done ? (
-    <Badge variant="outline" className="gap-1 border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+    <Badge variant="outline" className="gap-1 border-pcl-4/50 bg-pcl-7 text-pcl-2 dark:text-pcl-5">
       <CircleCheck />
       已完成
     </Badge>
@@ -94,7 +94,7 @@ export function JobProgressCard({
       </p>
 
       {lines.length > 0 ? (
-        <div className="mt-3 overflow-hidden rounded-xl border border-border bg-muted/40">
+        <div className="mt-3 overflow-hidden rounded-xl border border-border bg-pcl-8/50 dark:bg-muted/40">
           <div className="flex items-center gap-1.5 border-b border-border px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground">
             <Terminal className="size-3.5" />
             日志（{lines.length} 行）

@@ -42,12 +42,12 @@ export function JavaStatusCard({
           matched !== undefined ? (
             <Badge
               variant="outline"
-              className="gap-1 border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+              className="gap-1 border-pcl-4/50 bg-pcl-7 text-pcl-2 dark:text-pcl-5"
             >
               匹配 Java {requiredMajor}
             </Badge>
           ) : requiredMajor !== undefined && requiredMajor > 0 && !loading ? (
-            <Badge variant="outline" className="gap-1 border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400">
+            <Badge variant="outline" className="gap-1 border-pcl-4/50 bg-pcl-7 text-pcl-2 dark:text-pcl-5">
               <TriangleAlert />
               缺 Java {requiredMajor}
             </Badge>
@@ -62,7 +62,7 @@ export function JavaStatusCard({
             <Skeleton className="h-10 w-3/4" />
           </>
         ) : javas.length === 0 ? (
-          <p className="rounded-xl bg-muted/40 px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
+          <p className="rounded-xl bg-pcl-8/50 dark:bg-muted/40 px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
             还没有可用的 Java。启动器会在安装版本时自动下载托管 JRE，也可以在设置里手动指定
             <code className="mx-1 rounded bg-background px-1 py-0.5 font-mono text-[11px]">javaPath</code>
             路径。
@@ -77,7 +77,7 @@ export function JavaStatusCard({
                   "flex items-center gap-2 rounded-xl border px-2.5 py-2",
                   isPreferred
                     ? "border-primary/40 bg-primary/5"
-                    : "border-border bg-muted/30",
+                    : "border-border bg-pcl-8/50 dark:bg-muted/40",
                 )}
               >
                 <span className="flex size-7 items-center justify-center rounded-lg bg-background font-mono text-[11px] font-semibold text-foreground ring-1 ring-border">
