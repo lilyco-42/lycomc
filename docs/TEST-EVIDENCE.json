@@ -1,0 +1,195 @@
+{
+  "generatedAt": "2026-11-12T14:12:17.064Z",
+  "video": {
+    "path": "/home/lilyco/2026-11-12 21-31-00.mp4",
+    "bytes": 85522471,
+    "sha256": "c223a7586db9390f"
+  },
+  "groups": [
+    {
+      "label": "CDP 前端 6 页截图",
+      "files": [
+        {
+          "path": "/home/lilyco/.cache/lycomc-cdp/all-download.png",
+          "bytes": 189735,
+          "sha256": "8985ca45656f8217"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-cdp/all-home.png",
+          "bytes": 197685,
+          "sha256": "ce2f82e53a8f0dd3"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-cdp/all-mods.png",
+          "bytes": 204708,
+          "sha256": "70a49655c031fabb"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-cdp/all-no-such-page.png",
+          "bytes": 127127,
+          "sha256": "76595c5798c9822a"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-cdp/all-settings.png",
+          "bytes": 185445,
+          "sha256": "b51a4ed651fcda17"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-cdp/all-versions.png",
+          "bytes": 159065,
+          "sha256": "3b9f6ad591651ad0"
+        }
+      ]
+    },
+    {
+      "label": "CDP 初版截图",
+      "files": [
+        {
+          "path": "/home/lilyco/.cache/lycomc-cdp/p0-final-settings.png",
+          "bytes": 185445,
+          "sha256": "b51a4ed651fcda17"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-cdp/p0-home.png",
+          "bytes": 197683,
+          "sha256": "fd29dfbb2854af46"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-cdp/p0-login-dialog.png",
+          "bytes": 185373,
+          "sha256": "02387199d88d107c"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-cdp/p0-settings.png",
+          "bytes": 185445,
+          "sha256": "b51a4ed651fcda17"
+        }
+      ]
+    },
+    {
+      "label": "实机桌面截图",
+      "files": [
+        {
+          "path": "/home/lilyco/lycomc-fabric-shot.png",
+          "bytes": 839544,
+          "sha256": "c378de217ef78e22"
+        },
+        {
+          "path": "/home/lilyco/lycomc-shot-small.png",
+          "bytes": 346280,
+          "sha256": "aa751e6e5e2baa07"
+        },
+        {
+          "path": "/home/lilyco/lycomc-shot.png",
+          "bytes": 1105353,
+          "sha256": "d25b51f4b6cc6c1b"
+        }
+      ]
+    },
+    {
+      "label": "CLI/MCP/Web 测试输出",
+      "files": [
+        {
+          "path": "/home/lilyco/.cache/lycomc-263-install.json",
+          "bytes": 85,
+          "sha256": "bb65dd591c27425a"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-cli-14.json",
+          "bytes": 4775,
+          "sha256": "b57150e8bcd8dfc5"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-schema.json",
+          "bytes": 8523,
+          "sha256": "92fadb9f71d646f3"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-tests-1.json",
+          "bytes": 1539,
+          "sha256": "38f03909073859f9"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-web-mutation.json",
+          "bytes": 13204,
+          "sha256": "54c352f21b4a6352"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-mcp-input.jsonl",
+          "bytes": 858,
+          "sha256": "a2d635adcddd176b"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-mcp-output.jsonl",
+          "bytes": 11678,
+          "sha256": "7a93fef1dc2e02b2"
+        }
+      ]
+    },
+    {
+      "label": "视频抽帧",
+      "files": [
+        {
+          "path": "/home/lilyco/.cache/lycomc-video/f1.png",
+          "bytes": 860695,
+          "sha256": "7b08039519a3c7dc"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-video/f2.png",
+          "bytes": 1668514,
+          "sha256": "521a80088b702973"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-video/f3.png",
+          "bytes": 1668035,
+          "sha256": "74d7586f229090d4"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-video/f300.png",
+          "bytes": 1678075,
+          "sha256": "db4496ad2649b830"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-video/f330.png",
+          "bytes": 1301531,
+          "sha256": "cdd56bbd9746810e"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-video/f4.png",
+          "bytes": 1755534,
+          "sha256": "eca5a79cefd9ec8d"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-video/launcher-frame.png",
+          "bytes": 1678273,
+          "sha256": "2867051fb6f7b27e"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-video/sheet.png",
+          "bytes": 1126904,
+          "sha256": "fd10f7c79a3b37e9"
+        }
+      ]
+    },
+    {
+      "label": "文档",
+      "files": [
+        {
+          "path": "/home/lilyco/code/lycomc/docs/CONTRACT.md",
+          "bytes": 8276,
+          "sha256": "61c1fc31dad94ed3"
+        },
+        {
+          "path": "/home/lilyco/code/lycomc/docs/DECISION.md",
+          "bytes": 20797,
+          "sha256": "359c4283f13d335a"
+        },
+        {
+          "path": "/home/lilyco/code/lycomc/docs/PCL-COMPARISON.md",
+          "bytes": 18827,
+          "sha256": "98b3dc5b263f4a84"
+        }
+      ]
+    }
+  ]
+}

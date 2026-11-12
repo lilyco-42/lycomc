@@ -81,10 +81,17 @@ pub struct Manifest {
     pub versions: Vec<VersionEntry>,
 }
 
+/// 统一 HTTP 客户端。
+///
+/// 注意：**不能**用 `ClientBuilder::timeout` —— reqwest 的 timeout 覆盖整个响应体，
+/// 国内直连 piston-data 下载 41 MB 的 client.jar 要 160 s 以上，60 s 总超时会把流截断，
+/// 报出一句毫无信息量的 `error decoding response body`（真实 bug，2026-11-12 用户实测）。
+/// 这里改成连接超时 + 读空闲超时：慢但连续传输不判超时，只有真正卡死才断。
 pub fn client() -> reqwest::Client {
     reqwest::Client::builder()
         .user_agent("lycomc/0.1")
-        .timeout(std::time::Duration::from_secs(60))
+        .connect_timeout(std::time::Duration::from_secs(20))
+        .read_timeout(std::time::Duration::from_secs(120))
         .build()
         .unwrap_or_default()
 }

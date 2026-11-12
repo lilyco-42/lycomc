@@ -286,6 +286,9 @@ pub fn remove_account(name: &str) -> Result<(), String> {
 pub fn clear_session(name: &str) -> Result<(), String> {
     let mut list = load_accounts();
     let a = list.iter_mut().find(|a| a.name == name).ok_or_else(|| format!("账号 {name} 不存在"))?;
+    if !a.is_microsoft() {
+        return Err(format!("账号 {name} 是离线账号，无需退出登录"));
+    }
     a.refresh_token = None;
     a.access_token = None;
     a.expires_at = None;
