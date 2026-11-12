@@ -20,9 +20,11 @@ export function AppSidebar() {
 
   const isMicrosoft = currentAccount?.kind === "microsoft";
   const needsLogin = isMicrosoft && currentAccount !== null && !currentAccount.hasSession;
-  const skinUrl = currentAccount?.skinUrl ?? skin?.skinUrl ?? null;
-  const skinModel = currentAccount?.skinModel ?? skin?.skinModel ?? "classic";
-  const useBuiltinFallback = skin?.fallback === true && currentAccount?.skinUrl === undefined;
+  // 优先采用皮肤详情里的 URL / 模型，确保 slim 皮肤与内置兜底模型一致。
+  const skinUrl = skin?.skinUrl ?? currentAccount?.skinUrl ?? null;
+  const skinModel = skin?.skinModel ?? currentAccount?.skinModel ?? "classic";
+  // fallback=true 时无条件使用内置 Steve / Alex，不再代理可能已失效的官方 URL。
+  const useBuiltinFallback = skin?.fallback === true;
   const accountName = currentAccount !== null ? currentAccount.name : "未登录";
   const tooltip =
     currentAccount === null

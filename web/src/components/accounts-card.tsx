@@ -51,10 +51,12 @@ function AccountRow({
     useKeyedFetch<AccountSkin>(skinKeyFor(account), loadAccountSkinByKey);
   const isMicrosoft = account.kind === "microsoft";
   const needsLogin = isMicrosoft && !account.hasSession;
-  const skinUrl = account.skinUrl ?? skin?.skinUrl ?? null;
-  const skinModel = account.skinModel ?? skin?.skinModel ?? "classic";
-  const capeUrl = account.capeUrl ?? skin?.capeUrl ?? null;
-  const useBuiltinFallback = skin?.fallback === true && account.skinUrl === undefined;
+  // 皮肤详情接口比 /api/state 的账号快照更新，优先采用它的 URL / 模型 / 披风；详情未返回时退回快照。
+  const skinUrl = skin?.skinUrl ?? account.skinUrl ?? null;
+  const skinModel = skin?.skinModel ?? account.skinModel ?? "classic";
+  const capeUrl = skin?.capeUrl ?? account.capeUrl ?? null;
+  // 后端 fallback=true 表示官方纹理不可用，无条件切内置 Steve / Alex（slim 走 Alex）。
+  const useBuiltinFallback = skin?.fallback === true;
   const refreshing = busyKey === account.name + ":refresh";
   const loggingOut = busyKey === account.name + ":logout";
   const removing = busyKey === account.name + ":remove";

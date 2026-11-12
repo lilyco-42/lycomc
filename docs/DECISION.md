@@ -161,3 +161,10 @@ cargo test（解析逻辑单测：device code / XBL / XSTS / MC token / textures
 - 说明：1.20.1 的官方参数模板没有 `${auth_xuid}` / `${auth_session}` 占位，所以 xuid/session 不会出现在该版本命令行；vars 已按 kind 填好，较新版本模板含占位时会自动生效。正版启动的最小必需集是真实 accessToken + userType=msa + 正版 UUID，已满足。
 - 前端（ui teammate）并行实现设备码对话框、皮肤头像与账号徽章；完成后需重新 pnpm build → cargo build 嵌入新 dist，再做浏览器截图验收。
 - 凭据落盘安全复查：accounts.json 现含 refresh/access token，`save_accounts` 改为 OpenOptions 0600 创建 + write_all/sync_all + 原子 rename（src/settings.rs），隔离 LYCOMC_DATA_DIR 实测新文件 600、旧生产文件已 chmod 600；cargo test 15/15 与 cargo build 复验通过。
+
+### 前端落地与全链路验收（2026-11-12 下午，P0 收尾）
+
+- ui teammate 交付 shadcn 前端：web/src/lib/api.ts / normalize.ts / account-skin.ts、components/skin-avatar.tsx（canvas 裁 64x64 头+帽层、同源 /api/skin/image 代理、失败回退 /steve.png 或 /alex.png）、components/microsoft-login-dialog.tsx（设备码、验证页、倒计时、按 interval 轮询、done/expired 与卸载清定时器）、components/accounts-card.tsx（按 kind 分支、正版会话刷新/退出、需重新登录、entitled=false 购买劝导、皮肤预览/披风）、components/app-sidebar.tsx（当前账号皮肤头像）、pages/settings-page.tsx 与 pages/home-page.tsx 文案中性化。最后一版优先级修正：皮肤详情接口优先于 /api/state 快照，fallback=true 时无条件使用内置 Steve/Alex，保证 slim 模型一致。
+- 构建：pnpm build exit 0（vite v8.3.7，2217 modules，最终 dist/assets/index-az2NZ5u8.js 532.48 kB、index-B3TylStv.css 87.51 kB）；pnpm lint exit 0（4 条既有脚手架 warning）；cargo build 把最终 dist 重嵌进 /home/lilyco/.cache/lilyco-build/target/debug/lycomc，strings 可见 assets/index-az2NZ5u8.js。
+- 实机浏览器（CDP，Chromium 156）：首页 / 设置页无 skeleton，canvas 皮肤头像 40x40 全部 1600 像素已绘制；资源请求确有 GET /api/accounts/Steve/skin 与 /api/skin/image?url=textures.minecraft.net/…；点击「微软正版登录」弹出真实 userCode（如 PCFSZLHK / 28SLGSVW）、14:59 倒计时、验证页链接，Escape 后 dialog 数归 0。设备码 start/poll 真实微软端点 200 / pending；/api/health embedded 正常。
+- 提交：2a054fe（后端 6 路由 + 皮肤 + 0600 凭据）、4e48efc（shadcn 登录/皮肤 UI 与账号管理）、收尾末版微调补提；工作区最终干净。合规：只对照 PCL/HMCL/Prism/SJMCL 的公开协议与行为，不复制 PCL 的 NOASSERTION 代码/UI/资源，沿用自有 lycomc/LilyCraft 名称。
