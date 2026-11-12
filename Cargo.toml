@@ -9,6 +9,7 @@ description = "lycomc — lilyco 命令面 + shadcn 桌面的 Minecraft 启动�
 lilyco = { path = "/home/lilyco/code/lilyco/lilyco", features = ["tui"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+base64 = "0.22"
 anyhow = "1"
 thiserror = "2"
 tokio = { version = "1", features = ["full"] }

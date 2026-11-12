@@ -1,6 +1,8 @@
 //! 持久化配置与账号（~/.local/share/lycomc/settings.json、accounts.json）
 
 use serde::{Deserialize, Serialize};
+#[cfg(unix)]
+use std::os::unix::fs::OpenOptionsExt;
 
 use crate::mc::paths;
 
@@ -107,13 +109,73 @@ pub fn save(s: &Settings) -> Result<Settings, String> {
 
 // ── 账号 ───────────────────────────────────────────────────────
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+/// 账号。离线（kind="offline"）与微软正版（kind="microsoft"）共用一张表。
+///
+/// 序列化时**只输出公开字段**：refreshToken / accessToken 属于凭据，
+/// 绝不能通过 /api/state、/api/accounts 或 CLI 输出泄露。落盘单独走
+/// save_accounts 的显式字段表，保证两者互不干扰。
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
 pub struct Account {
     pub name: String,
     pub uuid: String,
-    /// 目前只做离线登录
     pub kind: String,
+    #[serde(default, alias = "refresh_token")]
+    pub refresh_token: Option<String>,
+    #[serde(default, alias = "access_token")]
+    pub access_token: Option<String>,
+    #[serde(default, alias = "expires_at")]
+    pub expires_at: Option<u64>,
+    #[serde(default)]
+    pub xuid: Option<String>,
+    #[serde(default, alias = "skin_url")]
+    pub skin_url: Option<String>,
+    #[serde(default, alias = "cape_url")]
+    pub cape_url: Option<String>,
+    #[serde(default, alias = "skin_model")]
+    pub skin_model: Option<String>,
+    #[serde(default)]
+    pub entitled: Option<bool>,
+}
+
+impl Serialize for Account {
+    fn serialize<S: serde::Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeStruct;
+        let mut st = ser.serialize_struct("Account", 9)?;
+        st.serialize_field("name", &self.name)?;
+        st.serialize_field("uuid", &self.uuid)?;
+        st.serialize_field("kind", &self.kind)?;
+        st.serialize_field("hasSession", &self.has_session())?;
+        if let Some(v) = &self.entitled { st.serialize_field("entitled", v)?; }
+        if let Some(v) = &self.skin_url { st.serialize_field("skinUrl", v)?; }
+        if let Some(v) = &self.cape_url { st.serialize_field("capeUrl", v)?; }
+        if let Some(v) = &self.skin_model { st.serialize_field("skinModel", v)?; }
+        if let Some(v) = &self.expires_at { st.serialize_field("expiresAt", v)?; }
+        st.end()
+    }
+}
+
+impl Account {
+    pub fn offline(name: &str) -> Self {
+        Self {
+            name: name.to_string(),
+            uuid: crate::mc::offline_uuid(name),
+            kind: "offline".into(),
+            ..Default::default()
+        }
+    }
+    pub fn is_microsoft(&self) -> bool { self.kind == "microsoft" }
+    /// 是否仍处于登录态（有 refresh token 即可自动续期）
+    pub fn has_session(&self) -> bool {
+        self.is_microsoft() && (self.access_token.is_some() || self.refresh_token.is_some())
+    }
+    /// 是否需要在启动前刷新 access token
+    pub fn needs_refresh(&self) -> bool {
+        if !self.is_microsoft() { return false; }
+        let token_ok = self.access_token.as_deref().is_some_and(|t| !t.is_empty());
+        let fresh = self.expires_at.is_some_and(|e| e > crate::jobs::now_ms().saturating_add(60_000));
+        !token_ok || !fresh
+    }
 }
 
 /// 离线账号名限制：Minecraft 用户名 3–16 位字母数字下划线
@@ -133,12 +195,12 @@ pub fn load_accounts() -> Vec<Account> {
         .ok()
         .and_then(|t| serde_json::from_str::<Vec<Account>>(&t).ok())
         .map(|mut v| {
-            // uuid 由名字推导，老文件里缺了就补上
+            // 老文件里没有 uuid / kind；顺手把不认识的 kind 收敛成离线
             for a in v.iter_mut() {
                 if a.uuid.trim().is_empty() {
                     a.uuid = crate::mc::offline_uuid(&a.name);
                 }
-                if a.kind.trim().is_empty() {
+                if a.kind.trim().is_empty() || !matches!(a.kind.as_str(), "offline" | "microsoft") {
                     a.kind = "offline".into();
                 }
             }
@@ -147,16 +209,52 @@ pub fn load_accounts() -> Vec<Account> {
         .unwrap_or_default()
 }
 
+/// 落盘时显式写出凭据字段（Account 的 Serialize 故意不输出它们）。
+fn disk_value(a: &Account) -> serde_json::Value {
+    let mut v = serde_json::json!({ "name": &a.name, "uuid": &a.uuid, "kind": &a.kind });
+    if let Some(x) = &a.refresh_token { v["refreshToken"] = serde_json::json!(x); }
+    if let Some(x) = &a.access_token { v["accessToken"] = serde_json::json!(x); }
+    if let Some(x) = &a.expires_at { v["expiresAt"] = serde_json::json!(x); }
+    if let Some(x) = &a.xuid { v["xuid"] = serde_json::json!(x); }
+    if let Some(x) = &a.skin_url { v["skinUrl"] = serde_json::json!(x); }
+    if let Some(x) = &a.cape_url { v["capeUrl"] = serde_json::json!(x); }
+    if let Some(x) = &a.skin_model { v["skinModel"] = serde_json::json!(x); }
+    if let Some(x) = &a.entitled { v["entitled"] = serde_json::json!(x); }
+    v
+}
+
 pub fn save_accounts(list: &[Account]) -> Result<(), String> {
     let p = paths::accounts_file();
     if let Some(dir) = p.parent() {
         std::fs::create_dir_all(dir).map_err(|e| format!("创建数据目录失败: {e}"))?;
     }
-    let body = serde_json::to_vec_pretty(list).map_err(|e| e.to_string())?;
+    let disk: Vec<serde_json::Value> = list.iter().map(disk_value).collect();
+    let body = serde_json::to_vec_pretty(&disk).map_err(|e| e.to_string())?;
+    // accounts.json 含微软 refresh/access token：只允许本人读写（0600），
+    // 并且先写临时文件再原子 rename，避免中途崩溃留下半截 JSON。
     let tmp = p.with_extension("json.tmp");
-    std::fs::write(&tmp, body).map_err(|e| format!("写账号失败: {e}"))?;
+    let mut opts = std::fs::OpenOptions::new();
+    opts.write(true).create(true).truncate(true);
+    #[cfg(unix)]
+    opts.mode(0o600);
+    {
+        use std::io::Write;
+        let mut f = opts.open(&tmp).map_err(|e| format!("写账号失败: {e}"))?;
+        f.write_all(&body).map_err(|e| format!("写账号失败: {e}"))?;
+        f.sync_all().map_err(|e| format!("写账号失败: {e}"))?;
+    }
     std::fs::rename(&tmp, &p).map_err(|e| format!("提交账号失败: {e}"))?;
     Ok(())
+}
+
+/// 按名字覆盖（大小写不敏感）或追加；正版登录/刷新都走这里
+pub fn upsert_account(acc: &Account) -> Result<(), String> {
+    let mut list = load_accounts();
+    match list.iter().position(|a| a.name.eq_ignore_ascii_case(&acc.name)) {
+        Some(i) => list[i] = acc.clone(),
+        None => list.push(acc.clone()),
+    }
+    save_accounts(&list)
 }
 
 pub fn add_account(name: &str) -> Result<Account, String> {
@@ -166,7 +264,7 @@ pub fn add_account(name: &str) -> Result<Account, String> {
     if list.iter().any(|a| a.name.eq_ignore_ascii_case(&n)) {
         return Err(format!("账号 {n} 已存在"));
     }
-    let acc = Account { uuid: crate::mc::offline_uuid(&n), name: n, kind: "offline".into() };
+    let acc = Account::offline(&n);
     list.push(acc.clone());
     save_accounts(&list)?;
     Ok(acc)
@@ -179,6 +277,18 @@ pub fn remove_account(name: &str) -> Result<(), String> {
     if list.len() == before {
         return Err(format!("账号 {name} 不存在"));
     }
+    save_accounts(&list)
+}
+
+/// 退出登录：清凭据但保留账号与皮肤缓存，UI 显示「需重新登录」
+pub fn clear_session(name: &str) -> Result<(), String> {
+    let mut list = load_accounts();
+    let a = list.iter_mut().find(|a| a.name == name).ok_or_else(|| format!("账号 {name} 不存在"))?;
+    a.refresh_token = None;
+    a.access_token = None;
+    a.expires_at = None;
+    a.xuid = None;
+    a.entitled = None;
     save_accounts(&list)
 }
 

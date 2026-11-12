@@ -19,7 +19,7 @@ use serde_json::{json, Value};
 use tokio::sync::broadcast;
 
 use crate::jobs::{now_ms, Job, JobStore};
-use crate::mc::{self, fabric, install, java, launch, localize, meta, modrinth, options, paths, Progress};
+use crate::mc::{self, auth, fabric, install, java, launch, localize, meta, modrinth, options, paths, Progress};
 use crate::settings::{self, Account, Settings};
 
 // ── 错误形态 ───────────────────────────────────────────────────
@@ -116,6 +116,12 @@ pub fn router(state: AppState) -> Router {
         .route("/api/events", get(events))
         .route("/api/accounts", get(list_accounts).post(add_account))
         .route("/api/accounts/{name}", delete(del_account))
+        .route("/api/accounts/{name}/skin", get(account_skin))
+        .route("/api/auth/microsoft/start", post(ms_start))
+        .route("/api/auth/microsoft/poll", post(ms_poll))
+        .route("/api/auth/microsoft/refresh", post(ms_refresh))
+        .route("/api/auth/microsoft/logout", post(ms_logout))
+        .route("/api/skin/image", get(skin_image))
         .route("/api/modrinth/search", get(mod_search))
         .route("/api/mods", get(list_mods))
         .route("/api/mods/install", post(mod_install))
@@ -385,15 +391,13 @@ async fn do_launch(
         .filter(|n| !n.trim().is_empty())
         .or_else(|| settings::load_accounts().first().map(|a| a.name.clone()))
         .unwrap_or_else(|| "Steve".to_string());
-    let acc = settings::find_account(&name).unwrap_or_else(|| Account {
-        uuid: mc::offline_uuid(&name),
-        name: name.clone(),
-        kind: "offline".into(),
-    });
+    let acc = settings::find_account(&name).unwrap_or_else(|| Account::offline(&name));
+    // 正版账号启动前自动续期；过期且刷新失败就明确报错，不再静默拿旧 token 启动。
+    let acc = auth::ensure_fresh(&acc).await.map_err(ApiError::bad)?;
     let memory = req.memory_mb.unwrap_or(s.memory_mb).clamp(512, 65536);
     let opts = launch::LaunchOpts {
         id: id.clone(),
-        account: mc::OfflineAccount { name: acc.name.clone(), uuid: acc.uuid.clone() },
+        account: mc::GameAccount::from_account(&acc),
         memory_mb: memory,
         java_path: s.java_path.clone(),
         extra_jvm: s.extra_jvm_args.clone(),
@@ -577,6 +581,57 @@ async fn add_account(Json(req): Json<AccountReq>) -> Result<Json<Account>, ApiEr
 async fn del_account(Path(name): Path<String>) -> Result<Json<Value>, ApiError> {
     settings::remove_account(&name).map_err(ApiError::bad)?;
     Ok(Json(json!({ "ok": true })))
+}
+// ── 微软正版登录 / 皮肤 ──────────────────────────────────────
+
+/// 开始设备码登录。设备码本身只留在内存，不下发 cookie 也不落盘。
+async fn ms_start() -> Result<Json<Value>, ApiError> {
+    auth::start().await.map(Json).map_err(ApiError::internal)
+}
+
+/// 单次轮询；前端按 interval 秒重复调用，避免后台长期占用一个任务。
+async fn ms_poll() -> Result<Json<Value>, ApiError> {
+    auth::poll().await.map(Json).map_err(ApiError::internal)
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct NameReq {
+    name: String,
+}
+
+async fn ms_refresh(Json(req): Json<NameReq>) -> Result<Json<Value>, ApiError> {
+    auth::refresh(&req.name)
+        .await
+        .map(|a| Json(json!({ "account": a })))
+        .map_err(ApiError::bad)
+}
+
+async fn ms_logout(Json(req): Json<NameReq>) -> Result<Json<Value>, ApiError> {
+    settings::clear_session(&req.name).map_err(ApiError::bad)?;
+    Ok(Json(json!({ "ok": true })))
+}
+
+async fn account_skin(Path(name): Path<String>) -> Result<Json<Value>, ApiError> {
+    auth::skin_for(&name).await.map(Json).map_err(ApiError::internal)
+}
+
+#[derive(Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+struct SkinImageQ {
+    url: Option<String>,
+    model: Option<String>,
+}
+
+/// 同源图片代理：官方纹理失效（实测旧纹理 404）时回退内置 Steve/Alex PNG。
+async fn skin_image(Query(q): Query<SkinImageQ>) -> Response {
+    let body = auth::skin_image(q.url, q.model).await;
+    let mut resp = (StatusCode::OK, body).into_response();
+    resp.headers_mut()
+        .insert(header::CONTENT_TYPE, HeaderValue::from_static("image/png"));
+    resp.headers_mut()
+        .insert(header::CACHE_CONTROL, HeaderValue::from_static("public, max-age=300"));
+    resp
 }
 
 // ── 模组 ───────────────────────────────────────────────────────

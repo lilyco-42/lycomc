@@ -110,3 +110,54 @@ MCIM 却把它和 0.5.12-beta.2 追加在数组末尾，首位仍是 0.5.11(2024
 后续因隔离根缺 libraries 而止步，与 JRE 下载路径无关。
 Web 全链路（downloadSource=bmcl）实测：装 Fabric 1.4s、装 Mod 1.4s、一键汉化 2.1s、
 启动 0.7s 全部 done，kill 后 `running=[]`。
+
+## P0 补做：对照 PCL 的账号体系与皮肤展示（决策 2026-11-12）
+
+**触发**：用户 m01841「P0: 你没有 对比 PCL 实现 用户 也没有 正版登陆和皮肤展示等」；m01891「继续」授权实现。
+此前只做了版本/Mod 下载与启动四端，没做「账号」这一层，确实不算「PCL 类似」。
+
+### 对比矩阵（真实源码对照，不是凭印象）
+
+| PCL 能力 | PCL 实现位置 | lycomc 之前 | 本次决策 |
+| --- | --- | --- | --- |
+| 离线账号 | PageLoginLegacy / ModLaunch | 有（accounts.json，OfflineAccount） | 保留、不回退 |
+| 微软正版登录（设备码） | PageLoginMs + MyMsgLogin + McLoginMsLoader | 无 | 自研 Rust 实现设备码流程 |
+| 刷新 token / 退出登录 | PageLoginMsSkin.BtnExit / CacheMsV2* | 无 | 落盘 refresh/access，提供刷新与退出 |
+| 正版校验（entitlements） | McLoginMsLoader / McLaunchPrecheck | 无 | 登录时查 entitlements/mcstore |
+| 皮肤/披风预览 | MySkin.xaml.vb（裁头 40,8 + 叠加层） | 无 | 皮肤代理 + canvas 头像 + 立绘 |
+| 更换/保存皮肤 | PageLoginMsSkin.EditSkin | 无 | 不做（需要上传，ROI 低，先展示） |
+| 外置登录（Nide8 / Authlib-Injector） | PageLoginAuth / PageLoginNide | 无 | 不做（第三方认证服务器，需注入 javaagent，ROI 未过门槛） |
+| 账号多开/切换 | PageLoginMs.ComboAccounts + LoginMsJson | 单离线列表 | 复用 accounts.json，kind 区分 |
+| 版本/Fabric/Mod 下载、中文、镜像、四端、设置、日志 | ModDownload / ModLaunch 等 | 已覆盖 | 保持 |
+| 崩溃分析 / 整合包 | ModCrash / ModModpack | 无 | 不做（本次聚焦账号与皮肤） |
+
+### 先例与合规（信条 1/3/4，全部真实 gh 结果）
+
+- PCL Meloong-Git/PCL（NOASSERTION，9653★）：LICENCE 的《PCL 存储库合理使用指南》规定「重度使用」（重新实现启动/下载 MC、管理 Mod 等）需：第三方二次创作署名、名称以 PCL 开头、关于页龙腾猫跃署名+赞助、开源、正版购买劝导、Windows 主色相蓝色。**决策：只对照行为与公开协议，绝不复制 PCL 的 .vb/.xaml 代码、UI 与 Images/Skins 皮肤资源**，避免落入重度使用约束；且我们沿用自有名称 lycomc/LilyCraft，不混淆。
+- HMCL-dev/HMCL（GPL-3.0）、PrismLauncher（GPL-3.0）、UNIkeEN/SJMCL（GPL-3.0）：只对照公开协议端点与流程（Microsoft OAuth device code → Xbox Live → XSTS → Minecraft Services → profile），**不复制任何 GPL 源码**。
+- PCL-Community/PCL-CE（Apache-2.0）：可作行为参考，同样不搬代码。
+- client id：PCL 开源版 ModSecret.vb 明确 OAuthClientId 来自环境变量 PCL_MS_CLIENT_ID（默认空，安全代码已删）；HMCL client id 空时抛 MicrosoftAuthenticationNotSupportedException。实测社区公开 Azure 应用 id b2468fd2-7996-4f42-8857-5b65d834ef5c（来自 SJMCL 开源常量）POST devicecode 返回 200，而乱猜的 0000000048183522 返回 AADSTS700016。**决策：默认用该公开常量兜底保证开箱可用，但优先读 LYCOMC_MS_CLIENT_ID 环境变量，并在 UI/文档写明「生产请注册自己的 Azure 应用」**——只引用一个 Azure 注册 id，不含 GPL 代码。
+
+### 技术决策（最小可行，原子化）
+
+1. 新增 src/mc/auth.rs：标准 HTTP 流程，自研 structs/解析，不依赖任何启动器源码。端点：login.microsoftonline.com/consumers/oauth2/v2.0/{devicecode,token}、user.auth.xboxlive.com、xsts.auth.xboxlive.com、api.minecraftservices.com/{authentication/login_with_xbox,entitlements/mcstore,minecraft/profile}、sessionserver.mojang.com、api.mojang.com。
+2. settings.rs 的 Account 扩展：kind=offline|microsoft，新增可选 refreshToken/accessToken/expiresAt(ms)/xuid/skinUrl/capeUrl/skinModel/entitled（全部 serde default，兼容旧 accounts.json）；新增 save/update helpers。
+3. mc/launch.rs：离线账号仍用离线 token；microsoft 账号注入真实 accessToken、auth_xuid、userType=msa、auth_session=token。保持离线不回退。
+4. api.rs 新增：POST /api/auth/microsoft/start（同步取 device code，只返回 userCode/verificationUri/interval/expiresIn；device_code 留内存不下发）与 POST /api/auth/microsoft/poll（单次轮询，pending/授权完成则落盘账号）、POST /api/auth/microsoft/refresh、POST /api/auth/microsoft/logout、GET /api/accounts/{name}/skin、GET /api/skin/image?url=…（同源图片代理，失败回退默认 Steve/Alex）。设备码轮询放前端定时调用，避免长期后台 job 与状态泄漏。
+5. 皮肤：正版账号用登录缓存的 profile textures；离线账号按名字查 api.mojang.com → sessionserver 的 textures（真实正版名可查到，如 Notch）；texture URL 实测可能 404（旧纹理下线），代理必须容错回退内置默认皮肤，绝不因皮肤失败影响启动。皮肤立绘/头像用前端 canvas 从同源代理图裁切，规避 CORS。
+6. 前端（shadcn）：设置页账号区加「微软正版登录」按钮 + 设备码对话框（显示 userCode、复制、打开验证页、轮询进度、完成/失败提示）；账号行加 kind 徽章与皮肤头像；主页左栏「当前账号」显示皮肤立绘/头像。
+7. 明确不做（ROI 未过门槛）：Authlib-Injector/Nide8 外置登录、皮肤上传更换、崩溃分析、整合包。
+
+### 验收
+
+cargo test（解析逻辑单测：device code / XBL / XSTS / MC token / textures base64）通过；devicecode start 真实 200 拿到 userCode；皮肤 API 对 Notch 返回 textures、图片代理 200、对不存在名回退默认皮肤；launch 对 microsoft kind 账号 dry-run 命令行含真实 accessToken 与 userType=msa、离线账号仍含离线 token；Web 能打开登录对话框并完成皮肤展示；文档与 git 提交。
+
+### 实现与实测（2026-11-12 中午）
+
+- 后端已按上述决策落盘：src/mc/auth.rs（设备码 / OAuth token 轮询 / XBL / XSTS / Minecraft Services / entitlements / 角色皮肤）、settings.rs 的 Account 扩展与凭据只落盘、mc/mod.rs 的 GameAccount、launch.rs 的真实 token 注入、api.rs 的 6 条新路由与同源皮肤代理；CLI/TUI/MCP 启动前同样自动续期。
+- `cargo test` 15/15 通过（新增 8 个 auth 离线单测：设备码字段、OAuth 错误分类、协议字符串、profile 皮肤 variation、textures base64、内置 PNG、SSRF 白名单、token 序列化不泄露）；`cargo build` 通过。
+- 真实网络：`POST /api/auth/microsoft/start` 200 拿到 userCode 5VQPZDVT / interval 5 / expiresIn 900；`POST /api/auth/microsoft/poll` 返回 status=pending；`GET /api/accounts/Steve/skin` 200（source=mojang，真实 Mojang 皮肤/披风 URL）；`GET /api/skin/image?model=classic` 200 image/png 1350 B；传入 127.0.0.1 SSRF URL 也只回内置 PNG；真实 Steve 纹理 3108 B，失效 Notch 纹理回退 1350 B。
+- 伪造 microsoft-kind 账号 dry-run：`--accessToken MSATESTTOKEN`、`--userType msa`、`--uuid` 为正版 UUID、离线占位 token 消失；`/api/accounts` 与 `/api/state` 均不含 MSATESTTOKEN / MSATESTREFRESH / xuid；伪造 refresh token 走真实微软 token 端点得到 AADSTS70000 并给出「请重新进行微软正版登录」提示。离线 Steve dry-run 仍是占位 token + legacy + 空 xuid，无回退。
+- 说明：1.20.1 的官方参数模板没有 `${auth_xuid}` / `${auth_session}` 占位，所以 xuid/session 不会出现在该版本命令行；vars 已按 kind 填好，较新版本模板含占位时会自动生效。正版启动的最小必需集是真实 accessToken + userType=msa + 正版 UUID，已满足。
+- 前端（ui teammate）并行实现设备码对话框、皮肤头像与账号徽章；完成后需重新 pnpm build → cargo build 嵌入新 dist，再做浏览器截图验收。
+- 凭据落盘安全复查：accounts.json 现含 refresh/access token，`save_accounts` 改为 OpenOptions 0600 创建 + write_all/sync_all + 原子 rename（src/settings.rs），隔离 LYCOMC_DATA_DIR 实测新文件 600、旧生产文件已 chmod 600；cargo test 15/15 与 cargo build 复验通过。

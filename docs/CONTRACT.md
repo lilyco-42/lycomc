@@ -24,9 +24,15 @@ POST   /api/launch                     body {versionId, accountName, memoryMb?} 
 POST   /api/launch/:pid/kill           -> {ok}
 GET    /api/jobs/:id                   -> Job
 GET    /api/events                     -> SSE: event: progress|done|error, data: Job
-GET    /api/accounts                   -> {accounts:Account[]}
-POST   /api/accounts                   body {name} -> Account
+GET    /api/accounts                   -> {accounts:Account[]}（绝不包含 token）
+POST   /api/accounts                   body {name} -> Account（新增离线账号）
 DELETE /api/accounts/:name             -> {ok}
+GET    /api/accounts/:name/skin        -> SkinInfo
+POST   /api/auth/microsoft/start       body {} -> {userCode,verificationUri,expiresIn,interval,message}（设备码只在内存，不下发）
+POST   /api/auth/microsoft/poll        body {} -> {status:"pending",interval,message} | {status:"done",account:Account} | {status:"expired",message}
+POST   /api/auth/microsoft/refresh     body {name} -> {account:Account}
+POST   /api/auth/microsoft/logout      body {name} -> {ok}（清凭据、保留账号与皮肤缓存）
+GET    /api/skin/image?url=&model=     -> image/png（同源代理；官方纹理失效/非法 URL 恒回退内置 Steve/Alex）
 GET    /api/modrinth/search?q=&versionId=&type=mod  -> {hits:[...]}
 POST   /api/mods/install               body {versionId, projectId} -> {jobId}
 GET    /api/mods?versionId=            -> {mods:[{file,name,size}]}
@@ -39,7 +45,16 @@ GET    /api/logs/:versionId            -> {lines:string[]}
 ## 类型
 VersionInfo = {id, kind:"vanilla"|"fabric", baseVersion, installedAt, javaMajor, lang?, resourcePacks:string[], localized:bool}
 JavaInfo = {path, version:number, source:"system"|"managed"}
-Account = {name, uuid, kind:"offline"}
+Account = {name, uuid, kind:"offline"|"microsoft", hasSession:bool, entitled?:bool,
+           skinUrl?, capeUrl?, skinModel?:"classic"|"slim", expiresAt?:number}
+SkinInfo = {name, uuid, skinUrl?, capeUrl?, skinModel:"classic"|"slim",
+            source:"microsoft"|"mojang"|"default", fallback:bool}
+// accounts.json 落盘含 refreshToken / accessToken / expiresAt / xuid；Serialize 只输出上面这些公开字段，
+// refreshToken / accessToken / xuid 绝不出现在任何 HTTP 响应、SSE 或 CLI 输出里。
+// 写入时 accounts.json 强制 0600 + tmp→rename 原子提交（含凭据，禁止其它本地用户读取）；老文件需 chmod 600 回收。
+// hasSession 仅表示「微软正版登录态是否有效」；离线账号恒为 false、无需登录且永远可启动。
+// kind="microsoft" 且 hasSession=false 时 UI 才显示「需重新登录」；启动前后端自动 refresh，失败则明确报错。
+// kind="microsoft" 且 entitled=false 时 UI 按 PCL 的购买劝导显示「未检测到正版授权，请购买 Minecraft」，不阻止离线启动。
 Settings = {memoryMb, javaPath?, extraJvmArgs[], selectVersion?, downloadSource:"mojang"|"bmcl", maxConcurrent, closeOnLaunch, gameLang:string}
 // gameLang 默认 "zh_cn"，只允许 [a-z_]；启动前由 launch::prepare 写入实例 options.txt 的 lang 行
 // downloadSource 默认 "bmcl"（国内镜像），已在磁盘上的 settings.json 不受默认值变更影响；"mojang" = 全官方直连
@@ -62,4 +77,10 @@ Job = {id, kind, title, state:"running"|"done"|"error", progress:0-100, message,
 - 2026-11-11 新增 GET /api/versions/:id（版本详情面板用，省掉整份 /api/state）。
 - 2026-11-11 新增「一键汉化」契约：POST /api/localize；GET /api/versions/:id 返回 lang / resourcePacks / localized；Settings 增加 gameLang（默认 zh_cn）。汉化包仅运行时下载到实例 resourcepacks/，绝不内嵌进二进制（CFPA 包为 CC BY-NC-SA 4.0，Sodium 中文包为 MIT）。
 - 2026-11-11 国内镜像源接入（决策 adopt 现状 + 局部补齐）：Settings.downloadSource 默认值由 "mojang" 改 "bmcl"；新增 Fabric meta/maven、清华 TUNA JRE、MCIM CDN 优先、CFPA 多代理回落、统一 UA lycomc/0.1。HTTP API 与类型形状不变，仅下载路径变化。详见「下载源与镜像」与 DECISION.md 末节。
+- 2026-11-12 P0 补正版账号与皮肤：Account 扩展为 offline|microsoft + 公开会话/皮肤字段（凭据只落盘、不出口）；
+  新增 /api/auth/microsoft/{start,poll,refresh,logout}（OAuth 设备码 → XBL → XSTS → Minecraft Services → 正版校验/角色）、
+  GET /api/accounts/:name/skin 与 GET /api/skin/image（白名单 + PNG 校验 + 内置 Steve/Alex 兜底）；
+  launch 对 kind="microsoft" 注入真实 accessToken / auth_xuid / userType=msa，离线仍用占位 token / legacy；
+  CLI/TUI/MCP 启动前同样自动续期。client id 默认公开常量，可用 LYCOMC_MS_CLIENT_ID 覆盖。
+  详见 DECISION.md「P0 补做：对照 PCL 的账号体系与皮肤展示」。
 - 2026-11-11 修 MCIM 版本列表顺序过期：`pick_version` 改按 `date_published` 降序挑最新（不再信任数组顺序），避免镜像优先时装回旧版 Mod。仅影响「装 Mod / 汉化包」选中的版本，API 形状不变。

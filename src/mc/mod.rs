@@ -1,5 +1,6 @@
 //! MC 内核：元数据、下载、安装、启动。只有 lead 修改本目录。
 
+pub mod auth;
 pub mod download;
 pub mod fabric;
 pub mod java;
@@ -30,17 +31,45 @@ pub fn logline(percent: f64, message: impl Into<String>) -> Progress {
     Progress { percent, log: Some(m.clone()), message: m }
 }
 
-/// 离线账号
+/// 启动游戏用的账号（离线或微软正版）。
+///
+/// 之前只有离线 UUID；P0 补正版登录后必须把真实 accessToken / xuid /
+/// userType 带进 --accessToken 等游戏参数，故统一收敛到这个结构。
 #[derive(Debug, Clone)]
-pub struct OfflineAccount {
+pub struct GameAccount {
     pub name: String,
     pub uuid: String,
+    /// "offline" | "microsoft"
+    pub kind: String,
+    pub access_token: String,
+    pub xuid: String,
 }
 
-impl OfflineAccount {
-    pub fn new(name: &str) -> Self {
-        Self { name: name.to_string(), uuid: offline_uuid(name) }
+impl GameAccount {
+    pub fn offline(name: &str) -> Self {
+        Self {
+            name: name.to_string(),
+            uuid: offline_uuid(name),
+            kind: "offline".into(),
+            access_token: String::new(),
+            xuid: String::new(),
+        }
     }
+
+    /// 从持久化账号构造；调用方应先跑 auth::ensure_fresh 保证 token 没过期
+    pub fn from_account(a: &crate::settings::Account) -> Self {
+        let mut out = Self::offline(&a.name);
+        out.uuid = if a.uuid.is_empty() { offline_uuid(&a.name) } else { a.uuid.clone() };
+        if a.is_microsoft() {
+            out.kind = "microsoft".into();
+            out.access_token = a.access_token.clone().unwrap_or_default();
+            out.xuid = a.xuid.clone().unwrap_or_default();
+        }
+        out
+    }
+
+    pub fn is_microsoft(&self) -> bool { self.kind == "microsoft" }
+    pub fn user_type(&self) -> &'static str { if self.is_microsoft() { "msa" } else { "legacy" } }
 }
 
 pub fn offline_uuid(name: &str) -> String {

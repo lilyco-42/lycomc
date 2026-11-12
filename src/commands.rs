@@ -8,7 +8,7 @@ use std::sync::Arc;
 use lilyco::prelude::*;
 use serde_json::{json, Value};
 
-use crate::mc::{self, fabric, install, java, launch, modrinth, paths, Progress};
+use crate::mc::{self, auth, fabric, install, java, launch, modrinth, paths, Progress};
 use crate::settings;
 
 /// 命令面是同步的（lilyco 的 App trait 如此），内核是 async 的 ——
@@ -158,14 +158,14 @@ fn run_remove(app: &RemoveCmd, ctx: &Context) -> Result<Value, AppError> {
 #[derive(App)]
 #[app(
     name = "launch",
-    about = "离线启动一个实例（前台等待游戏退出）",
+    about = "启动一个实例（前台等待游戏退出）",
     run = "run_launch",
     safety = "confirm"
 )]
 pub struct LaunchCmd {
     /// 实例 id
     pub version_id: String,
-    /// 离线账号名（默认取第一个账号，没有就用 Steve）
+    /// 账号名（离线或微软正版；默认取第一个账号，没有就用 Steve）
     pub account: Option<String>,
     /// 内存 MB（默认取设置）
     pub memory: Option<u32>,
@@ -182,14 +182,13 @@ fn run_launch(app: &LaunchCmd, ctx: &Context) -> Result<Value, AppError> {
         .filter(|n| !n.trim().is_empty())
         .or_else(|| settings::load_accounts().first().map(|a| a.name.clone()))
         .unwrap_or_else(|| "Steve".to_string());
-    let acc = settings::find_account(&name).unwrap_or(settings::Account {
-        uuid: mc::offline_uuid(&name),
-        name: name.clone(),
-        kind: "offline".into(),
-    });
+    let acc = settings::find_account(&name)
+        .unwrap_or_else(|| settings::Account::offline(&name));
+    // 正版账号启动前自动续期；命令面是同步的，这里复用同一个 block_on。
+    let acc = block_on(auth::ensure_fresh(&acc)).map_err(AppError::Runtime)?;
     let opts = launch::LaunchOpts {
         id: app.version_id.clone(),
-        account: mc::OfflineAccount { name: acc.name.clone(), uuid: acc.uuid.clone() },
+        account: mc::GameAccount::from_account(&acc),
         memory_mb: app.memory.unwrap_or(s.memory_mb),
         java_path: s.java_path.clone(),
         extra_jvm: s.extra_jvm_args.clone(),
@@ -411,7 +410,7 @@ fn run_settings_set(app: &SettingsSetCmd, ctx: &Context) -> Result<Value, AppErr
 #[derive(App)]
 #[app(
     name = "accounts",
-    about = "列出离线账号",
+    about = "列出账号（离线 / 微软正版）",
     run = "run_accounts"
 )]
 pub struct AccountsCmd {}

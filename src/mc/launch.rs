@@ -10,13 +10,13 @@ use std::path::{Path, PathBuf};
 
 use super::java;
 use super::meta::{self, Rule, Source, VersionJson};
-use super::{paths, OfflineAccount, ProgressFn};
+use super::{paths, GameAccount, ProgressFn};
 
 /// 启动参数
 #[derive(Debug, Clone)]
 pub struct LaunchOpts {
     pub id: String,
-    pub account: OfflineAccount,
+    pub account: GameAccount,
     pub memory_mb: u32,
     /// 用户在设置里指定了 java 就用它
     pub java_path: Option<String>,
@@ -257,16 +257,26 @@ pub async fn prepare(opts: &LaunchOpts, progress: ProgressFn<'_>) -> Result<Prep
         ("game_assets", assets_root),
         ("assets_index_name", assets_index),
         ("auth_uuid", opts.account.uuid.clone()),
-        ("auth_access_token", "lycomcofflinetoken0000000000000000".to_string()),
-        ("auth_session", "lycomcofflinetoken0000000000000000".to_string()),
-        ("user_type", "legacy".to_string()),
+        // 正版账号注入 Minecraft Services 的 access token；离线保持旧的占位 token，
+        // 1.20+ 缺 --accessToken 会直接崩（见文件头踩坑记录）。
+        ("auth_access_token", if opts.account.is_microsoft() {
+            opts.account.access_token.clone()
+        } else {
+            "lycomcofflinetoken0000000000000000".to_string()
+        }),
+        ("auth_session", if opts.account.is_microsoft() {
+            opts.account.access_token.clone()
+        } else {
+            "lycomcofflinetoken0000000000000000".to_string()
+        }),
+        ("user_type", opts.account.user_type().to_string()),
         ("version_type", kind),
         ("natives_directory", natives.display().to_string()),
         ("classpath", cp),
         ("launcher_name", "lycomc".to_string()),
         ("launcher_version", launcher_version),
         ("clientid", String::new()),
-        ("auth_xuid", String::new()),
+        ("auth_xuid", opts.account.xuid.clone()),
         ("user_properties", "{}".to_string()),
         ("library_directory", paths::libraries_dir().display().to_string()),
         ("classpath_separator", if cfg!(target_os = "windows") { ";".to_string() } else { ":".to_string() }),

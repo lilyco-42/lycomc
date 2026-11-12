@@ -3,4 +3,6 @@ fn main() {
     println!("cargo:rerun-if-changed=web/dist");
     println!("cargo:rerun-if-changed=web/dist/assets");
     println!("cargo:rerun-if-changed=web/dist/index.html");
+    println!("cargo:rerun-if-changed=web/public/steve.png");
+    println!("cargo:rerun-if-changed=web/public/alex.png");
 }
