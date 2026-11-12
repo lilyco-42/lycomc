@@ -168,3 +168,43 @@ cargo test（解析逻辑单测：device code / XBL / XSTS / MC token / textures
 - 构建：pnpm build exit 0（vite v8.3.7，2217 modules，最终 dist/assets/index-az2NZ5u8.js 532.48 kB、index-B3TylStv.css 87.51 kB）；pnpm lint exit 0（4 条既有脚手架 warning）；cargo build 把最终 dist 重嵌进 /home/lilyco/.cache/lilyco-build/target/debug/lycomc，strings 可见 assets/index-az2NZ5u8.js。
 - 实机浏览器（CDP，Chromium 156）：首页 / 设置页无 skeleton，canvas 皮肤头像 40x40 全部 1600 像素已绘制；资源请求确有 GET /api/accounts/Steve/skin 与 /api/skin/image?url=textures.minecraft.net/…；点击「微软正版登录」弹出真实 userCode（如 PCFSZLHK / 28SLGSVW）、14:59 倒计时、验证页链接，Escape 后 dialog 数归 0。设备码 start/poll 真实微软端点 200 / pending；/api/health embedded 正常。
 - 提交：2a054fe（后端 6 路由 + 皮肤 + 0600 凭据）、4e48efc（shadcn 登录/皮肤 UI 与账号管理）、收尾末版微调补提；工作区最终干净。合规：只对照 PCL/HMCL/Prism/SJMCL 的公开协议与行为，不复制 PCL 的 NOASSERTION 代码/UI/资源，沿用自有 lycomc/LilyCraft 名称。
+## PCL.Proto UI 复用预研与合规决策（2026-11-12 晚，m04060）
+
+### 需求 Requirement / 理解门槛
+- 用户原话：`https://github.com/PCL-Community/PCL.Proto/ 这个ui 可以抄袭`。
+- 模糊词：**抄袭**（照搬代码+资源，还是只参考视觉自研）、**这个ui**（整体 PCL 风格还是某几页）。
+- 门槛(a) 已满足：`cn.bing.com` 搜「PCL.Proto 许可 二次创作 UI 复用 PCL-Community」返回 200 / 101252 B。
+- 门槛(b) 已问未答：`ask_user_question` 给出 3 个口径（仅参考视觉自研 / 一比一复刻并接受条款 / 先做静态 UI Demo），12 s 超时无答复（与上一轮同）。
+
+### 调研 Research（真实 gh，2026-11-12）
+- `PCL-Community/PCL.Proto`：10★ / 2 forks / public / main / pushedAt 2026-11-11T07:52:43Z / licenseInfo.key=**other**（即 NOASSERTION 类，非 OSI 许可）/ 描述 *Modeled after PCL2 and PCL2-CE, with a goal of providing a standardized prototype sample for each PCL branch version*。
+- 栈：**Vue 3 + Tauri 2 + TypeScript + Bun 1.4.4 + Vite 8 + Pinia + vue-router + pug/sass**；tree 760 paths（src/views 61 / src/components 56 / src/assets 182 / crates/pcl-core 98 / public/pcl 82 / src-tauri/src 65）。版本 0.11.2。
+- 组件包 `@amagicpear/pcl-proto-components` 0.11.2 导出 PButton / PCard / PListItem / PVirtualList 等 18 个 Vue 组件；其 README 明写组件包受仓库 LICENSE 约束、分发前须审阅使用条款；package.json 的 license 字段为 SEE LICENSE IN LICENSE。
+- LICENSE 全文缓存 `/home/lilyco/.cache/pcl-proto-LICENSE.txt`（2987 B），关键约束逐字复述：
+  - 一、声明：法律上开发者仍保留所有权利（All Rights Reserved），本文件只是善意合理使用的不追责指南。
+  - 二、轻度使用：仅参考极小部分内容，**或**制作的软件与 PCL 实质功能不存在任何重叠 → 只需①适当署名 ②不得与 PCL 混淆。
+  - 三、重度使用：基于本存储库修改，或参考较大量内容以制作/重新实现 PCL 的部分实质功能（例如启动或下载 Java 版 Minecraft，下载或管理 Mod 等）→ 5 条硬约束：①明确第三方二次创作 ②**名称必须以 Plain Craft Launcher (PCL) 开头**并加后缀 ③关于页首位给出龙腾猫跃署名及赞助链接、公开源代码、继续用本指南 ④实现与 McLaunchPrecheck 一致的正版购买弹窗与赞助弹窗 ⑤Windows 主色相必须为蓝色且不得有类似赞助解锁的功能/表现。
+  - lycomc/LilyCraft 已实现「启动 MC + 下载版本 + 管理 Mod」，正是 LICENSE 举例的**重度使用**情形。
+- 旁证（对 m03957 全平台/服务器目标有用）：仓库已含 `crates/pcl-core/src/link`（mcping / discovery / scaffolding）、`crates/terracotta`、`src-tauri/tauri.{windows,macos,linux}.conf.json`、`PageSetupGameLink.vue` / `ServerCard.vue` / `MinecraftServerCard.vue`、`MS_CLIENT_ID` 正版登录配置、`io/download/range.rs` 断点续传；但**无任何 android / harmony / ohos target 或 .apk / .hap**，Tauri 仅 Win/mac/Linux 桌面。
+
+### 分析·设计 / fit 矩阵
+
+| 候选 | 与 LilyCraft 目标 fit | 投入本 | 许可/品牌风险 |
+|---|---|---|---|
+| A 参考视觉自研：保留 React 19 + shadcn + Vite，只借鉴布局/配色/信息架构/交互层级 | 中高 | 低（不回退已交付六页 UI 与 Rust 内核） | 低：不复制 .vue/.svg/.png/文案，不构成「基于本仓库修改」；稳妥做法另加署名 |
+| B fork / 安装组件包 / 整体换 Vue3+Tauri 一比一复刻 | 高（视觉还原） | 高（推翻已交付 shadcn 前端、四前端重接、引入 Bun 工具链） | **高**：触发重度使用 5 条硬约束，其中「名称必须以 PCL 开头」与 *LilyCraft / 比 PCL 更好* 品牌直接冲突 |
+| C 先出 1 页静态 PCL 风原型（不接后端） | 低（仅验视觉） | 最低 | 低；用于解除「这个ui」模糊指代 |
+
+### ROI 权衡
+- 产出值：B 视觉还原度最高，但把项目锁进 PCL 品牌 + 5 条硬约束并打破「已交付不回退」基线；A 用约 20% 投入拿到约 80% 视觉收益且保住 LilyCraft 品牌；C 用最小成本验明用户到底指哪套视觉。
+- 门槛：**A / C 过；B 不过**。硬理由：用户对第三方版权内容没有授权资格，一句「可以抄袭」不替代版权方许可；且 license=other 是 lyco 认定的合法硬约束。
+
+### 决策 Decision（本节即记录；**未写任何代码**）
+- 默认 **adopt A + 先 C**：以 PCL.Proto 为视觉参考样本，代码与资源全部自研，保留现有 React + shadcn 六页与 Rust 四前端内核；需要时先出 1 页静态原型供用户验收，再决定是否加页面/换组件粒度。
+- 明确不做：不把其 `src/` 克隆进 `web/`、不复制 `public/pcl` 图片与 SVG、不安装 `@amagicpear/pcl-proto-components`、不改名以 PCL 开头、不引入 Tauri/Bun 替换现有栈。
+- 若用户坚持 B：须先书面确认接受 5 条硬约束（改名、关于页署名赞助、公开源码、正版购买弹窗、Windows 蓝色主色相），并接受前端重写与「不回退」基线被打破，再单独立项。
+- 验收标准：对照 `screenshot.png` 的信息架构 / 卡片 / 导航层级；`pnpm build` + `pnpm lint` 通过；CDP 六页 0 skeleton；git 仅新增自研代码与 docs；本节可复核。
+
+### 验证 Verify / 源
+- `gh repo view PCL-Community/PCL.Proto`、`gh api repos/.../license`、`README-CN.md`、`packages/components/README.md` 与 `package.json`、`git/trees/main?recursive=1`（760 paths → `/home/lilyco/.cache/pcl-proto-paths.txt`）、`screenshot.png`（2572499 B → `/home/lilyco/.cache/pcl-proto-screenshot.png`）。
+- 证据缓存：`/home/lilyco/.cache/pcl-proto-{LICENSE.txt,README-CN.md,AGENTS.md,paths.txt,screenshot.png}`。
