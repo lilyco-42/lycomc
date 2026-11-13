@@ -163,7 +163,7 @@ export function SettingsPage() {
   const memoryMb = current.memoryMb;
 
   return (
-    <div>
+    <div data-motion-root>
       <PageHeader
         title="设置"
         description="修改会写回 ~/.local/share/lycomc/settings.json。"

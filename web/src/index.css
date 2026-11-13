@@ -195,3 +195,38 @@
 @utility card-soft {
   box-shadow: var(--card-shadow);
 }
+
+/* 自研 UI 动效层：卡片与控件悬停/按压、页面块入场兜底、系统级减少动效。 */
+@keyframes lc-fade-up {
+  from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes lc-zoom-in {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}
+@layer components {
+  [data-slot="card"] {
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+  [data-slot="card"]:hover {
+    transform: translateY(-2px);
+    border-color: color-mix(in oklch, var(--pcl-4) 70%, transparent);
+    box-shadow: 0 4px 14px rgb(32 59 100 / 8%), 0 22px 36px -24px rgb(22 98 182 / 48%);
+  }
+  [data-slot="card"]:active { transform: translateY(0) scale(0.995); }
+  [data-slot="button"], [role="button"], a[href^="#/"] {
+    transition: transform 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  [data-slot="button"]:active, [role="button"]:active { transform: translateY(1px) scale(0.98); }
+  [data-motion-root] > [data-motion-block] { animation: lc-fade-up 0.32s ease-out both; }
+  [data-open]:not([data-slot="card"]) { animation: lc-zoom-in 0.18s ease-out both; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

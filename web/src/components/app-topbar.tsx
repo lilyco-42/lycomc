@@ -1,3 +1,4 @@
+import { AccountMenu } from "@/components/account-menu";
 import { Badge } from "@/components/ui/badge";
 import { SkinAvatar } from "@/components/skin-avatar";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -65,17 +66,24 @@ export function AppTopbar() {
           <span className={cn("size-1.5 rounded-full", backendDown ? "bg-white/70" : "bg-white")} />
           {backendDown ? "未连接" : "已连接"}
         </Badge>
-        <div className="hidden items-center gap-2 rounded-full bg-white/95 py-1 pr-1 pl-2 text-pcl-1 shadow-sm sm:flex">
-          <span className="max-w-28 truncate text-xs font-medium">{accountName}</span>
-          <SkinAvatar
-            skinUrl={skinUrl}
-            model={skinModel}
-            size={24}
-            fallback={useBuiltinFallback}
-            title={"当前账号 " + accountName + " 的皮肤头像"}
-            className="size-6 rounded-md ring-1 ring-pcl-6"
-          />
-        </div>
+        <AccountMenu side="bottom" align="end">
+          <button
+            type="button"
+            aria-label="快速切换账号或设置默认账号"
+            title={"当前账号 " + accountName + " · 点击快速切换或设为默认账号"}
+            className="hidden items-center gap-2 rounded-full bg-white/95 py-1 pr-1 pl-2 text-pcl-1 shadow-sm transition-all hover:bg-white active:translate-y-px sm:flex"
+          >
+            <span className="max-w-28 truncate text-xs font-medium">{accountName}</span>
+            <SkinAvatar
+              skinUrl={skinUrl}
+              model={skinModel}
+              size={24}
+              fallback={useBuiltinFallback}
+              title={"当前账号 " + accountName + " 的皮肤头像"}
+              className="size-6 rounded-md ring-1 ring-pcl-6"
+            />
+          </button>
+        </AccountMenu>
         <ThemeToggle className="text-white hover:bg-white/15 hover:text-white" />
       </div>
     </header>

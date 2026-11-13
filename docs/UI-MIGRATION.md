@@ -32,7 +32,7 @@
 - 项目源码静态扫描（web/src、web/index.html、web/package.json）：旧配色命中 0；禁止资源/组件/品牌命中 0；可疑重复 class 命中 0。
 - 说明：先前一次 walk 宽口径扫描列出 18 个 web/node_modules 下的 .ts/.json/.css/.html 第三方依赖文件；再用 grep 对 node_modules 全部文件复核为 322 个命中。两者均非项目源码，node_modules 由 .gitignore 排除且不入库。
 - web/package.json 未出现 @amagicpear、tauri、bun 依赖；web/src 中允许出现的 PCL.Proto 文案仅为自研欢迎卡对视觉参考来源的披露与 docs/DECISION.md 历史决策记录，不构成复制代码或资源。
-- 本次提交文件为 35 个已修改前端/HTML 源文件 + 1 个新增 app-topbar.tsx + 本验收文档 + DECISION.md 收尾记录；web/dist 按 .gitignore 不入库，运行时由 cargo build 重新嵌入。
+- 上一轮视觉迁移提交为 35 个已修改前端/HTML 源文件 + 1 个新增 app-topbar.tsx + 本验收文档 + DECISION.md 收尾记录；web/dist 按 .gitignore 不入库，运行时由 cargo build 重新嵌入。§7 的四项缺陷修复为后续增量提交。
 
 ## 6. 证据索引（sha256 前 16 位）
 - /home/lilyco/.cache/lycomc-cdp/all-home.png · 263409 B · fb0ffcad44279717
@@ -47,6 +47,38 @@
 - web/dist/assets/index-DSae8eCO.css · 83889 B · ef17193d0c15a887
 - web/dist/assets/index-D5GAFr5g.js · 542446 B · 5659bf15769773de
 
-## 7. 结论
-- 在「参考视觉、代码自研、不照搬」口径下，现有全部 Web UI 已完成 PCL.Proto 风格迁移并通过构建、单测、运行服务、CDP 六页与交互冒烟验收。
-- 结论仅覆盖视觉迁移；不宣称达到 m03957 的「比 PCL 更好」、全平台四端打包、服务器游玩或四平台实机演示。
+## 7. 四项 UI 缺陷修复与 P0 契约复验（2026-11-13 20:48 +08:00）
+
+### 7.1 修复范围
+- ① 当前账号由 AppDataProvider 提升为会话级全局状态：快速切换时顶栏、侧栏左下角、主页账号 Select、皮肤头像、账号类型同步变化；原 home-page 局部 pickedAccount 与写死 accounts[0] 已移除。
+- ② 默认账号由后端 settings.json 的 `defaultAccount` 持久化：左下角与顶栏共用自研 AccountMenu；「设为默认」走 `POST /api/accounts/:name/default`，「清除默认（回退第一项）」走 `PUT /api/settings {defaultAccount:null}`；CLI `settings-set --default-account` 与 launch 缺省解析同步接入。
+- ③ 启动器 / 社区资源分组与顶栏导航全部使用 lucide / 自研 SVG 真实图标，删除 4 个纯边框 span 占位。
+- ④ 自研 Web Animations API 页面切换层与 CSS @keyframes：退场 70ms / stagger 15ms / translateY(-6px)，入场 600ms / stagger 60ms（封顶 240ms）/ translateY(-20px)，卡片悬停与按压反馈，快速连点共享一次退出，异常恢复 pointerEvents，`prefers-reduced-motion: reduce` 跳过动画。数值与时序参考 PCL.Proto 公开行为，代码、CSS、资源全部自研。
+
+### 7.2 真实缺陷：显式 null 被当成字段缺失
+- 第一次 `/home/lilyco/.cache/lycomc-cdp/four-fixes.mjs` 实测 13 项中 10 项通过、3 项失败：点击「清除默认」后 API、磁盘、/api/state、刷新后账号均未回退；`original_default_restored=false`。
+- 可逆 HTTP 探针证明 `PUT {defaultAccount:null}` 返回 200 却不清空，`javaPath:null` 与 `selectVersion:null` 同样失效。根因：`SettingsPatch` 裸 `Option<Option<String>>` 让 serde 把 present null 与 missing 都解成外层 `None`，`apply` 中 `if let Some(v)` 不触发。
+- 修复：三个可空字段加 `#[serde(default, deserialize_with = "double_option")]`；`double_option` 用 `Option::<T>::deserialize(deserializer).map(Some)` 使 present null → `Some(None)`、missing → `None`。新增 4 个 `settings_patch_tests`：字段缺失保持原值、三个显式 null 同时清空、显式值更新、只清空请求的单个字段。
+
+### 7.3 复验矩阵（以 2026-11-13 20:51 +08:00 最终复跑结果为准）
+| 检查 | 规模 | 结果 |
+|---|---|---|
+| `cargo test --no-fail-fast` | 25 用例 | 25 passed / 0 failed（含 4 个 SettingsPatch + 4 个默认账号 + 2 个 Range 续传） |
+| `cargo build` | dev 二进制 | Finished dev 2.54s；36,245,320 B；`build.rs` 重新嵌入当前 dist |
+| `pnpm build` / `pnpm lint` | Vite + oxlint | build status 0；lint 0 errors / 4 条既有脚手架 warnings，新增文件 0 warning |
+| HTTP 语义探针 | 9 次 PUT + GET/state/磁盘复核 | missing 保持值；三个显式 null 同时清空；单字段 null 只清该字段；显式值写入；最终还原 `javaPath=null / selectVersion=fabric-loader-0.20.1-1.20.1 / defaultAccount=null` |
+| CDP 六页基线 | 6 路由 + 截图 | title 全部 LilyCraft；CDP 记录 state/events/health/remote versions/Modrinth/mods/skin 请求 |
+| CDP 四项交互 | 13 checks + 5 截图 | **13/13 checks=true，error=null**；包括快速切换四处同步、设默认 API/磁盘/刷新保持、清除默认 API/磁盘/state/刷新回退、真实图标、退/入场动画、reduced-motion 跳过、原始默认账号复原 |
+
+### 7.4 本轮证据（sha256 前 16 位）
+- `four-fixes-result.json` · 13 checks all true · `/home/lilyco/.cache/lycomc-cdp/four-fixes-result.json`
+- `four-fixes-account-menu.png` · 270506 B · 4a3bc316caec5d96
+- `four-fixes-switched.png` · 269160 B · 7528e5e1f90f66dd
+- `four-fixes-default-set.png` · 268773 B · 0ea72163114acfa6
+- `four-fixes-motion-versions.png` · 287526 B · 9507b6e8b739bd09
+- `four-fixes-motion-reduced.png` · 263734 B · 29f9055da11f2eac
+- 注意：§3 的 17 单测 / index-D5GAFr5g.js、§6 的早期截图属于上一轮视觉迁移基线；本轮以 §7 的 25 单测、`index-DxeAKsbK.js` 与四项交互 CDP 为准。
+
+## 8. 结论
+- 在「参考视觉、代码自研、不照搬」口径下，现有全部 Web UI 已完成 PCL.Proto 风格迁移；四项交互缺陷已修复并通过 13/13 CDP + HTTP 契约复验，期间发现并修复显式 null 的 P0。
+- 结论仅覆盖视觉与现有 UI 交互；不宣称达到 m03957 的「比 PCL 更好」、全平台四端打包、服务器游玩或四平台实机演示。

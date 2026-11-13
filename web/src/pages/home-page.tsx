@@ -62,11 +62,11 @@ export function HomePage() {
     selectedVersion,
     currentAccount,
     saveSettings,
+    switchAccount,
   } = useAppData();
 
-  // 账号：用户没手动挑过就跟随全局第一个（派生，无需 effect）
-  const [pickedAccount, setPickedAccount] = useState<string | null>(null);
-  const accountName = pickedAccount ?? currentAccount?.name ?? "";
+  // 账号显示统一跟随全局当前账号；主页 Select / 侧栏菜单 / 顶栏药丸共用同一份状态。
+  const accountName = currentAccount?.name ?? "";
   const skinKey = currentAccount !== null ? skinKeyFor(currentAccount) : "";
   const { data: skin } = useKeyedFetch<AccountSkin>(skinKey, loadAccountSkinByKey);
   const skinUrl = skin?.skinUrl ?? currentAccount?.skinUrl ?? null;
@@ -186,7 +186,7 @@ export function HomePage() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5" data-motion-root>
       {backendDown ? <BackendNotice onRetry={reload} retrying={loading} /> : null}
       {error !== null && !backendDown ? (
         <div className="card-soft flex items-center gap-2 rounded-xl border border-destructive/30 bg-card px-3 py-2 text-sm text-destructive">
@@ -240,7 +240,7 @@ export function HomePage() {
                 ) : null}
 
                 {accounts.length > 0 ? (
-                  <Select value={accountName} onValueChange={setPickedAccount}>
+                  <Select value={accountName} onValueChange={switchAccount}>
                     <SelectTrigger size="sm" className="w-full justify-start bg-pcl-8/60 dark:bg-muted">
                       <UserRound className="size-3.5 text-primary" />
                       <SelectValue placeholder="选择账号" />

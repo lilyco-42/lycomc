@@ -24,6 +24,8 @@ export interface Settings {
   closeOnLaunch: boolean;
   /** 游戏内语言（启动时写入 options.txt 的 lang），如 zh_cn / en_us */
   gameLang?: string;
+  /** 默认账号名：启动时未显式指定账号就用它；null = 账号列表第一项 */
+  defaultAccount: string | null;
 }
 
 export type AccountKind = "offline" | "microsoft";
@@ -326,6 +328,10 @@ export const api = {
 
   deleteAccount: (name: string) =>
     request<OkResponse>("/api/accounts/" + encodeURIComponent(name), { method: "DELETE" }),
+
+  /** 把账号设为默认（下次启动不指定账号时用它），返回最新设置 */
+  setDefaultAccount: (name: string) =>
+    request<Settings>("/api/accounts/" + encodeURIComponent(name) + "/default", jsonBody({})),
 
   /** ===== 微软正版登录（设备代码流程） ===== */
   microsoftStart: () =>

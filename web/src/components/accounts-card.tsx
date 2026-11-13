@@ -7,6 +7,7 @@ import {
   LogOut,
   RefreshCw,
   ShieldCheck,
+  Star,
   Trash2,
   UserPlus,
   UserRound,
@@ -29,22 +30,24 @@ import { useKeyedFetch } from "@/lib/use-keyed-fetch";
 
 interface AccountRowProps {
   account: Account;
-  index: number;
+  isDefault: boolean;
   busyKey: string | null;
   onRemove: (account: Account) => void;
   onRefresh: (account: Account) => void;
   onLogout: (account: Account) => void;
+  onSetDefault: (account: Account) => void;
   onAccountsChanged: () => void;
 }
 
 /** 单个账号：皮肤头像、类型徽章、正版会话操作与离线删除。 */
 function AccountRow({
   account,
-  index,
+  isDefault,
   busyKey,
   onRemove,
   onRefresh,
   onLogout,
+  onSetDefault,
   onAccountsChanged,
 }: AccountRowProps) {
   const { data: skin, loading: skinLoading, error: skinError } =
@@ -60,6 +63,7 @@ function AccountRow({
   const refreshing = busyKey === account.name + ":refresh";
   const loggingOut = busyKey === account.name + ":logout";
   const removing = busyKey === account.name + ":remove";
+  const defaulting = busyKey === account.name + ":default";
 
   return (
     <div className="rounded-xl border border-border bg-pcl-8/50 dark:bg-muted/40 p-2.5">
@@ -75,7 +79,7 @@ function AccountRow({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-1.5">
             <p className="truncate text-sm font-medium">{account.name}</p>
-            {index === 0 ? (
+            {isDefault ? (
               <Badge variant="outline" className="h-4 gap-0.5 px-1 text-[10px] text-pcl-2 dark:text-pcl-5">
                 <CircleCheck />
                 默认
@@ -124,6 +128,18 @@ function AccountRow({
                 onDone={onAccountsChanged}
               />
             </>
+          ) : null}
+          {!isDefault ? (
+            <Button
+              variant="outline"
+              size="xs"
+              disabled={defaulting || removing || refreshing || loggingOut}
+              onClick={() => { onSetDefault(account); }}
+              title="设为默认账号（下次启动未指定账号时用它）"
+            >
+              {defaulting ? <Loader2 className="animate-spin" /> : <Star />}
+              设为默认
+            </Button>
           ) : null}
           {isMicrosoft ? (
             <Button
@@ -211,11 +227,27 @@ function AccountRow({
 
 /** 账号管理：离线增删 + 微软正版登录 / 刷新 / 退出 + 皮肤展示。 */
 export function AccountsCard() {
-  const { accounts, patchAccounts, reload, backendDown } = useAppData();
+  const { accounts, patchAccounts, reload, backendDown, defaultAccount, setDefaultAccount } = useAppData();
+  // 默认账号：显式设置优先，否则回退账号列表第一项（与后端 resolve_account_name 一致）
+  const defaultName = (defaultAccount !== null && accounts.some((item) => item.name === defaultAccount))
+    ? defaultAccount
+    : (accounts[0]?.name ?? null);
   const [name, setName] = useState("");
   const [creating, setCreating] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
+
+  const handleSetDefault = useCallback(async (account: Account) => {
+    setBusyKey(account.name + ":default");
+    try {
+      await setDefaultAccount(account.name);
+      toast.success("已把 " + account.name + " 设为默认账号");
+    } catch (cause: unknown) {
+      toast.error("设为默认账号失败", { description: errorMessage(cause) });
+    } finally {
+      setBusyKey(null);
+    }
+  }, [setDefaultAccount]);
 
   const handleCreate = useCallback(async () => {
     const trimmed = name.trim();
@@ -359,15 +391,16 @@ export function AccountsCard() {
             }
           />
         ) : (
-          accounts.map((account, index) => (
+          accounts.map((account) => (
             <AccountRow
               key={account.name}
               account={account}
-              index={index}
+              isDefault={defaultName === account.name}
               busyKey={busyKey}
               onRemove={(target) => { void handleRemove(target); }}
               onRefresh={(target) => { void handleRefresh(target); }}
               onLogout={(target) => { void handleLogout(target); }}
+              onSetDefault={(target) => { void handleSetDefault(target); }}
               onAccountsChanged={handleAccountsChanged}
             />
           ))

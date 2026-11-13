@@ -181,6 +181,7 @@ export const DEFAULT_SETTINGS: Settings = {
   maxConcurrent: 8,
   closeOnLaunch: false,
   gameLang: "zh_cn",
+  defaultAccount: null,
 };
 
 export function normalizeSettings(raw: unknown): Settings {
@@ -200,6 +201,7 @@ export function normalizeSettings(raw: unknown): Settings {
     maxConcurrent: num(raw["maxConcurrent"], DEFAULT_SETTINGS.maxConcurrent),
     closeOnLaunch: raw["closeOnLaunch"] === true,
     gameLang: str(raw["gameLang"]) ?? DEFAULT_SETTINGS.gameLang,
+    defaultAccount: str(raw["defaultAccount"]),
   };
 }
 

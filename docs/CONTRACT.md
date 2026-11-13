@@ -28,6 +28,7 @@ GET    /api/accounts                   -> {accounts:Account[]}（绝不包含 to
 POST   /api/accounts                   body {name} -> Account（新增离线账号）
 DELETE /api/accounts/:name             -> {ok}
 GET    /api/accounts/:name/skin        -> SkinInfo
+POST   /api/accounts/:name/default      -> Settings（把已存在账号设为默认，写回 settings.json）
 POST   /api/auth/microsoft/start       body {} -> {userCode,verificationUri,expiresIn,interval,message}（设备码只在内存，不下发）
 POST   /api/auth/microsoft/poll        body {} -> {status:"pending",interval,message} | {status:"done",account:Account} | {status:"expired",message}
 POST   /api/auth/microsoft/refresh     body {name} -> {account:Account}
@@ -38,7 +39,7 @@ POST   /api/mods/install               body {versionId, projectId} -> {jobId}
 GET    /api/mods?versionId=            -> {mods:[{file,name,size}]}
 POST   /api/mods/remove                body {versionId,file} -> {ok}
 GET    /api/settings                   -> Settings
-PUT    /api/settings                   -> Settings（部分更新：只改请求体里出现的键，缺省字段保持原值；显式传 null 才清空 javaPath / selectVersion）
+PUT    /api/settings                   -> Settings（部分更新：只改请求体里出现的键，缺省字段保持原值；显式传 null 才清空 javaPath / selectVersion / defaultAccount）
 POST   /api/localize                   body {versionId} -> {jobId}（异步汉化：写 lang + 下载并启用汉化资源包，进度走 /api/events）
 GET    /api/logs/:versionId            -> {lines:string[]}
 
@@ -55,8 +56,9 @@ SkinInfo = {name, uuid, skinUrl?, capeUrl?, skinModel:"classic"|"slim",
 // hasSession 仅表示「微软正版登录态是否有效」；离线账号恒为 false、无需登录且永远可启动。
 // kind="microsoft" 且 hasSession=false 时 UI 才显示「需重新登录」；启动前后端自动 refresh，失败则明确报错。
 // kind="microsoft" 且 entitled=false 时 UI 按 PCL 的购买劝导显示「未检测到正版授权，请购买 Minecraft」，不阻止离线启动。
-Settings = {memoryMb, javaPath?, extraJvmArgs[], selectVersion?, downloadSource:"mojang"|"bmcl", maxConcurrent, closeOnLaunch, gameLang:string}
+Settings = {memoryMb, javaPath?, extraJvmArgs[], selectVersion?, downloadSource:"mojang"|"bmcl", maxConcurrent, closeOnLaunch, gameLang:string, defaultAccount?:string|null}
 // gameLang 默认 "zh_cn"，只允许 [a-z_]；启动前由 launch::prepare 写入实例 options.txt 的 lang 行
+// defaultAccount = null 时启动缺省取账号列表第一项；PUT /api/settings 用 double_option 区分字段缺失与显式 null，显式 null 才清空可空字段
 // downloadSource 默认 "bmcl"（国内镜像），已在磁盘上的 settings.json 不受默认值变更影响；"mojang" = 全官方直连
 Job = {id, kind, title, state:"running"|"done"|"error", progress:0-100, message, logs[], result?, createdAt}
 
@@ -84,3 +86,5 @@ Job = {id, kind, title, state:"running"|"done"|"error", progress:0-100, message,
   CLI/TUI/MCP 启动前同样自动续期。client id 默认公开常量，可用 LYCOMC_MS_CLIENT_ID 覆盖。
   详见 DECISION.md「P0 补做：对照 PCL 的账号体系与皮肤展示」。
 - 2026-11-11 修 MCIM 版本列表顺序过期：`pick_version` 改按 `date_published` 降序挑最新（不再信任数组顺序），避免镜像优先时装回旧版 Mod。仅影响「装 Mod / 汉化包」选中的版本，API 形状不变。
+- 2026-11-13 新增默认账号：Settings 增加 `defaultAccount?:string|null`（旧 settings.json 缺省按 null 兼容）；新增 `POST /api/accounts/:name/default`，launch 与 CLI 缺省账号按 defaultAccount → 账号列表第一项 → Steve 解析；当前账号快速切换只保留在前端会话，不落盘。
+- 2026-11-13 P0 契约修复：`PUT /api/settings` 的 javaPath / selectVersion / defaultAccount 三个可空字段改用 serde `double_option`，区分字段缺失（保持原值）与显式 JSON null（清空）。CDP 与可逆 HTTP 探针复验 13/13、9 次 PUT 语义通过；详见 docs/UI-MIGRATION.md §7 与 docs/DECISION.md「交互验收发现的 P0」。

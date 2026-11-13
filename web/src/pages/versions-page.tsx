@@ -171,7 +171,7 @@ export function VersionsPage() {
   );
 
   return (
-    <div>
+    <div data-motion-root>
       <PageHeader
         title="版本管理"
         description="已安装的客户端实例；原版直接可用，Fabric 复用父版本的资源与库。"

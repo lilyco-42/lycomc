@@ -45,6 +45,8 @@ export function AppDataProvider({ children }: AppDataProviderProps) {
   const [request, setRequest] = useState<RemoteRequest | null>(null);
   const [result, setResult] = useState<RemoteResult | null>(null);
   const [remoteError, setRemoteError] = useState<string | null>(null);
+  // 会话级快速切换（不持久化）：null = 跟随 defaultAccount / 列表首项
+  const [selectedName, setSelectedName] = useState<string | null>(null);
 
   const mountedRef = useRef(true);
   const requestSeqRef = useRef(0);
@@ -185,7 +187,37 @@ export function AppDataProvider({ children }: AppDataProviderProps) {
     return versions[0] ?? null;
   }, [versions, selectVersion]);
 
-  const currentAccount = accounts[0] ?? null;
+  const defaultAccount = settings?.defaultAccount ?? null;
+  const currentAccount = useMemo<Account | null>(() => {
+    if (accounts.length === 0) {
+      return null;
+    }
+    const target = selectedName ?? defaultAccount;
+    if (target !== null) {
+      const picked = accounts.find((account) => account.name === target);
+      if (picked !== undefined) {
+        return picked;
+      }
+    }
+    return accounts[0] ?? null;
+  }, [accounts, defaultAccount, selectedName]);
+
+  /** 快速切换（仅当前会话）：顶栏/侧栏/主页同步显示，不改动持久化默认账号。 */
+  const switchAccount = useCallback((name: string): void => {
+    setSelectedName(name);
+  }, []);
+
+  /** 设为默认账号（持久化到 settings.json，同时把当前显示切到该账号）。 */
+  const setDefaultAccount = useCallback(
+    async (name: string): Promise<Settings> => {
+      const saved = normalizeSettings(await api.setDefaultAccount(name));
+      setState((previous) => (previous === null ? previous : { ...previous, settings: saved }));
+      setSelectedName(name);
+      return saved;
+    },
+    [],
+  );
+
   const remoteLoading = request !== null && (result === null || result.nonce !== request.nonce);
 
   const value = useMemo<AppDataValue>(
@@ -208,7 +240,10 @@ export function AppDataProvider({ children }: AppDataProviderProps) {
       remoteError,
       reloadRemote,
       selectedVersion,
+      defaultAccount,
       currentAccount,
+      switchAccount,
+      setDefaultAccount,
     }),
     [
       settings,
@@ -229,7 +264,10 @@ export function AppDataProvider({ children }: AppDataProviderProps) {
       remoteError,
       reloadRemote,
       selectedVersion,
+      defaultAccount,
       currentAccount,
+      switchAccount,
+      setDefaultAccount,
     ],
   );
 

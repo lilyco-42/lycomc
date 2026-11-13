@@ -14,12 +14,14 @@ use axum::response::sse::{Event as SseEvent, KeepAlive, Sse};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{delete, get, post};
 use axum::{Json, Router};
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 use serde_json::{json, Value};
 use tokio::sync::broadcast;
 
 use crate::jobs::{now_ms, Job, JobStore};
-use crate::mc::{self, auth, fabric, install, java, launch, localize, meta, modrinth, options, paths, Progress};
+use crate::mc::{
+    self, auth, fabric, install, java, launch, localize, meta, modrinth, options, paths, Progress,
+};
 use crate::settings::{self, Account, Settings};
 
 // ── 错误形态 ───────────────────────────────────────────────────
@@ -32,13 +34,22 @@ pub struct ApiError {
 
 impl ApiError {
     fn bad(msg: impl Into<String>) -> Self {
-        Self { status: StatusCode::BAD_REQUEST, message: msg.into() }
+        Self {
+            status: StatusCode::BAD_REQUEST,
+            message: msg.into(),
+        }
     }
     fn not_found(msg: impl Into<String>) -> Self {
-        Self { status: StatusCode::NOT_FOUND, message: msg.into() }
+        Self {
+            status: StatusCode::NOT_FOUND,
+            message: msg.into(),
+        }
     }
     fn internal(msg: impl Into<String>) -> Self {
-        Self { status: StatusCode::INTERNAL_SERVER_ERROR, message: msg.into() }
+        Self {
+            status: StatusCode::INTERNAL_SERVER_ERROR,
+            message: msg.into(),
+        }
     }
 }
 
@@ -108,7 +119,10 @@ pub fn router(state: AppState) -> Router {
         .route("/api/state", get(state_all))
         .route("/api/remote/versions", get(remote_versions))
         .route("/api/versions/install", post(install_version))
-        .route("/api/versions/{id}", get(get_version).delete(delete_version))
+        .route(
+            "/api/versions/{id}",
+            get(get_version).delete(delete_version),
+        )
         .route("/api/launch", post(do_launch))
         .route("/api/launch/{pid}/kill", post(kill_launch))
         .route("/api/jobs/{id}", get(get_job))
@@ -117,6 +131,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/accounts", get(list_accounts).post(add_account))
         .route("/api/accounts/{name}", delete(del_account))
         .route("/api/accounts/{name}/skin", get(account_skin))
+        .route("/api/accounts/{name}/default", post(set_default_account))
         .route("/api/auth/microsoft/start", post(ms_start))
         .route("/api/auth/microsoft/poll", post(ms_poll))
         .route("/api/auth/microsoft/refresh", post(ms_refresh))
@@ -170,7 +185,10 @@ fn version_info(id: &str) -> Option<Value> {
 }
 
 fn installed_versions() -> Vec<Value> {
-    install::installed_ids().iter().filter_map(|id| version_info(id)).collect()
+    install::installed_ids()
+        .iter()
+        .filter_map(|id| version_info(id))
+        .collect()
 }
 
 fn running_list(st: &AppState) -> Vec<Value> {
@@ -237,7 +255,9 @@ async fn remote_versions(
         }
     }
     let s = st.settings();
-    let m = meta::manifest(s.source(), force).await.map_err(ApiError::internal)?;
+    let m = meta::manifest(s.source(), force)
+        .await
+        .map_err(ApiError::internal)?;
     let versions: Vec<Value> = m
         .versions
         .iter()
@@ -287,7 +307,11 @@ async fn install_version(
     let s = st.settings();
     let fabric_want = req.fabric.unwrap_or(false);
     let loader = req.loader.clone();
-    let title = if fabric_want { format!("安装 Fabric {id}") } else { format!("安装 {id}") };
+    let title = if fabric_want {
+        format!("安装 Fabric {id}")
+    } else {
+        format!("安装 {id}")
+    };
     let job = st.jobs.create("install", title);
     let st2 = st.clone();
     let job2 = job.clone();
@@ -389,7 +413,7 @@ async fn do_launch(
     let name = req
         .account_name
         .filter(|n| !n.trim().is_empty())
-        .or_else(|| settings::load_accounts().first().map(|a| a.name.clone()))
+        .or_else(|| settings::resolve_account_name(&s))
         .unwrap_or_else(|| "Steve".to_string());
     let acc = settings::find_account(&name).unwrap_or_else(|| Account::offline(&name));
     // 正版账号启动前自动续期；过期且刷新失败就明确报错，不再静默拿旧 token 启动。
@@ -421,7 +445,8 @@ async fn do_launch(
         if let Ok(mut w) = st2.last_cmd.write() {
             *w = Some(prepared.display_cmd());
         }
-        st2.jobs.log(&job2, format!("命令: {}", prepared.display_cmd()));
+        st2.jobs
+            .log(&job2, format!("命令: {}", prepared.display_cmd()));
         match launch::spawn(&prepared) {
             Ok(child) => {
                 let pid = child.id();
@@ -465,7 +490,10 @@ pub fn set_global_running(r: Arc<RwLock<HashMap<u32, Running>>>) {
 
 pub fn reap(pid: u32, code: Option<i32>) {
     if let Some(r) = GLOBAL_RUNNING.get() {
-        let log_path = r.read().ok().and_then(|g| g.get(&pid).map(|x| x.log_path.clone()));
+        let log_path = r
+            .read()
+            .ok()
+            .and_then(|g| g.get(&pid).map(|x| x.log_path.clone()));
         if let Ok(mut w) = r.write() {
             w.remove(&pid);
         }
@@ -489,7 +517,11 @@ async fn kill_launch(
     State(st): State<AppState>,
     Path(pid): Path<u32>,
 ) -> Result<Json<Value>, ApiError> {
-    let known = st.running.read().map(|g| g.contains_key(&pid)).unwrap_or(false);
+    let known = st
+        .running
+        .read()
+        .map(|g| g.contains_key(&pid))
+        .unwrap_or(false);
     if !known {
         return Err(ApiError::not_found(format!("没有 pid {pid} 的游戏进程")));
     }
@@ -500,7 +532,11 @@ async fn kill_launch(
     let st2 = st.clone();
     tokio::spawn(async move {
         tokio::time::sleep(std::time::Duration::from_secs(3)).await;
-        let still = st2.running.read().map(|g| g.contains_key(&pid)).unwrap_or(false);
+        let still = st2
+            .running
+            .read()
+            .map(|g| g.contains_key(&pid))
+            .unwrap_or(false);
         if still {
             unsafe {
                 libc::kill(pid as i32, libc::SIGKILL);
@@ -516,7 +552,10 @@ async fn get_job(
     State(st): State<AppState>,
     Path(id): Path<String>,
 ) -> Result<Json<Job>, ApiError> {
-    st.jobs.get(&id).map(Json).ok_or_else(|| ApiError::not_found(format!("任务不存在: {id}")))
+    st.jobs
+        .get(&id)
+        .map(Json)
+        .ok_or_else(|| ApiError::not_found(format!("任务不存在: {id}")))
 }
 
 async fn list_jobs(State(st): State<AppState>) -> Json<Value> {
@@ -575,12 +614,29 @@ struct AccountReq {
 }
 
 async fn add_account(Json(req): Json<AccountReq>) -> Result<Json<Account>, ApiError> {
-    settings::add_account(&req.name).map(Json).map_err(ApiError::bad)
+    settings::add_account(&req.name)
+        .map(Json)
+        .map_err(ApiError::bad)
 }
 
-async fn del_account(Path(name): Path<String>) -> Result<Json<Value>, ApiError> {
+async fn del_account(
+    State(st): State<AppState>,
+    Path(name): Path<String>,
+) -> Result<Json<Value>, ApiError> {
     settings::remove_account(&name).map_err(ApiError::bad)?;
+    // 删掉的若是默认账号，remove_account 已清理 settings.json，这里同步内存快照。
+    st.set_settings(settings::load());
     Ok(Json(json!({ "ok": true })))
+}
+
+/// 把某个已存在的账号设为默认账号（下次启动不指定账号时用它）。
+async fn set_default_account(
+    State(st): State<AppState>,
+    Path(name): Path<String>,
+) -> Result<Json<Settings>, ApiError> {
+    let saved = settings::set_default_account(&name).map_err(ApiError::bad)?;
+    st.set_settings(saved.clone());
+    Ok(Json(saved))
 }
 // ── 微软正版登录 / 皮肤 ──────────────────────────────────────
 
@@ -613,7 +669,10 @@ async fn ms_logout(Json(req): Json<NameReq>) -> Result<Json<Value>, ApiError> {
 }
 
 async fn account_skin(Path(name): Path<String>) -> Result<Json<Value>, ApiError> {
-    auth::skin_for(&name).await.map(Json).map_err(ApiError::internal)
+    auth::skin_for(&name)
+        .await
+        .map(Json)
+        .map_err(ApiError::internal)
 }
 
 #[derive(Default, Deserialize)]
@@ -629,8 +688,10 @@ async fn skin_image(Query(q): Query<SkinImageQ>) -> Response {
     let mut resp = (StatusCode::OK, body).into_response();
     resp.headers_mut()
         .insert(header::CONTENT_TYPE, HeaderValue::from_static("image/png"));
-    resp.headers_mut()
-        .insert(header::CACHE_CONTROL, HeaderValue::from_static("public, max-age=300"));
+    resp.headers_mut().insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("public, max-age=300"),
+    );
     resp
 }
 
@@ -703,7 +764,9 @@ async fn mod_install(
     }
     let gv = game_version_of(&req.version_id);
     let loader = loader_of(&req.version_id).to_string();
-    let job = st.jobs.create("mods", format!("安装模组 {}", req.project_id));
+    let job = st
+        .jobs
+        .create("mods", format!("安装模组 {}", req.project_id));
     let st2 = st.clone();
     let job2 = job.clone();
     let vid = req.version_id.clone();
@@ -711,7 +774,9 @@ async fn mod_install(
     tokio::spawn(async move {
         let sink = st2.sink(&job2);
         match modrinth::install_mod(&vid, &pid, &gv, &loader, &*sink).await {
-            Ok(p) => st2.jobs.done(&job2, json!({ "file": p.display().to_string() })),
+            Ok(p) => st2
+                .jobs
+                .done(&job2, json!({ "file": p.display().to_string() })),
             Err(e) => st2.jobs.fail(&job2, e),
         }
     });
@@ -747,17 +812,35 @@ async fn get_settings(State(st): State<AppState>) -> Json<Settings> {
 /// Option：缺省 = 保持原值。若直接用 Json<Settings>，serde 的 #[serde(default)]
 /// 会把没传的字段一律拉回默认值——用户改一下内存就会把 selectVersion 清空、
 /// 在版本页切实例又会把内存从 6G 打回 4G。
+///
+/// 注意：可空字段不能只声明成 Option<Option<T>>。serde 会把「显式 JSON null」
+/// 与「字段缺失」都解成外层 None，导致 PUT {javaPath:null} 被当成不更新。
+/// 这里用 double_option 把 present null 解成 Some(None)，missing 仍是 None。
 #[derive(Deserialize, Default)]
 #[serde(rename_all = "camelCase", default)]
 struct SettingsPatch {
     memory_mb: Option<u32>,
+    #[serde(default, deserialize_with = "double_option")]
     java_path: Option<Option<String>>,
     extra_jvm_args: Option<Vec<String>>,
+    #[serde(default, deserialize_with = "double_option")]
     select_version: Option<Option<String>>,
     download_source: Option<String>,
     max_concurrent: Option<usize>,
     close_on_launch: Option<bool>,
     game_lang: Option<String>,
+    #[serde(default, deserialize_with = "double_option")]
+    default_account: Option<Option<String>>,
+}
+
+/// serde 的 Option<Option<T>> 不能直接区分 missing 与 present null：
+/// 两者都会落到外层 None。显式字段反序列化后包一层 Some，apply 就能精确清空。
+fn double_option<'de, T, D>(deserializer: D) -> Result<Option<Option<T>>, D::Error>
+where
+    T: Deserialize<'de>,
+    D: Deserializer<'de>,
+{
+    Option::<T>::deserialize(deserializer).map(Some)
 }
 
 impl SettingsPatch {
@@ -785,6 +868,9 @@ impl SettingsPatch {
         }
         if let Some(v) = self.game_lang {
             s.game_lang = v;
+        }
+        if let Some(v) = self.default_account {
+            s.default_account = v;
         }
         s
     }
@@ -831,16 +917,9 @@ async fn get_version(
     Ok(Json(info))
 }
 
-async fn get_logs(
-    State(st): State<AppState>,
-    Path(id): Path<String>,
-) -> Json<Value> {
+async fn get_logs(State(st): State<AppState>, Path(id): Path<String>) -> Json<Value> {
     // 优先给「正在跑的那个进程」的日志，否则给最新一份历史日志
-    let running_log = st
-        .running
-        .read()
-        .ok()
-        .and_then(|g| {
+    let running_log = st.running.read().ok().and_then(|g| {
             g.values()
                 .filter(|r| r.version_id == id)
                 .max_by_key(|r| r.started_at)
@@ -903,7 +982,11 @@ async fn static_file(uri: Uri) -> Response {
                 .insert(header::CACHE_CONTROL, HeaderValue::from_static(cache));
             resp
         }
-        None => (StatusCode::NOT_FOUND, Json(json!({ "error": "页面不存在" }))).into_response(),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": "页面不存在" })),
+        )
+            .into_response(),
     }
 }
 
@@ -925,7 +1008,9 @@ fn state_file() -> PathBuf {
 }
 
 fn remembered_port() -> Option<u16> {
-    std::fs::read_to_string(state_file()).ok().and_then(|t| t.trim().parse::<u16>().ok())
+    std::fs::read_to_string(state_file())
+        .ok()
+        .and_then(|t| t.trim().parse::<u16>().ok())
 }
 
 fn remember_port(p: u16) {
@@ -954,7 +1039,10 @@ async fn alive_at(p: u16) -> bool {
 }
 
 fn maybe_open_browser(url: &str) {
-    if std::env::var("LYCOMC_NO_OPEN").map(|v| v == "1").unwrap_or(false) {
+    if std::env::var("LYCOMC_NO_OPEN")
+        .map(|v| v == "1")
+        .unwrap_or(false)
+    {
         return;
     }
     if std::env::var("DISPLAY").is_err() && std::env::var("WAYLAND_DISPLAY").is_err() {
@@ -1023,4 +1111,61 @@ pub fn serve() {
             eprintln!("lycomc: HTTP 服务异常退出: {e}");
         }
     });
+}
+
+#[cfg(test)]
+mod settings_patch_tests {
+    use super::*;
+
+    fn baseline() -> Settings {
+        let mut s = Settings::default();
+        s.memory_mb = 6144;
+        s.java_path = Some("/usr/bin/java".to_string());
+        s.select_version = Some("1.20.1".to_string());
+        s.default_account = Some("Steve".to_string());
+        s
+    }
+
+    #[test]
+    fn missing_nullable_fields_keep_existing_values() {
+        let patch: SettingsPatch = serde_json::from_str(r#"{"memoryMb":8192}"#).unwrap();
+        let s = patch.apply(baseline());
+        assert_eq!(s.memory_mb, 8192);
+        assert_eq!(s.java_path.as_deref(), Some("/usr/bin/java"));
+        assert_eq!(s.select_version.as_deref(), Some("1.20.1"));
+        assert_eq!(s.default_account.as_deref(), Some("Steve"));
+    }
+
+    #[test]
+    fn explicit_null_clears_all_nullable_fields() {
+        let patch: SettingsPatch =
+            serde_json::from_str(r#"{"javaPath":null,"selectVersion":null,"defaultAccount":null}"#)
+                .unwrap();
+        let s = patch.apply(baseline());
+        assert_eq!(s.java_path, None);
+        assert_eq!(s.select_version, None);
+        assert_eq!(s.default_account, None);
+        assert_eq!(s.memory_mb, 6144);
+    }
+
+    #[test]
+    fn explicit_values_update_nullable_fields() {
+        let patch: SettingsPatch = serde_json::from_str(
+            r#"{"javaPath":"/opt/jdk/bin/java","selectVersion":"26.3","defaultAccount":"Alex"}"#,
+        )
+        .unwrap();
+        let s = patch.apply(baseline());
+        assert_eq!(s.java_path.as_deref(), Some("/opt/jdk/bin/java"));
+        assert_eq!(s.select_version.as_deref(), Some("26.3"));
+        assert_eq!(s.default_account.as_deref(), Some("Alex"));
+    }
+
+    #[test]
+    fn explicit_null_clears_only_the_requested_nullable_field() {
+        let patch: SettingsPatch = serde_json::from_str(r#"{"defaultAccount":null}"#).unwrap();
+        let s = patch.apply(baseline());
+        assert_eq!(s.default_account, None);
+        assert_eq!(s.java_path.as_deref(), Some("/usr/bin/java"));
+        assert_eq!(s.select_version.as_deref(), Some("1.20.1"));
+    }
 }

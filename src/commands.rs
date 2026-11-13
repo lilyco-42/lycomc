@@ -34,20 +34,33 @@ fn reporter<'a>(ctx: &'a Context) -> impl Fn(Progress) + Send + Sync + 'a {
 // ── 实例 ───────────────────────────────────────────────────────
 
 #[derive(App)]
-#[app(name = "list", about = "列出已安装的实例（原版与 Fabric）", run = "run_list")]
+#[app(
+    name = "list",
+    about = "列出已安装的实例（原版与 Fabric）",
+    run = "run_list"
+)]
 pub struct ListCmd {}
 
 fn run_list(_app: &ListCmd, ctx: &Context) -> Result<Value, AppError> {
     let ids = install::installed_ids();
     if ids.is_empty() {
-        ctx.log(LogLevel::Warn, "还没有安装任何实例，先跑 lycomc install <版本>");
+        ctx.log(
+            LogLevel::Warn,
+            "还没有安装任何实例，先跑 lycomc install <版本>",
+        );
     }
     let mut items = Vec::new();
     for id in &ids {
-        let Ok((v, _)) = launch::instance_json(id) else { continue };
+        let Ok((v, _)) = launch::instance_json(id) else {
+            continue;
+        };
         let base = v.inherits_from.clone();
         let kind = if base.is_some() { "fabric" } else { "vanilla" };
-        let jv = v.java_version.as_ref().map(|j| j.major_version).unwrap_or(17);
+        let jv = v
+            .java_version
+            .as_ref()
+            .map(|j| j.major_version)
+            .unwrap_or(17);
         ctx.log(LogLevel::Info, format!("{id:<32} {kind:<8} java {jv}"));
         items.push(json!({
             "id": id,
@@ -62,7 +75,11 @@ fn run_list(_app: &ListCmd, ctx: &Context) -> Result<Value, AppError> {
 }
 
 #[derive(App)]
-#[app(name = "info", about = "查看某个实例的详情与日志位置", run = "run_info")]
+#[app(
+    name = "info",
+    about = "查看某个实例的详情与日志位置",
+    run = "run_info"
+)]
 pub struct InfoCmd {
     /// 实例 id，例如 1.20.1 或 fabric-loader-0.16.9-1.20.1
     pub version_id: String,
@@ -118,7 +135,12 @@ fn run_install(app: &InstallCmd, ctx: &Context) -> Result<Value, AppError> {
         .map(|(id, dir)| json!({ "versionId": id, "dir": dir.display().to_string() }))
         .map_err(AppError::Runtime)?
     } else {
-        block_on(install::install_vanilla(&app.version, s.source(), s.max_concurrent, &rep))
+        block_on(install::install_vanilla(
+            &app.version,
+            s.source(),
+            s.max_concurrent,
+            &rep,
+        ))
             .map(|dir| json!({ "versionId": app.version, "dir": dir.display().to_string() }))
             .map_err(AppError::Runtime)?
     };
@@ -165,7 +187,7 @@ fn run_remove(app: &RemoveCmd, ctx: &Context) -> Result<Value, AppError> {
 pub struct LaunchCmd {
     /// 实例 id
     pub version_id: String,
-    /// 账号名（离线或微软正版；默认取第一个账号，没有就用 Steve）
+    /// 账号名（离线或微软正版；默认取 settings.defaultAccount，未设则账号列表第一项，再没有用 Steve）
     pub account: Option<String>,
     /// 内存 MB（默认取设置）
     pub memory: Option<u32>,
@@ -180,10 +202,9 @@ fn run_launch(app: &LaunchCmd, ctx: &Context) -> Result<Value, AppError> {
         .account
         .clone()
         .filter(|n| !n.trim().is_empty())
-        .or_else(|| settings::load_accounts().first().map(|a| a.name.clone()))
+        .or_else(|| settings::resolve_account_name(&s))
         .unwrap_or_else(|| "Steve".to_string());
-    let acc = settings::find_account(&name)
-        .unwrap_or_else(|| settings::Account::offline(&name));
+    let acc = settings::find_account(&name).unwrap_or_else(|| settings::Account::offline(&name));
     // 正版账号启动前自动续期；命令面是同步的，这里复用同一个 block_on。
     let acc = block_on(auth::ensure_fresh(&acc)).map_err(AppError::Runtime)?;
     let opts = launch::LaunchOpts {
@@ -211,8 +232,13 @@ fn run_launch(app: &LaunchCmd, ctx: &Context) -> Result<Value, AppError> {
     }
     let mut child = launch::spawn(&prepared).map_err(AppError::Runtime)?;
     let pid = child.id();
-    ctx.log(LogLevel::Info, format!("已启动，pid={pid}，日志 {}", prepared.log_path.display()));
-    let status = child.wait().map_err(|e| AppError::Runtime(format!("等待进程失败: {e}")))?;
+    ctx.log(
+        LogLevel::Info,
+        format!("已启动，pid={pid}，日志 {}", prepared.log_path.display()),
+    );
+    let status = child
+        .wait()
+        .map_err(|e| AppError::Runtime(format!("等待进程失败: {e}")))?;
     let out = json!({
         "pid": pid,
         "exitCode": status.code(),
@@ -227,7 +253,11 @@ fn run_launch(app: &LaunchCmd, ctx: &Context) -> Result<Value, AppError> {
 // ── 模组 ───────────────────────────────────────────────────────
 
 #[derive(App)]
-#[app(name = "mod-search", about = "在 Modrinth 上搜索模组", run = "run_mod_search")]
+#[app(
+    name = "mod-search",
+    about = "在 Modrinth 上搜索模组",
+    run = "run_mod_search"
+)]
 pub struct ModSearchCmd {
     /// 关键词，留空看热门
     #[arg(default = "")]
@@ -278,7 +308,13 @@ pub struct ModAddCmd {
 fn run_mod_add(app: &ModAddCmd, ctx: &Context) -> Result<Value, AppError> {
     let gv = game_version_of(&app.version_id);
     let rep = reporter(ctx);
-    let p = block_on(modrinth::install_mod(&app.version_id, &app.project, &gv, "fabric", &rep))
+    let p = block_on(modrinth::install_mod(
+        &app.version_id,
+        &app.project,
+        &gv,
+        "fabric",
+        &rep,
+    ))
         .map_err(AppError::Runtime)?;
     let out = json!({ "file": p.display().to_string() });
     ctx.log(LogLevel::Info, format!("已安装: {}", p.display()));
@@ -380,6 +416,8 @@ pub struct SettingsSetCmd {
     pub concurrency: Option<usize>,
     /// 追加 JVM 参数，空格分隔
     pub extra_jvm: Option<String>,
+    /// 默认账号（填 none 清除，回退账号列表第一项）
+    pub default_account: Option<String>,
 }
 
 fn run_settings_set(app: &SettingsSetCmd, ctx: &Context) -> Result<Value, AppError> {
@@ -389,7 +427,11 @@ fn run_settings_set(app: &SettingsSetCmd, ctx: &Context) -> Result<Value, AppErr
     }
     if let Some(p) = app.java_path.as_ref() {
         let t = p.trim();
-        s.java_path = if t.is_empty() || t == "none" { None } else { Some(t.to_string()) };
+        s.java_path = if t.is_empty() || t == "none" {
+            None
+        } else {
+            Some(t.to_string())
+        };
     }
     if let Some(src) = app.source.as_ref() {
         s.download_source = src.trim().to_string();
@@ -399,6 +441,14 @@ fn run_settings_set(app: &SettingsSetCmd, ctx: &Context) -> Result<Value, AppErr
     }
     if let Some(j) = app.extra_jvm.as_ref() {
         s.extra_jvm_args = j.split_whitespace().map(|x| x.to_string()).collect();
+    }
+    if let Some(d) = app.default_account.as_ref() {
+        let t = d.trim();
+        s.default_account = if t.is_empty() || t == "none" {
+            None
+        } else {
+            Some(t.to_string())
+        };
     }
     let saved = settings::save(&s).map_err(AppError::Runtime)?;
     let out = serde_json::to_value(&saved).unwrap_or_else(|_| json!({}));

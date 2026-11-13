@@ -138,7 +138,7 @@ export function ModsPage() {
   const hits = search.data?.hits ?? [];
 
   return (
-    <div>
+    <div data-motion-root>
       <PageHeader
         title="Mod 管理"
         description="从 Modrinth 搜索并安装 Mod，安装结果直接落到实例的 mods 目录。"

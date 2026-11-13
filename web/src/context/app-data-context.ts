@@ -33,8 +33,14 @@ export interface AppDataValue {
   reloadRemote: (refresh?: boolean) => void;
   /** 当前选中版本（settings.selectVersion 优先，否则第一个已装实例） */
   selectedVersion: VersionInfo | null;
-  /** 当前选中账号（账号列表第一项，可能是离线或微软正版） */
+  /** 默认账号名（settings.defaultAccount，可能为 null = 回退账号列表第一项） */
+  defaultAccount: string | null;
+  /** 当前账号：settings.defaultAccount 指向的账号，找不到则回退列表第一项 */
   currentAccount: Account | null;
+  /** 快速切换账号（仅本会话）：全局（顶栏/侧栏/主页）同步显示，不改动持久化默认账号 */
+  switchAccount: (name: string) => void;
+  /** 设为默认账号（持久化到 settings.json，未显式指定账号时启动用它） */
+  setDefaultAccount: (name: string) => Promise<Settings>;
 }
 
 export const AppDataContext = createContext<AppDataValue | null>(null);

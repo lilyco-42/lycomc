@@ -102,7 +102,7 @@ export function DownloadPage() {
   }, [remote?.versions]);
 
   return (
-    <div>
+    <div data-motion-root>
       <PageHeader
         title="下载"
         description="从 Mojang 版本清单拉取所有正式版与快照，安装后立即出现在「版本管理」。"

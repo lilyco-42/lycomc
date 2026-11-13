@@ -5,7 +5,7 @@ import { navigate } from "@/lib/router";
 
 export function NotFoundPage() {
   return (
-    <div className="card-soft rounded-2xl border border-border bg-card p-8">
+    <div className="card-soft rounded-2xl border border-border bg-card p-8" data-motion-root>
       <EmptyState
         icon={Compass}
         tone="brand"

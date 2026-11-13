@@ -3,6 +3,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppDataProvider } from "@/components/app-data-provider";
 import { AppTopbar } from "@/components/app-topbar";
 import { AppSidebar } from "@/components/app-sidebar";
+import { PageTransition } from "@/components/page-transition";
 import { useAppData } from "@/context/app-data-context";
 import { useRoutePath } from "@/lib/router";
 import { HomePage } from "@/pages/home-page";
@@ -24,7 +25,7 @@ function RouteView() {
             <BackendBanner />
           </div>
         ) : null}
-        <PageSwitch path={path} />
+        <PageTransition path={path} render={(shown) => <PageSwitch path={shown} />} />
       </div>
     </main>
   );

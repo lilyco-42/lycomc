@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/badge";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { AccountMenu } from "@/components/account-menu";
 import { SkinAvatar } from "@/components/skin-avatar";
 import { useAppData } from "@/context/app-data-context";
 import { type AccountSkin } from "@/lib/api";
@@ -9,6 +9,7 @@ import { normalizeHash, useRoutePath } from "@/lib/router";
 import { shortUuid } from "@/lib/format";
 import { useKeyedFetch } from "@/lib/use-keyed-fetch";
 import { cn } from "@/lib/utils";
+import { ChevronsUpDown, Languages, Package, Palette, SquareStack } from "lucide-react";
 
 /** 浅蓝分组侧栏：分组标题 + 蓝色竖条激活项 + 底部账号卡。 */
 export function AppSidebar() {
@@ -68,11 +69,11 @@ export function AppSidebar() {
           <p className="px-3 pb-2 text-[11px] font-medium tracking-wide text-muted-foreground">启动器</p>
           <div className="flex flex-col gap-0.5">
             <a href="#/settings" className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] text-sidebar-foreground/75 transition-colors hover:bg-sidebar-accent/70 hover:text-sidebar-foreground">
-              <span className="size-4 rounded-full border-2 border-pcl-4" />
+              <Palette className="size-4 shrink-0 text-muted-foreground" />
               个性化
             </a>
             <a href="#/settings" className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] text-sidebar-foreground/75 transition-colors hover:bg-sidebar-accent/70 hover:text-sidebar-foreground">
-              <span className="size-4 rounded-md border-2 border-pcl-4" />
+              <Languages className="size-4 shrink-0 text-muted-foreground" />
               语言与杂项
             </a>
           </div>
@@ -82,11 +83,11 @@ export function AppSidebar() {
           <p className="px-3 pb-2 text-[11px] font-medium tracking-wide text-muted-foreground">社区资源</p>
           <div className="flex flex-col gap-0.5">
             <a href="#/mods" className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] text-sidebar-foreground/75 transition-colors hover:bg-sidebar-accent/70 hover:text-sidebar-foreground">
-              <span className="size-4 rotate-45 rounded-[3px] border-2 border-pcl-4" />
+              <SquareStack className="size-4 shrink-0 text-muted-foreground" />
               模组管理
             </a>
             <a href="#/download" className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] text-sidebar-foreground/75 transition-colors hover:bg-sidebar-accent/70 hover:text-sidebar-foreground">
-              <span className="size-4 rounded-[3px] border-2 border-pcl-4" />
+              <Package className="size-4 shrink-0 text-muted-foreground" />
               安装包
             </a>
           </div>
@@ -104,42 +105,40 @@ export function AppSidebar() {
           </div>
         ) : null}
 
-        <div className="rounded-xl border border-sidebar-border bg-pcl-8/60 p-2.5 dark:bg-muted/50">
-          <div className="flex items-center gap-2.5">
-            <SkinAvatar
-              skinUrl={skinUrl}
-              model={skinModel}
-              size={40}
-              fallback={useBuiltinFallback}
-              title={"当前账号 " + accountName + " 的皮肤头像"}
-              className="size-10 rounded-xl ring-1 ring-sidebar-border"
-            />
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[11px] text-muted-foreground">当前账号</p>
-                  <p className="truncate text-sm font-medium text-sidebar-foreground">{accountName}</p>
-                  <div className="mt-0.5 flex items-center gap-1">
-                    {currentAccount !== null ? (
-                      <Badge
-                        variant={isMicrosoft ? "secondary" : "outline"}
-                        className="h-4 px-1 text-[9px]"
-                      >
-                        {isMicrosoft ? "正版" : "离线账号"}
-                      </Badge>
-                    ) : null}
-                    {needsLogin ? (
-                      <Badge variant="destructive" className="h-4 px-1 text-[9px]">
-                        需重新登录
-                      </Badge>
-                    ) : null}
-                  </div>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>{tooltip}</TooltipContent>
-            </Tooltip>
-          </div>
-        </div>
+        <AccountMenu side="top" align="start">
+          <button
+            type="button"
+            title={tooltip + " · 点击快速切换或设为默认账号"}
+            aria-label="快速切换账号或设置默认账号"
+            className="w-full rounded-xl border border-sidebar-border bg-pcl-8/60 p-2.5 text-left transition-all hover:border-pcl-4 hover:bg-pcl-7/70 active:translate-y-px dark:bg-muted/50 dark:hover:bg-muted"
+          >
+            <span className="flex items-center gap-2.5">
+              <SkinAvatar
+                skinUrl={skinUrl}
+                model={skinModel}
+                size={40}
+                fallback={useBuiltinFallback}
+                title={"当前账号 " + accountName + " 的皮肤头像"}
+                className="size-10 shrink-0 rounded-xl ring-1 ring-sidebar-border"
+              />
+              <span className="min-w-0 flex-1">
+                <span className="block text-[11px] text-muted-foreground">当前账号</span>
+                <span className="block truncate text-sm font-medium text-sidebar-foreground">{accountName}</span>
+                <span className="mt-0.5 flex items-center gap-1">
+                  {currentAccount !== null ? (
+                    <Badge variant={isMicrosoft ? "secondary" : "outline"} className="h-4 px-1 text-[9px]">
+                      {isMicrosoft ? "正版" : "离线账号"}
+                    </Badge>
+                  ) : null}
+                  {needsLogin ? (
+                    <Badge variant="destructive" className="h-4 px-1 text-[9px]">需重新登录</Badge>
+                  ) : null}
+                </span>
+              </span>
+              <ChevronsUpDown className="size-3.5 shrink-0 text-muted-foreground" />
+            </span>
+          </button>
+        </AccountMenu>
 
         <div className="flex items-center justify-between">
           <Badge
