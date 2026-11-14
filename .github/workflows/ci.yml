@@ -59,3 +59,41 @@ jobs:
           name: web-dist
           path: web/dist/
           if-no-files-found: error
+
+  cross-compile:
+    name: cargo check ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+          - os: macos-15
+            target: aarch64-apple-darwin
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.19.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: 构建 shadcn Web 前端
+        working-directory: web
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+
+      # cargo check 不链接，可在打包前抓出 cfg 泄漏（如 Windows 引用 POSIX kill）。
+      - name: 全目标编译检查（默认 Web feature）
+        run: cargo check --locked --all-targets --target ${{ matrix.target }}

@@ -534,6 +534,93 @@ pub fn reap(pid: u32, code: Option<i32>) {
     }
 }
 
+// ── 按 PID 结束游戏进程（跨平台） ──────────────────────────────
+//
+// Windows 的 libc 没有 kill / SIGTERM / SIGKILL；按平台分流：Unix 用 POSIX
+// 信号，Windows 用系统自带 taskkill.exe，其他平台显式报错。保持「先请求
+// 正常退出、3 秒后仍在则强制结束」的两段式语义。
+
+#[cfg(unix)]
+fn signal_game(pid: u32, sig: libc::c_int) -> Result<(), String> {
+    // pid_t 有符号；拒绝越界 / 非正值，避免 kill(-1, ...) 误伤整个进程组。
+    let target =
+        <libc::pid_t>::try_from(pid).map_err(|_| format!("游戏进程 pid {pid} 超出 pid_t 范围"))?;
+    if target <= 0 {
+        return Err(format!("游戏进程 pid {pid} 无效"));
+    }
+    // SAFETY: kill 只向指定 pid 发信号，不读写用户内存；target 已校验为正数。
+    let rc = unsafe { libc::kill(target, sig) };
+    if rc == 0 {
+        return Ok(());
+    }
+    let err = std::io::Error::last_os_error();
+    // 进程已退出并被 reap，与「结束成功」等价，不向前端报错。
+    if err.raw_os_error() == Some(libc::ESRCH) {
+        return Ok(());
+    }
+    Err(format!("向游戏进程 {pid} 发送信号 {sig} 失败: {err}"))
+}
+
+#[cfg(unix)]
+fn request_game_exit(pid: u32) -> Result<(), String> {
+    signal_game(pid, libc::SIGTERM)
+}
+
+#[cfg(unix)]
+fn force_game_exit(pid: u32) -> Result<(), String> {
+    signal_game(pid, libc::SIGKILL)
+}
+
+#[cfg(windows)]
+fn request_game_exit(pid: u32) -> Result<(), String> {
+    taskkill_game(pid, false)
+}
+
+#[cfg(windows)]
+fn force_game_exit(pid: u32) -> Result<(), String> {
+    taskkill_game(pid, true)
+}
+
+#[cfg(windows)]
+fn taskkill_game(pid: u32, force: bool) -> Result<(), String> {
+    use std::os::windows::process::CommandExt;
+    use std::path::PathBuf;
+    use std::process::{Command, Stdio};
+
+    // 优先用绝对路径，避免 PATH 里出现同名程序；SystemRoot 缺失时回退到 PATH。
+    let program = std::env::var_os("SystemRoot")
+        .map(PathBuf::from)
+        .map(|p| p.join("System32").join("taskkill.exe"))
+        .unwrap_or_else(|| PathBuf::from("taskkill.exe"));
+    // 0x08000000 = CREATE_NO_WINDOW，避免结束游戏时闪出控制台窗口。
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    let mut cmd = Command::new(&program);
+    cmd.arg("/PID")
+        .arg(pid.to_string())
+        .arg("/T")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .creation_flags(CREATE_NO_WINDOW);
+    if force {
+        cmd.arg("/F");
+    }
+    // 不 wait：drop Child 在 Windows 不会杀掉它，taskkill 由 OS 自行回收。
+    match cmd.spawn() {
+        Ok(_child) => Ok(()),
+        Err(e) => Err(format!("启动 {} 失败: {e}", program.display())),
+    }
+}
+
+#[cfg(not(any(unix, windows)))]
+fn request_game_exit(_pid: u32) -> Result<(), String> {
+    Err("当前平台不支持按 PID 结束游戏进程".to_string())
+}
+
+#[cfg(not(any(unix, windows)))]
+fn force_game_exit(_pid: u32) -> Result<(), String> {
+    Err("当前平台不支持按 PID 结束游戏进程".to_string())
+}
+
 async fn kill_launch(
     State(st): State<AppState>,
     Path(pid): Path<u32>,
@@ -546,10 +633,8 @@ async fn kill_launch(
     if !known {
         return Err(ApiError::not_found(format!("没有 pid {pid} 的游戏进程")));
     }
-    // SIGTERM 让 MC 有机会存档，给它 3 秒再 SIGKILL
-    unsafe {
-        libc::kill(pid as i32, libc::SIGTERM);
-    }
+    // 先请求游戏正常退出（Unix SIGTERM / Windows taskkill /T），给它 3 秒存档。
+    request_game_exit(pid).map_err(ApiError::internal)?;
     let st2 = st.clone();
     tokio::spawn(async move {
         tokio::time::sleep(std::time::Duration::from_secs(3)).await;
@@ -559,8 +644,8 @@ async fn kill_launch(
             .map(|g| g.contains_key(&pid))
             .unwrap_or(false);
         if still {
-            unsafe {
-                libc::kill(pid as i32, libc::SIGKILL);
+            if let Err(e) = force_game_exit(pid) {
+                eprintln!("[lycomc] 强制结束游戏进程 {pid} 失败: {e}");
             }
         }
     });
@@ -1378,5 +1463,48 @@ mod launch_request_tests {
         let empty: LaunchReq =
             serde_json::from_str(r#"{"versionId":"1.20.1","server":""}"#).unwrap();
         assert_eq!(empty.server, Some(Some(String::new())));
+    }
+}
+
+#[cfg(all(test, unix))]
+mod process_control_tests {
+    use super::*;
+    use std::time::{Duration, Instant};
+
+    #[test]
+    fn request_then_force_exit_stops_sigterm_ignoring_child() {
+        // exec 让 sh 被 sleep 替换，只留一个进程；SIG_IGN 跨 exec 保留，
+        // 因此 SIGTERM 被忽略，必须由 SIGKILL 收尾；覆盖两段式路径且不残留后代。
+        let mut child = std::process::Command::new("sh")
+            .arg("-c")
+            .arg("trap '' TERM; exec sleep 30")
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .expect("spawn sh");
+        let pid = child.id();
+        request_game_exit(pid).expect("SIGTERM 应成功投递");
+        force_game_exit(pid).expect("SIGKILL 应成功投递");
+        let started = Instant::now();
+        let status = child.wait().expect("wait child");
+        assert!(!status.success(), "子进程应被强制结束");
+        assert!(
+            started.elapsed() < Duration::from_secs(5),
+            "强制结束后 wait 不应挂起: {:?}",
+            started.elapsed()
+        );
+    }
+
+    #[test]
+    fn missing_process_is_treated_as_already_exited() {
+        // 2_000_000_000 远超常见 pid_max，必定 ESRCH；正数 pid_t 避免 -1 误伤。
+        assert!(request_game_exit(2_000_000_000).is_ok());
+        assert!(force_game_exit(2_000_000_000).is_ok());
+    }
+
+    #[test]
+    fn out_of_range_pid_is_rejected_before_kill() {
+        // u32::MAX 会溢出 i32 pid_t，必须在调用 kill 前拒绝，防止 kill(-1, ...)。
+        assert!(request_game_exit(u32::MAX).is_err());
     }
 }

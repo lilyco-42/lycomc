@@ -450,8 +450,12 @@ pub fn extract_archive(bytes: &[u8], dest: &Path) -> Result<(), String> {
 
 #[cfg(test)]
 mod mirror_tests {
-    use super::{probe, tuna_jre_name, PROBE_TIMEOUT, SCAN_TTL};
-    use std::time::{Duration, Instant};
+    #[cfg(unix)]
+    use super::probe;
+    use super::{tuna_jre_name, PROBE_TIMEOUT, SCAN_TTL};
+    use std::time::Duration;
+    #[cfg(unix)]
+    use std::time::Instant;
 
     #[cfg(unix)]
     fn probe_script(label: &str, body: &str) -> std::path::PathBuf {
