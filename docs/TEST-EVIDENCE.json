@@ -932,6 +932,206 @@
           "sha256": "1c433eb9417ab0cc715122eebc114fac9d9651d24b62ba2c472307df3384dce7"
         }
       ]
+    },
+    {
+      "label": "三平台 GitHub Release 正式发布、Windows 修复回归与下载资产校验（2026-11-15，m07261）",
+      "files": [
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group12/github-release-v0.1.0.json",
+          "bytes": 4449,
+          "sha256": "61672e420a035d9a0f1716ff05fff56980dcf0990ca9782b512e0b9c51f97ce0"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group12/github-run-43635234468.json",
+          "bytes": 2677,
+          "sha256": "93f715ca9a8778958d27058eb801b1aeb414a68b72f13f630d281941425d74b7"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group12/github-run-43635688200.json",
+          "bytes": 2677,
+          "sha256": "9567d31d4e8e0189165cc5135a26b997ae364d1a359e7bbfa31af734cdd48124"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group12/github-run-43635688234.json",
+          "bytes": 7719,
+          "sha256": "08743b26b73eb4ff5ea2e9cec8d91331ec33a6353055019f17e1a247b8d4001f"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group12/github-run-43640971733.json",
+          "bytes": 6379,
+          "sha256": "382edbeef87976380af7d5d30ca13f5fd0b203bb3e6a26fa1371d28dbb8799b8"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group12/github-run-43641351214.json",
+          "bytes": 13835,
+          "sha256": "28fa596fe2dfa257d9a69e3ba43f053cd6de6c964b52ce74917171830eea9075"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group12/github-run-43641351231.json",
+          "bytes": 6379,
+          "sha256": "5c9272327ab5bf79b4400d5c759e61e59a2a3104bfe5e6777da227c3699bc103"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group12/github-tag-v0.1.0.json",
+          "bytes": 1073,
+          "sha256": "4d1801b9173822be49594ea98b603b4398822a9f62df43166e7761e04d6b06cd"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group12/local-validation-summary.json",
+          "bytes": 2428,
+          "sha256": "954fdd10f5d795ce051521e1271995285532ea4567ca8e8108d6b1c7948bcb28"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group12/post-fix-check.log",
+          "bytes": 11556,
+          "sha256": "e3d81723b3b8ea637ac55508995e5dafedb2df363438b4806035ba3675f4d08a"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group12/post-fix-runtime-smoke.log",
+          "bytes": 154,
+          "sha256": "33ce98cd1a4e2fcb13cffc0c4b89e027af03d833529689d1a344fecf980b4e81"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group12/post-fix-windows-gnu-check.log",
+          "bytes": 114,
+          "sha256": "b95ebbc6a43512a5b5bd0085a47cb05e672130859dd37c3bfe1d211362395e6c"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group12/release-asset-verification.json",
+          "bytes": 3641,
+          "sha256": "b831a3b782608d3e3093c91c7a0ad2f852774ad3a857c6f550b3d90dd264b24e"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group12/windows-first-failure-excerpt.txt",
+          "bytes": 704,
+          "sha256": "b9a83644cf56ee5ece183b471818a6e1841a209fbde0c36cdf4da226c54d8894"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group12/extracted-linux/lycomc",
+          "bytes": 13389600,
+          "sha256": "5c348a188063e5132f511a98a15dd8bbabbb40564653f951aa22056676938dd7"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group12/extracted-linux/README.md",
+          "bytes": 14899,
+          "sha256": "0ba5bd6eaee513427b5198368304fca792a00b287005721935caef195ee7e4af"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/release-v0.1.0/lycomc-v0.1.0-aarch64-apple-darwin.tar.gz",
+          "bytes": 4260609,
+          "sha256": "b63cf47a332989ba0f8b72de0815217601ae5716fa158b77d1f458da51d44919"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/release-v0.1.0/lycomc-v0.1.0-aarch64-apple-darwin.tar.gz.sha256",
+          "bytes": 108,
+          "sha256": "27547a3824ac2e51f9f056f9ac195329ca22920f592ebbc7addaa4b3397adf6e"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/release-v0.1.0/lycomc-v0.1.0-x86_64-pc-windows-msvc.zip",
+          "bytes": 4134288,
+          "sha256": "43d63b47dec3573dc7c44d84a10aeb5bc12e751750892d8e00003d0c489e252d"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/release-v0.1.0/lycomc-v0.1.0-x86_64-pc-windows-msvc.zip.sha256",
+          "bytes": 107,
+          "sha256": "35e18a2eb6a03a94bc57adadce643ccad4fad1347c9a6c9b0c23e0b0942f4344"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/release-v0.1.0/lycomc-v0.1.0-x86_64-unknown-linux-gnu.tar.gz",
+          "bytes": 4837606,
+          "sha256": "f81085cc6cf4d14cfb3d567795d34531185001afc494059e50a0f1a077a61818"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/release-v0.1.0/lycomc-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256",
+          "bytes": 112,
+          "sha256": "9fe389a539243c1c2ebc014ab79977e58fa0a7e417658ffd732d7a72cb2bab0e"
+        },
+        {
+          "path": "/home/lilyco/code/lycomc/.github/workflows/ci.yml",
+          "bytes": 2683,
+          "sha256": "68017dcfa98198dcadefc7f6c0e0d7efdbc110ac7fd3da47569899d9b51c652d"
+        },
+        {
+          "path": "/home/lilyco/code/lycomc/.github/workflows/release.yml",
+          "bytes": 5261,
+          "sha256": "053600824f16b73cc7a1c9305f96734a3d099d4081c3b7f5d91d9c2cccd3c5ab"
+        },
+        {
+          "path": "/home/lilyco/code/lycomc/src/api.rs",
+          "bytes": 52938,
+          "sha256": "340d3548ea42e5ef1a6fdbe97bf30e857b6509669ca19b1f991027db31f160f2"
+        },
+        {
+          "path": "/home/lilyco/code/lycomc/src/mc/java.rs",
+          "bytes": 18375,
+          "sha256": "29583236d8c3927b91a49d7331983b14ffd9ff32b1beb86beb7d8dd549e44cf0"
+        },
+        {
+          "path": "/home/lilyco/code/lycomc/Cargo.toml",
+          "bytes": 2492,
+          "sha256": "b5e6cb2f06530d5cc565eb1610bf1401421b7b718e6f18e750e649d5c3442bda"
+        },
+        {
+          "path": "/home/lilyco/code/lycomc/Cargo.lock",
+          "bytes": 112859,
+          "sha256": "8cb9358f5ec114e8c72d02ff97649acaaf76e899520acf672993908f68c70d73"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/fix-file-hashes.json",
+          "bytes": 784,
+          "sha256": "98fc8e5b63174fee14b749c26802a33f9a800e4020971fbd36727e65c8a4baaf"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/compare/compare-result.json",
+          "bytes": 27202,
+          "sha256": "f87acc316f739b47f87128a32408ea637a9ddc94489ca9e887ea6342f135d276"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/check_workflows.py",
+          "bytes": 657,
+          "sha256": "d5d07a0f46e8d07e14aad4c69c849717f3559a0b9f80dfe1d697c5b241f58a00"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/scan_history.py",
+          "bytes": 1226,
+          "sha256": "5599eef2bf7eda4fd70be00d00852f07b7bd97d18f3504b85c3fb18a35ec91b6"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/scan_staged.py",
+          "bytes": 1001,
+          "sha256": "f1bf6bbfb49e3cda06ca0f5e07307a7769e2f9af6177a703913c96f73cff0e88"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/windows-gnu-check-fixed.log",
+          "bytes": 114,
+          "sha256": "54aa33260be3f279ed2c1ef6364c2b343dec2240ef40044686687281ace27ea9"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/windows-gnu-check.log",
+          "bytes": 4399,
+          "sha256": "2bbd26c65b26e04d1937e52d1165458cc7203aa6baaafb610d5578eeeb248a50"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/windows-msvc-check.log",
+          "bytes": 128035,
+          "sha256": "6e4d1aeae0fb3af47238577dc33ca042a01e949886d2c5dce5d2ba29972de6fe"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/macos-aarch64-check.log",
+          "bytes": 106019,
+          "sha256": "e0d6b2a59594b0dac31ebc7c3f714501f1d33fc7816ce63ff81c6db284bdc06a"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/evidence-group11-manifest.json",
+          "bytes": 7066,
+          "sha256": "1c433eb9417ab0cc715122eebc114fac9d9651d24b62ba2c472307df3384dce7"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/evidence-group12-manifest.json",
+          "bytes": 7735,
+          "sha256": "00ac6ed49c5cf7c13afb5a7bba59abd1ce545082f92c5cc7a24252024309cbeb"
+        }
+      ]
     }
   ]
 }

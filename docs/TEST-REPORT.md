@@ -321,3 +321,68 @@ test result: ok. 17 passed; 0 failed
 - 第 11 组证据由 `/home/lilyco/.cache/lycomc-perf/evidence-group11-manifest.json` 生成：清单本身 7066 B，SHA-256 `1c433eb9417ab0cc715122eebc114fac9d9651d24b62ba2c472307df3384dce7`；36 个文件均使用完整 64 位 SHA-256，清单本身作为第 37 项追加到 `docs/TEST-EVIDENCE.json`，前 10 组逐字节保留。
 - 本机未产出 Windows `.exe` / macOS 二进制 / Android / 鸿蒙包；release 三平台产物只应由 GitHub Runner 的 `release.yml` 生成并在 Release 页面复核。真实本机 1.20.1 服务器联机证据仍为 §11，不因 fake Java 对比重写。
 - 远端 GitHub Actions / Release 运行结果在推送与 tag 后用 `gh run` / `gh release view` 复核；若任一 job 失败，必须按失败日志修复并重新发布，不能把本机 YAML 校验当作 runner 成功。
+
+## 13. 远端发布完成报告（2026-11-15，m07261 收口）
+
+> 本节为 §12 的纯追加。§12 记录的是优化前/后的本机回归与发布前边界；本节记录首次远端 Release 暴露 Windows 编译问题后的修复、三平台正式发布成功与下载资产复核。历史 §8 / §9 / §10 / §11 / §12 的表格与结论均不改写。
+
+### 13.1 首次发布失败的根因与修复
+
+- 首次 tag v0.1.0（旧对象 63cc7082883c72a0df4c374c46102489f45c5c58，指向 2a5cef83eb0ef266e6525cf532b2e17608e0014e）触发 Release run 43635688234：Linux / macOS build 成功，Windows build 失败，publish skipped，gh release view v0.1.0 为 release not found。
+
+- 精确编译错误：src/api.rs:551:15 的 libc::kill(pid as i32, libc::SIGTERM); 与 src/api.rs:563:23 的 libc::kill(pid as i32, libc::SIGKILL); 触发 error[E0425]: cannot find function kill in crate libc；src/api.rs:563:46 触发 error[E0425]: cannot find value SIGKILL in crate libc。Windows 的 libc 只有 pub const SIGILL: c_int = 4;，rustc 建议替换为 SIGILL 是错误语义，未采纳。
+
+- 根因：POST /api/launch/{pid}/kill 的 kill_launch 原先无条件调用 POSIX kill / SIGTERM / SIGKILL，Linux / macOS 双轨检查与本机测试没有覆盖 Windows cfg。src/mc/java.rs 的 process-group SIGKILL 已有 #[cfg(unix)]，src/api.rs 是唯一遗漏。
+
+- 修复提交 f6640ab306c7ca2bdb1380d98f82d46a78fd7556：在 src/api.rs:537-653 增加 #[cfg(unix)] fn signal_game(pid: u32, sig: libc::c_int) -> Result<(), String>、request_game_exit 与 force_game_exit；Unix 用 libc::kill 且对 ESRCH 视为已退出、拒绝 pid_t 越界以防误杀进程组。Windows 用 #[cfg(windows)] fn taskkill_game(pid: u32, force: bool) -> Result<(), String> 调绝对 %SystemRoot%\System32\taskkill.exe /PID <pid> /T 并可选 /F，CREATE_NO_WINDOW=0x0800_0000；其他平台显式返回不支持。保持 PID 控制而非 Arc<Mutex<Child>>，因为 src/api.rs:471-496 的 reaper 已持有 Child 并调用 child.wait()，共享锁会死锁；不新增 windows-sys 依赖以免 Cargo.lock 扰动。
+
+- 新增 src/api.rs:1469-1510 #[cfg(all(test, unix))] mod process_control_tests 三项：忽略 SIGTERM 的子进程仍被强制退出、缺失进程幂等成功、u32::MAX 在发信号前被拒绝。src/mc/java.rs:451-454 把 Windows cfg 下未用的 probe / Instant 测试 import 加 #[cfg(unix)]，消除 cargo check --all-targets 警告。
+
+- 稳定性门禁：.github/workflows/ci.yml:63-99 新增 cross-compile matrix（windows-latest / x86_64-pc-windows-msvc、macos-15 / aarch64-apple-darwin）执行 pnpm install --frozen-lockfile、pnpm build、cargo check --locked --all-targets --target；.github/workflows/release.yml:24-64 新增 Linux / Windows / macOS 三项 compile guard，build 显式 needs: guard，任一编译失败不会再产出残缺 Release。
+
+### 13.2 修复后本机回归与跨平台验证边界
+
+- bash scripts/check.sh EXIT=0：pnpm lint 4 warnings / 0 errors、pnpm build 2600 modules、默认 cargo test 43 passed / 0 failed、--features desktop 48 passed / 0 failed、cargo fmt -- --check、cargo clippy --all-targets -- -D warnings、最终默认 Web cargo build；日志 /home/lilyco/.cache/lycomc-perf/group12/post-fix-check.log。
+
+- bash scripts/runtime-smoke.sh /home/lilyco/.cache/lilyco-build/target/debug/lycomc EXIT=0，返回 {"name":"lycomc","ok":true,"version":"0.1.0","webMode":"embedded"}；修复后 debug 二进制 SHA-256 8a4740ca14fe6b33c30ceda94ba2201a4a0944661e2a7e6cfac3be48874ea342。
+
+- Windows cfg 本机用 Zig GNU wrapper 执行 cargo check --locked --all-targets --target x86_64-pc-windows-gnu EXIT=0、0 warnings（rustc --print cfg 确认 target_family=windows 且无 unix）。本机 MSVC / macOS 交叉检查仅因缺 MSVC SDK / Darwin C toolchain 失败：精确日志为 fatal error: 'stdlib.h' file not found / fatal error: 'string.h' file not found 与 cc: error: unrecognized command-line option '-arch' / -mmacosx-version-min=11.0；远端原生 Runner 才是权威结果。
+
+- 在 slow JAVA_HOME sleep-5 压力下重跑 scripts/compare-binaries.mjs EXIT=0 pass=true、realDataUnchanged=true、隔离服务无残留进程 / 端口；baseline 与修复后 optimized 功能矩阵各 6 项全通过（5 项 settings 语义、9/9 只读端点、SSE、7/7 quickPlay、清理后设置 / running 为空）。性能：/api/state p50 10108.486→1.788 ms（-99.982%，5653.516×）、worst 10192.296→2014.24 ms（-80.238%）、8 并发 20225.63→4.376 ms（-99.978%）；静态 p50 2.285→1.372 ms（-39.956%）、并发吞吐 417.107→492.21 MiB/s（+18.006%）；RSS 31875072→19394560 B。该对比是本机 Linux debug 压力测试，不是 release / 跨平台基准；2014.24 ms 是 2 s 有界 Java 探测。
+
+### 13.3 GitHub Actions 实测结果
+
+- 修复提交 push run 43640971733（headSha f6640ab306c7ca2bdb1380d98f82d46a78fd7556）conclusion=success，3/3 jobs 成功：Web default + optional desktop feature、cargo check x86_64-pc-windows-msvc、cargo check aarch64-apple-darwin。
+
+- 旧的 v0.1.0 对象未发布成功且 gh release view 仍为 release not found，故用 git tag -f -a 将 annotated tag 重指向修复提交，新对象 5c44696eac2cd58428f4d8422b4a268626f2077f、目标 f6640ab306c7ca2bdb1380d98f82d46a78fd7556，以 --force-with-lease=refs/tags/v0.1.0:63cc7082883c72a0df4c374c46102489f45c5c58 推送并由 GitHub API 复核。
+
+- 正式 Release run 43641351214 conclusion=success、7/7 jobs 成功：Linux / Windows MSVC / macOS arm64 compile guard，Linux / Windows MSVC / macOS arm64 release build，publish GitHub Release；gh run view 43641351214 --log-failed 为空。tag CI run 43641351231 conclusion=success。历史失败 run 43635688234 保留为失败记录，不改写为成功。
+
+### 13.4 Release 资产下载、校验和归档复核
+
+- gh release view v0.1.0：isDraft=false、isPrerelease=false、name=LilyCraft Web v0.1.0、publishedAt=2026-11-14T21:17:07Z、URL https://github.com/lilyco-42/lycomc/releases/tag/v0.1.0，共 6 个资产。
+
+- 三平台包下载到 /home/lilyco/.cache/lycomc-perf/release-v0.1.0/ 后 3/3 SHA-256 校验和文件均匹配；归档内含 README.md 与可执行程序：Linux lycomc 13389600 B、macOS lycomc 11215184 B、Windows lycomc.exe 10628608 B。
+
+- Linux Release 包额外解包执行：二进制 SHA-256 5c348a188063e5132f511a98a15dd8bbabbb40564653f951aa22056676938dd7，--schema EXIT=0，bash scripts/runtime-smoke.sh EXIT=0，确认发布产物不只是可下载而且真实启动 Web 服务。
+
+- 完整资产清单：
+
+- lycomc-v0.1.0-aarch64-apple-darwin.tar.gz — 4260609 B，SHA-256 b63cf47a332989ba0f8b72de0815217601ae5716fa158b77d1f458da51d44919；校验和文件复核通过。
+- lycomc-v0.1.0-aarch64-apple-darwin.tar.gz.sha256 — 108 B，SHA-256 27547a3824ac2e51f9f056f9ac195329ca22920f592ebbc7addaa4b3397adf6e；本次下载校验对象。
+- lycomc-v0.1.0-x86_64-pc-windows-msvc.zip — 4134288 B，SHA-256 43d63b47dec3573dc7c44d84a10aeb5bc12e751750892d8e00003d0c489e252d；校验和文件复核通过。
+- lycomc-v0.1.0-x86_64-pc-windows-msvc.zip.sha256 — 107 B，SHA-256 35e18a2eb6a03a94bc57adadce643ccad4fad1347c9a6c9b0c23e0b0942f4344；本次下载校验对象。
+- lycomc-v0.1.0-x86_64-unknown-linux-gnu.tar.gz — 4837606 B，SHA-256 f81085cc6cf4d14cfb3d567795d34531185001afc494059e50a0f1a077a61818；校验和文件复核通过。
+- lycomc-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256 — 112 B，SHA-256 9fe389a539243c1c2ebc014ab79977e58fa0a7e417658ffd732d7a72cb2bab0e；本次下载校验对象。
+
+- 第 12 组证据含 GitHub run / Release / tag 的 API 快照、下载校验 JSON、修复后本机门禁日志、Windows GNU cfg 检查日志、6 个发布资产及固定提交源文件；清单 /home/lilyco/.cache/lycomc-perf/evidence-group12-manifest.json 本身作为第 39 项登记，前 11 组逐字节保留。
+
+### 13.5 发布完成后的明确边界
+
+- 已证明的是 GitHub Runner 编译、3 个 Release 包、SHA-256、Linux Release 包本机启动；未在 Windows / macOS / Android / 鸿蒙真机运行，未产出签名安装包，不宣称公网正版多人服务器联机或全平台实机演示。
+
+- 本机 debug 性能数据、§11 真实本机 1.20.1 离线服务端联机证据与本节三平台发布证据是三种不同口径，不能相互替代。
+
+- 本节是发布后补证，提交在 main 上；v0.1.0 tag 仍锁定发布时的 f6640ab306c7ca2bdb1380d98f82d46a78fd7556，未为追加文档改动 Release 二进制。
+
+- Android 形态、Win/mac 是否必须签名安装包、快捷方式口径（m04829 / m04836）以及 m03957 的全平台 / 公网正版联机 / 实机演示范围仍待用户重新界定；可选桌面壳输入 P0 按 m06445 保持冻结。

@@ -349,3 +349,21 @@ cargo test（解析逻辑单测：device code / XBL / XSTS / MC token / textures
 - 决策：Java 探测采用 2 s 超时、Unix process-group SIGKILL、pipe drain、30 s 数据目录键缓存、候选并行与 `spawn_blocking`；启动路径 `pick()` 强制 fresh scan 保证新装 Java 立即可用；静态资源零拷贝；SSE 仅节流纯百分比且保留日志与终态事件；`lilyco` 锁到公开 Git rev；CI 与 Release 改成真门禁，Release 在三种 Runner 上产出 Web 可执行程序、校验和和 GitHub Release。
 - 证据口径：§12 使用最终二进制 `f4442166…` 与 baseline `be2690aca…` 的独立对比；第 11 组证据用完整 SHA-256 登记 36 个产物 / 脚本 / 源码 + manifest 自身。所有远端平台产物只认 GitHub Actions 运行与 Release 资产，不把本机 debug Linux 数据冒充 release / 跨平台实机结果。
 - 边界与未决项：本机仍有 m03957 的全平台形态 / 安装包 / 公网正版联机 / 实机演示，以及 m04829 / m04836 的 Android 形态、Win/mac 是否必须签名安装包、快捷方式口径三问待用户定义；桌面输入 P0 已按 m06445 降级冻结，本轮不复活原生桌面壳工作。
+
+## Windows Release 编译失败后的跨平台门禁决策（2026-11-15，m07261 发布收口）
+
+> 本节为纯追加，不修改上一节性能 / 稳定性优化决策，也不改写历史失败事实。
+
+- 触发：首次发布 run 43635688234 的 Windows job 编译失败，精确错误 error[E0425]: cannot find function kill in crate libc / error[E0425]: cannot find value SIGKILL in crate libc；原来的 src/api.rs:551 libc::kill(pid as i32, libc::SIGTERM); 与 src/api.rs:563 libc::kill(pid as i32, libc::SIGKILL); 是 POSIX-only。
+
+- 方案矩阵：A 按 rustc 建议把 SIGKILL 换成 Windows 的 SIGILL（否决：常量存在但语义完全错误，且 kill 函数仍不存在）；B 用 Arc<Mutex<Child>> 改写全部进程生命周期（否决：src/api.rs:471-496 的 spawn_blocking reaper 持有 Child 并 wait()，kill 取锁会死锁，改动面远超修复）；C 新增 windows-sys 调 TerminateProcess（否决：仅为一次 PID 终止引入 Cargo.lock / 依赖面扩大）；D 用 #[cfg(unix)] POSIX 信号 + #[cfg(windows)] taskkill.exe + 其他平台显式错误，并补 CI / Release 三平台 cargo check --locked --all-targets --target 门禁（采纳，因为改动局部、保持 PID 语义、能阻止同类问题再次进入发布）；E 只修 Windows 代码不加门禁（否决：Linux-only CI 已证明无法提前发现该 cfg 错误）。
+
+- 决策：src/api.rs:537-653 保留 graceful → 3 s 后 force 的既有行为；Unix 通过 signal_game 拒绝越界 PID、把 ESRCH 当幂等成功；Windows 通过 %SystemRoot%\System32\taskkill.exe /PID <pid> /T [-F] 且 CREATE_NO_WINDOW=0x0800_0000；src/mc/java.rs:451-454 仅修正测试 import cfg。.github/workflows/ci.yml:63-99 加 Windows / macOS cross-compile；.github/workflows/release.yml:24-64 加三平台 guard，build 的 needs: guard 是发布硬门槛。
+
+- 发布策略：旧 v0.1.0 只有失败 run、没有 GitHub Release 对象（gh release view 为 release not found），因此 --force-with-lease 重指向修复提交 f6640ab306c7ca2bdb1380d98f82d46a78fd7556，避免发布一个永远不会成功的旧 tag，同时不伪造 v0.1.1 变更。若未来 tag 已产生公开 Release，则不得沿用此策略，应发布新的递增 tag。
+
+- 实证：43640971733 3/3 CI jobs success；43641351214 7/7 Release jobs success；43641351231 tag CI success；6 个 Release 资产 3/3 校验和匹配；Linux 发布包 --schema + runtime smoke EXIT=0。本机 MSVC SDK / Darwin C toolchain 的交叉检查失败不作为远端平台结论。
+
+- 口径：新增的成功证明不删除 43635688234 的失败记录；§13 的下载校验、归档结构、Linux 二进制启动与 §11 实机联机、§12 性能对比是不同层级证据。发布后文档补证提交在 main，tag 仍锁定 f6640ab306c7ca2bdb1380d98f82d46a78fd7556。
+
+- 未决项不变：m03957 的 Android / 鸿蒙 / 签名包 / 公网正版联机 / 全平台实机演示，以及 m04829 / m04836 的 Android 形态、Win/mac 签名包要求、快捷方式口径；桌面输入 P0 继续按 m06445 冻结。
