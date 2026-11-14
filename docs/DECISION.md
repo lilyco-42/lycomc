@@ -225,3 +225,41 @@ cargo test（解析逻辑单测：device code / XBL / XSTS / MC token / textures
 - 验收：cargo test（含默认账号与 SettingsPatch 单测）、cargo build、pnpm build、pnpm lint、CDP 六页 0 skeleton、CDP 交互实测「切换账号后顶栏+侧栏+主页+账号卡同步」「设为默认后 settings.json 持久化且刷新保持」「清除默认后 API/磁盘/state 同步清空并回退第一项」「四处真实图标」「页面切换退/入场动画与 reduced-motion 跳过」；证据补入 docs/UI-MIGRATION.md 后提交；git 仅含自研代码与 docs。
 - 交互验收发现的 P0（2026-11-13）：/home/lilyco/.cache/lycomc-cdp/four-fixes.mjs 实测「清除默认（回退第一项）」点击后 API、磁盘、/api/state 仍保留旧 defaultAccount。可逆 HTTP 探针复现 PUT {defaultAccount:null} 返回 200 但不清空，javaPath / selectVersion 同样受影响。根因是 SettingsPatch 的裸 Option<Option<String>> 让 serde 把 present null 与 missing 都解成外层 None，apply 的 if let Some(v) 不触发。修复为三个可空字段加 #[serde(default, deserialize_with = "double_option")]，使 present null → Some(None)、missing → None；补 4 个 SettingsPatch 单测并用 CDP + HTTP 复验。此修复同时兑现 CONTRACT.md 早期声明的「显式传 null 才清空」。
 - P0 复验结论（2026-11-13 20:48）：cargo test 25 passed / 0 failed；9 次可逆 PUT 探针覆盖字段缺失、三字段同时清空、单字段清空与显式值写入，API / settings.json / /api/state 三处一致且最终恢复用户设置；重启加载新二进制后 four-fixes.mjs 13/13 checks=true、error=null、original_default_restored=true，5 张截图哈希见 docs/UI-MIGRATION.md §7.4。
+
+## 小白开箱即用 · 原生桌面壳与四端源码决策（2026-11-13 晚，m04829 / m04836）
+
+### 需求 Requirement / 理解门槛
+- 用户原话 A：「做好小白使用教程 做好简单的入门 ui 界面 快捷方式 托盘图标 桌面客户端等 / 做好测试 / 小白不懂端口和 ip 打开」。
+- 用户原话 B：「不只是linux 系统 还有所有平台 android windows linux macos」。
+- 模糊词：所有平台（桌面原生包、安卓安装包还是同一套源码）、小白打开（双击图标、自动发现服务、不可见端口和 IP）、桌面客户端（原生窗口还是浏览器）、Android（手机上真玩 Java 版还是遥控器 / PWA）。
+- 门槛(a) 已满足：cn.bing 搜索 tauri 2 mobile android ios desktop one codebase official、tauri tray icon single instance plugin official docs、Electron vs Tauri tray app 托盘 快捷方式 打包 windows macos linux 均 HTTP 200；LilyCraft 全平台搜索亦 200。
+- 门槛(b) 已问未答：ask_user_question 三问（Android 形态：遥控器 / Pojav 真玩 / 网页 PWA；Win/mac 验收：源码+CI 还是必须给签名安装包；快捷方式：首次运行自动创建还是安装包自带）带 20s 选项等待，外层 run_code 在 60000ms 到期，用户未选择。必须显式标注工作假设并在交付答复再次询问。
+- 当前长期目标 goal-ff34eb90-830f-427d-bbc4-1882a96c5339 为 active / armed，objective 已含「源码覆盖 Windows/macOS/Linux/Android」。
+
+### 调研 Research（真实本机 / gh / crates，2026-11-13）
+- 现成方案：gh search repos 四轮（minecraft launcher tauri / minecraft launcher tray / minecraft launcher desktop tauri android / pcl launcher tauri）只得到 8 个 0–1 星低活跃 Tauri MC 启动器，无覆盖四端、托盘、快捷方式、教程、既有 lycomc 内核的主流现成项目；tauri 官方 GitHub API 403 限流，但 static.crates.io 的 wry crate 可访问。PCL-Community/PCL.Proto 仅 Win/mac/Linux Tauri 桌面，无 Android / 鸿蒙工程，且其 LICENSE 为 other / All Rights Reserved，沿用既有合规决策：不复制其代码与资源。
+- 本机 GUI：pkg-config 具备 gtk+-3.0 / libsoup-3.0 / webkit2gtk-4.1 / webkit2gtk-web-extension-4.1 / ayatana-appindicator3-0.1；动态库 libwebkit2gtk-4.1.so.0 与 libayatana-appindicator3.so.1 存在。/home/lilyco/.cache/lycomc-desktop-poc 用 wry 0.57.2 + tao 0.37.2 + tray-icon 0.25.1 编译并真实创建窗口、WebView、托盘成功，但 Wayland 默认句柄触发 UnsupportedWindowHandle；强制 GDK_BACKEND=x11 并继承 XAUTHORITY 后日志逐字为 poc: window+webview+tray created。此为「Linux 原生壳可行」的硬证据，不能把编译成功当运行成功。
+- 交叉工具链：rustup 已装 aarch64-apple-ios / aarch64-linux-android / aarch64-unknown-linux-ohos / x86_64-pc-windows-msvc / x86_64-unknown-linux-gnu；本机无 x86_64-w64-mingw32-gcc、osxcross、xcrun、Android NDK、cargo-ndk、cargo-tauri。Windows/macOS/Android 只能交付源码 + GitHub Actions / Gradle / cargo-packager 配置，不能匿名产出已签名 exe / dmg / apk。Android 若要本地真跑 Java 版 MC，还需 Pojav 类运行时 + NDK + 签名，且用户未确认，本轮不承诺。
+- lycomc 既有约束：14 条 lilyco 命令、include_dir! 嵌入 web/dist、axum 25 路由、25 个单测、六页 shadcn UI、微软设备码登录与皮肤均不可回退。裸跑当前打印 http://127.0.0.1:8766 并 xdg-open，正是小白不懂端口和 IP 的产品缺口。
+
+### 分析 · 设计 / fit 矩阵
+- A 薄壳自研：新增 Rust lib + desktop 模块，桌面端同进程启动 axum 隐藏端口，wry/tao 原生窗口直接加载 Web UI，tray-icon 托盘菜单「打开主界面 / 使用教程 / 退出」；Linux 首次运行写 .desktop 与桌面快捷方式；Android 提供 JNI + WebView + 本地 axum 的源码骨架，PWA 给浏览器兜底；Win/mac 打包用 cargo-packager + GitHub Actions。投入中等，保留全部既有内核与 UI，合规风险低。
+- B 引入 Tauri 2 CLI / 迁移 PCL.Proto 工程：视觉与移动脚手架较全，但需 Bun + Vue + Tauri 独立骨架，推翻 React/shadcn 六页与四前端，触发 license=other 重度使用约束，本机无 cargo-tauri。否决。
+- C 只改 README / 写死 xdg-open：投入最低，但用户仍要懂端口与 IP，桌面客户端 / 托盘 / 快捷方式 / 四端源码都未兑现。否决。
+
+### ROI / 门槛
+- A 用约三成改造拿到约八成「小白双击即用」收益：端口和 IP 从界面与启动流程消失，Linux 可实机验证，Win/mac/Android 有可复现源码与 CI；B 收益被品牌许可与重写成本抵消；C 不满足验收。
+- 硬门槛：Linux 桌面必须真实启动窗口 + 托盘 + 快捷方式 + CDP/截图；不得破坏 cargo test 25 项、CLI 14 命令、Web 25 路由、六页 UI；不得把 Win/mac/Android 源码配置谎称为已签名安装包或四端实机演示。
+
+### 决策 Decision（本节即记录；决策先于应用代码）
+- adopt A。先把 src/main.rs 的模块声明收敛到 src/lib.rs（rlib + cdylib），保留原 bin 入口；新增 api::start_embedded() 在后台 tokio 线程绑定 127.0.0.1 随机可用端口并返回端口，不打印 URL、不 xdg-open、不暴露给用户；桌面模块在 Linux Wayland 会话下自动设置 GDK_BACKEND=x11 并尝试从 XDG_RUNTIME_DIR 补 XAUTHORITY；窗口关闭最小化到托盘。
+- 入口：桌面双击 / 裸跑优先原生窗口；显式 --web / --gui 保留浏览器控制台；CLI / --tui / --mcp 原样保留。Windows 用 windows_subsystem=windows 隐藏控制台。前端零术语、三步首启向导、#/guide 五节图文教程、PWA manifest 与 service worker 由 ui 同伴在 web/ 目录自研完成，本模块不写 web/ 源码。
+- 快捷方式：Linux 首次运行以自研 SVG 图标生成 ~/.local/share/applications/lilycraft.desktop、~/.local/share/icons/hicolor/scalable/apps/lilycraft.svg 与桌面目录的 LilyCraft.desktop；只在缺失或含 LilyCraft 标记时覆盖，避免破坏用户手工修改。Win/mac 快捷方式由 cargo-packager 安装包负责。
+- 四端源码覆盖：Windows/Linux/macOS 共用 desktop.rs；Android 用 android/ Gradle + Kotlin WebView + JNI 调用 liblycomc.so 的 nativeStart 启动本地 axum，加载 http://127.0.0.1:{port}/#/，Gradle 任务与 CI 复制 .so；浏览器 PWA 复用同一 Web UI。Android 工作假设 = 本地管理 / 教程 / 远程控制壳，不是在手机上直接运行 Java 版 MC；若用户选择 Pojav 真玩需另立 NDK 与运行时项目。
+- 打包：packaging/Packager.toml（显式 `-c` 传入，不写死 formats，由 cargo-packager 取平台默认格式）产出 Linux deb / AppImage、Windows NSIS 安装器、macOS app / DMG；图标在 packaging/icons/（自研 SVG + 多尺寸 PNG + 多尺寸 ICO）。.github/workflows/release.yml 矩阵执行 pnpm build → cargo test/build → cargo packager → Android Gradle assembleDebug；只上传 artifact，不自动创建 GitHub Release、不推送、不打 tag（须用户显式授权）。
+- 验收：cargo test / cargo build / pnpm build / pnpm lint；CLI --schema 仍 14 命令；HTTP 25 路由回归；CDP 六页 + #/guide + 首启向导；systemd-run 真实启动桌面壳并截图；.desktop 内容与快捷方式落盘；端口字符串不出现在 UI 与桌面启动日志；Workflow YAML 与 Gradle/Kotlin/Manifest 本地解析或语法检查；最终文档明确 Linux 实机已验、Win/mac/Android 是源码+CI、未产出已签名安装包。
+
+### 边界与未决问题
+- 用户尚未回答 Android 形态、Win/mac 是否必须给安装包、快捷方式生成方式三问；本轮按上述工作假设推进，并在最终答复再问一次。
+- 不等同于 m03957 的「比 PCL 更好 / 全平台实机演示 / 服务器游玩」已达成；Windows、macOS、Android 未做实机截图，也未产出签名安装包。
+- 不引入 Tauri CLI、不复制 PCL.Proto 源码/资源、不改名以 PCL 开头、不改变 LilyCraft 品牌。

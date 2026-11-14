@@ -10,7 +10,8 @@ use std::path::{Path, PathBuf};
 use super::paths;
 
 pub const MANIFEST_URL: &str = "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json";
-pub const MANIFEST_MIRROR: &str = "https://bmclapi2.bangbang93.com/mc/game/version_manifest_v2.json";
+pub const MANIFEST_MIRROR: &str =
+    "https://bmclapi2.bangbang93.com/mc/game/version_manifest_v2.json";
 pub const RESOURCES_URL: &str = "https://resources.download.minecraft.net";
 pub const FABRIC_META: &str = "https://meta.fabricmc.net/v2";
 
@@ -41,7 +42,9 @@ impl Source {
                     format!("https://bmclapi2.bangbang93.com{rest}")
                 } else if let Some(rest) = url.strip_prefix("https://libraries.minecraft.net") {
                     format!("https://bmclapi2.bangbang93.com/maven{rest}")
-                } else if let Some(rest) = url.strip_prefix("https://resources.download.minecraft.net") {
+                } else if let Some(rest) =
+                    url.strip_prefix("https://resources.download.minecraft.net")
+                {
                     format!("https://bmclapi2.bangbang93.com/assets{rest}")
                 } else if let Some(rest) = url.strip_prefix("https://meta.fabricmc.net/v2") {
                     // BMCLAPI 的 fabric-meta 与官方 v2 接口一一对应（实测 255 项 loader 一致）
@@ -135,7 +138,11 @@ pub async fn manifest(source: Source, refresh: bool) -> Result<Manifest, String>
     Ok(m)
 }
 
-pub async fn manifest_entry(id: &str, source: Source, refresh: bool) -> Result<VersionEntry, String> {
+pub async fn manifest_entry(
+    id: &str,
+    source: Source,
+    refresh: bool,
+) -> Result<VersionEntry, String> {
     let m = manifest(source, refresh).await?;
     m.versions
         .into_iter()
@@ -352,11 +359,9 @@ fn rule_matches(r: &Rule) -> bool {
         // 只处理我们真正会开启的 feature；其它一律视为 false
         // 我们一个可选 feature 都不开启（不加 --demo、不加 quickPlay 之类），
         // 所以带 features 且要求 true 的参数一律不适用。
-        for (_k, want) in features {
-            let have = false;
-            if have != *want {
-                return false;
-            }
+        // 只要某个 feature 被要求为 true，而本启动器一个可选 feature 都不开，就不适用
+        if features.values().any(|want| *want) {
+            return false;
         }
     }
     let Some(os) = &r.os else { return true };
@@ -403,12 +408,17 @@ pub fn maven_path(name: &str) -> String {
 
 /// 读实例的 version json（磁盘）
 pub fn read_version_json(path: &Path) -> Result<VersionJson, String> {
-    let t = std::fs::read_to_string(path).map_err(|e| format!("读 {} 失败: {e}", path.display()))?;
+    let t =
+        std::fs::read_to_string(path).map_err(|e| format!("读 {} 失败: {e}", path.display()))?;
     serde_json::from_str(&t).map_err(|e| format!("{} 解析失败: {e}", path.display()))
 }
 
 /// 下载并缓存一个 version json 到 cache/versions/<id>.json，返回内容
-pub async fn fetch_version_json(id: &str, source: Source, refresh: bool) -> Result<VersionJson, String> {
+pub async fn fetch_version_json(
+    id: &str,
+    source: Source,
+    refresh: bool,
+) -> Result<VersionJson, String> {
     let p = cache_path(&format!("versions_{id}.json"));
     if !refresh {
         if let Ok(t) = std::fs::read_to_string(&p) {
@@ -431,7 +441,8 @@ pub async fn fetch_version_json(id: &str, source: Source, refresh: bool) -> Resu
             .await
             .map_err(|e| e.to_string())?,
     };
-    let v: VersionJson = serde_json::from_str(&text).map_err(|e| format!("{id} 元数据解析失败: {e}"))?;
+    let v: VersionJson =
+        serde_json::from_str(&text).map_err(|e| format!("{id} 元数据解析失败: {e}"))?;
     if let Some(dir) = p.parent() {
         let _ = std::fs::create_dir_all(dir);
     }
@@ -457,7 +468,6 @@ pub struct AssetObject {
     #[serde(default)]
     pub size: u64,
 }
-
 
 #[cfg(test)]
 mod mirror_tests {

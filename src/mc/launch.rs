@@ -187,9 +187,17 @@ pub fn classpath(v: &VersionJson, id: &str) -> Result<(String, Vec<PathBuf>), St
         }
     }
     if !missing.is_empty() {
-        return Err(format!("缺少 {} 个依赖库（例如 {}），请重新安装版本", missing.len(), missing[0]));
+        return Err(format!(
+            "缺少 {} 个依赖库（例如 {}），请重新安装版本",
+            missing.len(),
+            missing[0]
+        ));
     }
-    let sep = if cfg!(target_os = "windows") { ";" } else { ":" };
+    let sep = if cfg!(target_os = "windows") {
+        ";"
+    } else {
+        ":"
+    };
     let joined = kept
         .iter()
         .map(|p| p.display().to_string())
@@ -203,7 +211,11 @@ pub async fn prepare(opts: &LaunchOpts, progress: ProgressFn<'_>) -> Result<Prep
     let (raw, dir) = instance_json(&opts.id)?;
     let v = resolved(&opts.id)?;
     let _ = &raw;
-    let required = v.java_version.as_ref().map(|j| j.major_version).unwrap_or(17);
+    let required = v
+        .java_version
+        .as_ref()
+        .map(|j| j.major_version)
+        .unwrap_or(17);
     progress(super::pct(4.0, format!("检查 Java {required}…")));
     let java_bin = match opts.java_path.as_deref() {
         Some(p) if !p.trim().is_empty() => {
@@ -213,7 +225,10 @@ pub async fn prepare(opts: &LaunchOpts, progress: ProgressFn<'_>) -> Result<Prep
                     if i.version != required {
                         progress(super::logline(
                             6.0,
-                            format!("警告：设置里指定的 Java {} 与版本要求 {} 不一致，照用", i.version, required),
+                            format!(
+                                "警告：设置里指定的 Java {} 与版本要求 {} 不一致，照用",
+                                i.version, required
+                            ),
                         ));
                     }
                     (p, i.version, "settings".to_string())
@@ -224,7 +239,11 @@ pub async fn prepare(opts: &LaunchOpts, progress: ProgressFn<'_>) -> Result<Prep
         _ => {
             let p = java::ensure(required, opts.source, progress).await?;
             let i = java::probe(&p);
-            (p, i.as_ref().map(|x| x.version).unwrap_or(required), "auto".to_string())
+            (
+                p,
+                i.as_ref().map(|x| x.version).unwrap_or(required),
+                "auto".to_string(),
+            )
         }
     };
 
@@ -245,7 +264,10 @@ pub async fn prepare(opts: &LaunchOpts, progress: ProgressFn<'_>) -> Result<Prep
     // 每次启动都把设置里的语言写回 options.txt：游戏与 Mod 界面默认中文。
     // 写失败只警告，不阻断启动（实例目录可能是只读的）。
     if let Err(e) = super::options::set_lang(&opts.id, &opts.game_lang) {
-        progress(super::logline(8.0, format!("写入游戏语言失败（不影响启动）: {e}")));
+        progress(super::logline(
+            8.0,
+            format!("写入游戏语言失败（不影响启动）: {e}"),
+        ));
     }
     let launcher_version = env!("CARGO_PKG_VERSION").to_string();
 
@@ -259,16 +281,22 @@ pub async fn prepare(opts: &LaunchOpts, progress: ProgressFn<'_>) -> Result<Prep
         ("auth_uuid", opts.account.uuid.clone()),
         // 正版账号注入 Minecraft Services 的 access token；离线保持旧的占位 token，
         // 1.20+ 缺 --accessToken 会直接崩（见文件头踩坑记录）。
-        ("auth_access_token", if opts.account.is_microsoft() {
-            opts.account.access_token.clone()
-        } else {
-            "lycomcofflinetoken0000000000000000".to_string()
-        }),
-        ("auth_session", if opts.account.is_microsoft() {
-            opts.account.access_token.clone()
-        } else {
-            "lycomcofflinetoken0000000000000000".to_string()
-        }),
+        (
+            "auth_access_token",
+            if opts.account.is_microsoft() {
+                opts.account.access_token.clone()
+            } else {
+                "lycomcofflinetoken0000000000000000".to_string()
+            },
+        ),
+        (
+            "auth_session",
+            if opts.account.is_microsoft() {
+                opts.account.access_token.clone()
+            } else {
+                "lycomcofflinetoken0000000000000000".to_string()
+            },
+        ),
         ("user_type", opts.account.user_type().to_string()),
         ("version_type", kind),
         ("natives_directory", natives.display().to_string()),
@@ -278,8 +306,18 @@ pub async fn prepare(opts: &LaunchOpts, progress: ProgressFn<'_>) -> Result<Prep
         ("clientid", String::new()),
         ("auth_xuid", opts.account.xuid.clone()),
         ("user_properties", "{}".to_string()),
-        ("library_directory", paths::libraries_dir().display().to_string()),
-        ("classpath_separator", if cfg!(target_os = "windows") { ";".to_string() } else { ":".to_string() }),
+        (
+            "library_directory",
+            paths::libraries_dir().display().to_string(),
+        ),
+        (
+            "classpath_separator",
+            if cfg!(target_os = "windows") {
+                ";".to_string()
+            } else {
+                ":".to_string()
+            },
+        ),
     ];
 
     let mut jvm: Vec<String> = Vec::new();
@@ -351,7 +389,10 @@ pub async fn prepare(opts: &LaunchOpts, progress: ProgressFn<'_>) -> Result<Prep
         return Err(format!("{} 的参数表为空，元数据可能损坏", opts.id));
     }
 
-    let main_class = v.main_class.clone().ok_or_else(|| format!("{} 缺少 mainClass", opts.id))?;
+    let main_class = v
+        .main_class
+        .clone()
+        .ok_or_else(|| format!("{} 缺少 mainClass", opts.id))?;
     let mut args = jvm;
     args.push(main_class);
     args.extend(game);
@@ -383,7 +424,9 @@ pub fn timestamp() -> String {
 
 /// 供 /api/logs 用：日志路径 -> 最后若干行
 pub fn tail(path: &Path, max: usize) -> Vec<String> {
-    let Ok(t) = std::fs::read_to_string(path) else { return Vec::new() };
+    let Ok(t) = std::fs::read_to_string(path) else {
+        return Vec::new();
+    };
     let lines: Vec<String> = t.lines().map(|s| s.to_string()).collect();
     let start = lines.len().saturating_sub(max);
     lines[start..].to_vec()
@@ -406,7 +449,9 @@ pub fn spawn(p: &Prepared) -> Result<std::process::Child, String> {
         .append(true)
         .open(&p.log_path)
         .map_err(|e| format!("打开日志文件失败: {e}"))?;
-    let log2 = log.try_clone().map_err(|e| format!("复制日志句柄失败: {e}"))?;
+    let log2 = log
+        .try_clone()
+        .map_err(|e| format!("复制日志句柄失败: {e}"))?;
     let child = Command::new(&p.program)
         .args(&p.args)
         .current_dir(&p.game_dir)
@@ -417,4 +462,3 @@ pub fn spawn(p: &Prepared) -> Result<std::process::Child, String> {
         .map_err(|e| format!("启动 java 失败: {e}"))?;
     Ok(child)
 }
-

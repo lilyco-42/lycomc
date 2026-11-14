@@ -1,6 +1,7 @@
 import { AccountMenu } from "@/components/account-menu";
 import { Badge } from "@/components/ui/badge";
 import { SkinAvatar } from "@/components/skin-avatar";
+import { CircleHelp } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useAppData } from "@/context/app-data-context";
 import { type AccountSkin } from "@/lib/api";
@@ -84,6 +85,13 @@ export function AppTopbar() {
             />
           </button>
         </AccountMenu>
+        <a
+          href="#/guide"
+          className="hidden h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium text-white/90 transition-colors hover:bg-white/15 hover:text-white sm:flex"
+        >
+          <CircleHelp className="size-4" />
+          <span>教程</span>
+        </a>
         <ThemeToggle className="text-white hover:bg-white/15 hover:text-white" />
       </div>
     </header>

@@ -32,7 +32,7 @@ interface RemoteResult {
   error: string | null;
 }
 
-/** 全局数据源：一次 /api/state + /api/health，各页面共享；后端没起也不白屏。 */
+/** 全局数据源：一次 /api/state + /api/health，各页面共享；启动器没准备好也不白屏。 */
 export function AppDataProvider({ children }: AppDataProviderProps) {
   const [state, setState] = useState<StateResponse | null>(null);
   const [health, setHealth] = useState<Health | null>(null);

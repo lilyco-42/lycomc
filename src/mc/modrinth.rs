@@ -72,7 +72,11 @@ pub struct ModVersion {
 }
 
 /// 搜索（q 空时给热门）
-pub async fn search(q: &str, game_version: Option<&str>, loader: Option<&str>) -> Result<SearchResp, String> {
+pub async fn search(
+    q: &str,
+    game_version: Option<&str>,
+    loader: Option<&str>,
+) -> Result<SearchResp, String> {
     let mut facets: Vec<String> = vec!["[\"project_type:mod\"]".to_string()];
     if let Some(gv) = game_version {
         if !gv.trim().is_empty() {
@@ -84,16 +88,26 @@ pub async fn search(q: &str, game_version: Option<&str>, loader: Option<&str>) -
             facets.push(format!("[\"categories:{}\"]", l.trim()));
         }
     }
-    let query = if q.trim().is_empty() { "sort=downloads&limit=20".to_string() } else {
+    let query = if q.trim().is_empty() {
+        "sort=downloads&limit=20".to_string()
+    } else {
         format!("query={}&limit=20&index=relevance", urlencode(q.trim()))
     };
-    let url = format!("{API}/search?{}&facets={}", query, urlencode(&format!("[{}]", facets.join(","))));
+    let url = format!(
+        "{API}/search?{}&facets={}",
+        query,
+        urlencode(&format!("[{}]", facets.join(",")))
+    );
     let body = fetch(&url).await?;
     serde_json::from_str(&body).map_err(|e| format!("Modrinth 搜索解析失败: {e}"))
 }
 
 /// 取一个项目在指定 MC 版本 + 装载器下最新的兼容版本
-pub async fn pick_version(project_id: &str, game_version: &str, loader: &str) -> Result<ModVersion, String> {
+pub async fn pick_version(
+    project_id: &str,
+    game_version: &str,
+    loader: &str,
+) -> Result<ModVersion, String> {
     let url = format!(
         "{API}/project/{project_id}/version?game_versions={}&loaders={}",
         urlencode(&format!("[\"{}\"]", game_version)),
@@ -102,8 +116,7 @@ pub async fn pick_version(project_id: &str, game_version: &str, loader: &str) ->
     let body = fetch(&url).await?;
     let list: Vec<ModVersion> =
         serde_json::from_str(&body).map_err(|e| format!("Modrinth 版本解析失败: {e}"))?;
-    newest_version(list)
-        .ok_or_else(|| format!("该模组没有适配 {game_version} / {loader} 的文件"))
+    newest_version(list).ok_or_else(|| format!("该模组没有适配 {game_version} / {loader} 的文件"))
 }
 
 /// 从版本列表里挑发布时间最新的一个。
@@ -136,7 +149,14 @@ pub async fn install_mod(
     let dest = dir.join(&file.filename);
     // Modrinth 用 sha1 做文件校验（与 MC 生态一致）
     let sha1 = file.hashes.get("sha1").cloned();
-    progress(super::pct(20.0, format!("下载 {}({:.1} MB)…", file.filename, file.size as f64 / 1_048_576.0)));
+    progress(super::pct(
+        20.0,
+        format!(
+            "下载 {}({:.1} MB)…",
+            file.filename,
+            file.size as f64 / 1_048_576.0
+        ),
+    ));
     let items = vec![super::download::Item {
         url: file.url.clone(),
         dest: dest.clone(),
@@ -152,14 +172,19 @@ pub async fn install_mod(
 pub fn list_mods(instance_id: &str) -> Vec<serde_json::Value> {
     let dir = super::launch::mods_dir(instance_id);
     let mut out = Vec::new();
-    let Ok(rd) = std::fs::read_dir(&dir) else { return out };
+    let Ok(rd) = std::fs::read_dir(&dir) else {
+        return out;
+    };
     for e in rd.flatten() {
         let p = e.path();
         let Ok(m) = e.metadata() else { continue };
         if !m.is_file() {
             continue;
         }
-        let name = p.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+        let name = p
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_default();
         if name.ends_with(".disabled") || name.starts_with('.') {
             continue;
         }
@@ -173,7 +198,10 @@ pub fn list_mods(instance_id: &str) -> Vec<serde_json::Value> {
         }));
     }
     out.sort_by(|a, b| {
-        a["file"].as_str().unwrap_or("").cmp(b["file"].as_str().unwrap_or(""))
+        a["file"]
+            .as_str()
+            .unwrap_or("")
+            .cmp(b["file"].as_str().unwrap_or(""))
     });
     out
 }
@@ -191,7 +219,8 @@ pub fn remove_mod(instance_id: &str, file: &str) -> Result<(), String> {
 
 /// 官方 API URL -> MCIM 镜像 URL（只换前缀，路径结构一致）
 fn mirror_api(url: &str) -> Option<String> {
-    url.strip_prefix(API).map(|rest| format!("{MIRROR_API}{rest}"))
+    url.strip_prefix(API)
+        .map(|rest| format!("{MIRROR_API}{rest}"))
 }
 
 /// Modrinth CDN URL -> MCIM 镜像；路径必须保留 /data/ 前缀。
@@ -214,12 +243,7 @@ async fn fetch(url: &str) -> Result<String, String> {
     }
     let mut last = String::new();
     for u in &candidates {
-        let r = match c
-            .get(u)
-            .header("User-Agent", "lycomc/0.1")
-            .send()
-            .await
-        {
+        let r = match c.get(u).header("User-Agent", "lycomc/0.1").send().await {
             Ok(r) => r,
             Err(e) => {
                 last = format!("请求 Modrinth 失败: {e}");
@@ -249,8 +273,6 @@ pub fn urlencode(s: &str) -> String {
     out
 }
 
-
-
 #[cfg(test)]
 mod mirror_tests {
     use super::mirror_cdn;
@@ -268,8 +290,13 @@ mod mirror_tests {
         use super::{newest_version, ModVersion};
         // 真实观测：MCIM 把 0.5.12/0.5.13 追加在末尾，官方则排在最前。
         let mk = |name: &str, date: &str| ModVersion {
-            id: name.into(), name: name.into(), version_number: name.into(),
-            game_versions: vec![], loaders: vec![], date_published: date.into(), files: vec![],
+            id: name.into(),
+            name: name.into(),
+            version_number: name.into(),
+            game_versions: vec![],
+            loaders: vec![],
+            date_published: date.into(),
+            files: vec![],
         };
         let stale = vec![
             mk("0.5.11", "2024-06-29T13:43:41.842Z"),

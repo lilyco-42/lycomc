@@ -118,8 +118,7 @@ pub fn status(id: &str) -> (Option<String>, Vec<String>, bool) {
     let prefix = format!("file/{PACK_PREFIX}");
     let localized = o.resource_packs.iter().any(|p| {
         p.starts_with(&prefix)
-            && p
-                .strip_prefix("file/")
+            && p.strip_prefix("file/")
                 .map(|n| dir.join(n).is_file())
                 .unwrap_or(false)
     });

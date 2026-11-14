@@ -53,7 +53,7 @@ export function VersionsPage() {
   const [busyAction, setBusyAction] = useState<"delete" | "select" | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [sort, setSort] = useState<SortKey>("installed");
-  // 汉化任务：jobId 走 SSE 进度，target 只用于标题与按钮 loading 态
+  // 汉化任务：任务号走实时进度，target 只用于标题与按钮等待态
   const [localizeTarget, setLocalizeTarget] = useState<string | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
   const [detailNonce, setDetailNonce] = useState(0);

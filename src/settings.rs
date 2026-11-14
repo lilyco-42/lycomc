@@ -54,12 +54,7 @@ impl Settings {
         if self.memory_mb > 65536 {
             self.memory_mb = 65536;
         }
-        if self.max_concurrent == 0 {
-            self.max_concurrent = 1;
-        }
-        if self.max_concurrent > 64 {
-            self.max_concurrent = 64;
-        }
+        self.max_concurrent = self.max_concurrent.clamp(1, 64);
         if !matches!(self.download_source.as_str(), "mojang" | "bmcl") {
             self.download_source = "mojang".into();
         }

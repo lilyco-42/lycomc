@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useState } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppDataProvider } from "@/components/app-data-provider";
@@ -12,6 +13,9 @@ import { DownloadPage } from "@/pages/download-page";
 import { ModsPage } from "@/pages/mods-page";
 import { SettingsPage } from "@/pages/settings-page";
 import { NotFoundPage } from "@/pages/not-found-page";
+import { GuidePage } from "@/pages/guide-page";
+import { Onboarding } from "@/components/onboarding";
+import { GUIDE_EVENT, hasOnboarded } from "@/lib/onboarding";
 
 function RouteView() {
   const path = useRoutePath();
@@ -62,12 +66,24 @@ function PageSwitch({ path }: { path: string }) {
       return <ModsPage />;
     case "/settings":
       return <SettingsPage />;
+    case "/guide":
+      return <GuidePage />;
     default:
       return <NotFoundPage />;
   }
 }
 
 function App() {
+  const [showGuide, setShowGuide] = useState<boolean>(() => !hasOnboarded());
+
+  useEffect(() => {
+    const reopen = () => { setShowGuide(true); };
+    window.addEventListener(GUIDE_EVENT, reopen);
+    return () => { window.removeEventListener(GUIDE_EVENT, reopen); };
+  }, []);
+
+  const closeGuide = useCallback(() => { setShowGuide(false); }, []);
+
   return (
     <AppDataProvider>
       <TooltipProvider>
@@ -78,6 +94,7 @@ function App() {
             <RouteView />
           </div>
         </div>
+        {showGuide ? <Onboarding onFinish={closeGuide} /> : null}
         <Toaster position="top-center" richColors closeButton />
       </TooltipProvider>
     </AppDataProvider>

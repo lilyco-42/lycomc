@@ -3,6 +3,7 @@ name = "lycomc"
 version = "0.1.0"
 edition = "2021"
 publish = false
+build = "build.rs"
 description = "lycomc — lilyco 命令面 + shadcn 桌面的 Minecraft 启动器（PCL 风）"
 
 [dependencies]
@@ -27,6 +28,31 @@ directories = "6"
 libc = "0.2"
 zip = "2"
 tokio-util = { version = "0.7", features = ["io"] }
+
+[lib]
+name = "lycomc"
+path = "src/lib.rs"
+crate-type = ["rlib", "cdylib"]
+
+[[bin]]
+name = "lycomc"
+path = "src/main.rs"
+
+# 桌面端：wry + tao + 托盘。Linux 的 GTK / AppIndicator 依赖单独按 target 拆开，
+# 避免 Windows/macOS 交叉编译时被 Linux 专属 feature 拖进 GTK 与 libxdo。
+[target.'cfg(any(target_os = "linux", target_os = "windows", target_os = "macos"))'.dependencies]
+wry = { version = "0.57", default-features = false }
+tao = { version = "0.37", default-features = false, features = ["rwh_06"] }
+tray-icon = { version = "0.25", default-features = false }
+muda = { version = "0.20", default-features = false }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+wry = { version = "0.57", default-features = false, features = ["os-webview", "x11"] }
+tao = { version = "0.37", default-features = false, features = ["rwh_06", "x11"] }
+tray-icon = { version = "0.25", default-features = false, features = ["libappindicator"] }
+
+[target.'cfg(target_os = "android")'.dependencies]
+jni = { version = "0.21", default-features = false }
 
 [profile.dev]
 opt-level = 0

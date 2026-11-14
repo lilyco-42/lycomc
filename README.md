@@ -6,7 +6,8 @@
 
 | 入口 | 形态 | 用途 |
 |---|---|---|
-| `lycomc` / `lycomc --web` | 本地 Web 控制台（PCL 风界面） | 产品主入口，浏览器里点按钮装版本、启动、管 Mod |
+| `lycomc`（双击 / 裸跑） | 原生桌面窗口（LilyCraft 启动器） | **小白主入口**：装好就能双击用，窗内就是同一套界面，关窗最小化到托盘 |
+| `lycomc --web` | 本地 Web 控制台（PCL 风界面） | 浏览器里点按钮装版本、启动、管 Mod |
 | `lycomc <子命令>` | CLI | 脚本 / 终端用户，14 个子命令 |
 | `lycomc --tui` | 终端全屏界面 | 无浏览器的机器上选命令、填参数、看结果（需真 TTY） |
 | `lycomc --mcp` | MCP 服务器 | 交给 AI Agent 调用（写操作走白名单策略） |
@@ -63,19 +64,56 @@ lycomc --schema             # 全部命令的 JSON 清单（给脚本 / Agent �
 |---|---|---|
 | ![中文主菜单](docs/screenshots/game-zh-menu.png) | ![中文选项页](docs/screenshots/game-zh-options.png) | ![Sodium 中文](docs/screenshots/game-zh-sodium.png) |
 
-## 五个页面
+## 六个页面
 
 - **主页**：巨型渐变启动按钮（PCL 风）、实例卡、分配内存、运行中 PID + 结束进程、SSE 实时进度与日志尾、远程最新版、Java 状态。
 - **版本管理**：已装实例列表、切换当前实例、删除、看详情（Mod 数 / 运行中）、一键汉化（已汉化显示徽章）。
 - **下载**：远程 900+ 版本（正式版 / 快照 / 全部）、搜索、分页、一键安装（可同时装 Fabric）。
 - **Mod 管理**：Modrinth 搜索（400ms 去抖）+ 一键装（自动拉依赖）+ 已装列表删除。
 - **设置**：内存滑块、Java 运行时选择、额外 JVM 参数、下载源（Mojang 官方 / BMCLAPI 国内镜像，默认 BMCLAPI）、并发数、关闭行为、游戏语言（默认简体中文）、离线账号。
+- **使用教程 `#/guide`**：四步图文 + 三条 FAQ，全中文、无术语，随时可从顶栏或侧栏回到这里。
+
+## 桌面客户端（开箱即用）
+
+```bash
+lycomc            # 双击图标或裸跑：直接开原生窗口，不起浏览器
+```
+
+- **零术语首启向导**：第一次打开是三步引导（认识它 / 取个名字 / 选个版本），任何一步都能「跳过引导」，不认字也能点完。
+- **使用教程 `#/guide`**：四步图文（装版本 / 正版账号 / 装 Mod / 变中文）+ 三条常见问题（打不开、没 Java、下载慢），顶栏问号与侧栏「使用教程」都能进；教程页里可「重看新手引导」。
+- **窗口**：1180x780 起，拖动缩放界面跟随；关窗只最小化到托盘，托盘菜单有「打开主界面 / 使用教程 / 退出 LilyCraft」。
+- **快捷方式**：Linux 首次运行自动生成应用菜单项、图标和桌面图标（`~/.local/share/applications/lilycraft.desktop`、`~/Desktop/LilyCraft.desktop`）。
+- **零端口零 IP**：内嵌服务只绑 `127.0.0.1` 的随机端口，端口号与地址不出现在界面和日志里。
+
+## 多平台
+
+| 平台 | 形态 | 状态 |
+|---|---|---|
+| Linux | 桌面窗口 / deb / AppImage | ✅ 实机验过（窗口、缩放、托盘、关窗最小化、快捷方式） |
+| Windows | 桌面窗口 / NSIS 安装器 | 🟡 同一份 `src/desktop.rs` 源码 + 构建工作流，未产出已签名 .exe |
+| macOS | 桌面窗口 / .app + DMG | 🟡 同上，无 mac 实机 |
+| Android | Kotlin WebView 壳 + JNI 启动本地内核 | 🟡 `android/` 源码 + 工作流，仓库不含 APK |
+| 浏览器 | PWA（`manifest.webmanifest`，可添加到主屏幕） | ✅ 实测 manifest 正常返回 |
+
+> 说明：Android 当前定位是**本地管理 / 教程 / 远程控制壳**，不在手机上直接跑 Java 版 MC。已签名安装包与 Windows/macOS/Android 实机验收都还没做，不在本文宣称已达成。
+
+打包与构建：
+
+```bash
+bash scripts/package-front.sh        # 先建前端产物
+cargo packager --release -c packaging/Packager.toml   # 需 cargo install cargo-packager
+bash scripts/build-android.sh        # 需 Android SDK + NDK + cargo-ndk + Gradle
+```
+
+CI 见 `.github/workflows/release.yml`（手动触发，只上传 artifact，不建 Release、不打 tag）。
 
 ## 架构
 
 ```
 src/
-  main.rs      四端分发：裸跑/--web → Web 控制台；子命令 → CLI；--tui / --mcp → lilyco
+  main.rs      入口分发：桌面窗口（默认）/ --web → Web 控制台；子命令 → CLI；--tui / --mcp → lilyco
+  lib.rs       rlib + cdylib 门面，含 start_embedded() 与 Android JNI 入口
+  desktop.rs   原生窗口（wry）+ 托盘 + 自绘图标 + Linux 快捷方式
   commands.rs  lilyco 命令注册表（14 个命令，CLI/TUI/MCP/Web 共用同一份）
   policy.rs    安全策略：本地面放行 T0/T1；MCP 面写操作仅白名单
   api.rs       axum REST + SSE + 内嵌前端静态资源（fallback）
@@ -99,8 +137,20 @@ web/          React 19 + shadcn/ui + Tailwind 4 + hash 路由，构建产物被 
 ## 文档
 
 - [docs/DECISION.md](docs/DECISION.md) —— lyco 预研：候选对比、niche 知识、为什么自研薄壳
+- [docs/TEST-REPORT.md](docs/TEST-REPORT.md) —— 逐轮测试记录与平台达成矩阵（§7 为桌面壳/教程/四端源码）
 - [docs/CONTRACT.md](docs/CONTRACT.md) —— 前后端契约（HTTP API、类型、数据根布局、变更记录）
 - [docs/DECISION.md](docs/DECISION.md) 末节 —— 本地化 / 镜像源调研、接入决策与许可说明（CFPA 包 CC BY-NC-SA 4.0、Sodium 中文包 MIT）；本项目二进制不含第三方汉化资源，用户点「一键汉化」时自行下载。国内镜像决策：adopt 现状 + 局部补齐，CurseForge 完整接入 / Forge·NeoForge·OptiFine 安装器 / 自搭反代 ROI 未过门槛暂不做。
+
+## 开发与维护边界
+
+本仓库当前把 `lilyco` 依赖写成绝对路径（`/home/lilyco/code/lilyco/lilyco`），因此定位为**本机开发仓库**，不提供公共 CI：
+
+```bash
+# 需要 pnpm 9+；前端产物会被 include_dir! 编进二进制
+./scripts/check.sh
+```
+
+本地检查包含 `pnpm lint`、前端构建、`cargo fmt --check`、`cargo clippy -D warnings`、`cargo test`。`.github/workflows/release.yml` 是为多平台出包准备的**手动**工作流，同样受这条限制：要让它在公共 runner 上真正跑通，需要先把 `Cargo.toml` 的 `lilyco` 依赖改成可复现的 git rev 或发布包，并在 CI 中检出对应源码（当前 Rust 检查步骤带 `|| true` 就是为了不误报）。
 
 ## License
 

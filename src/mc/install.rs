@@ -27,7 +27,10 @@ pub async fn resolve_chain(id: &str, source: Source) -> Result<Vec<VersionJson>,
 
 /// 合并继承链：父的库与参数在前，子的覆盖主类/jar/assetIndex
 pub fn merge(chain: &[VersionJson], id: &str) -> VersionJson {
-    let mut out = VersionJson { id: id.to_string(), ..Default::default() };
+    let mut out = VersionJson {
+        id: id.to_string(),
+        ..Default::default()
+    };
     // 从最老的父到最年轻的子依次应用
     for v in chain.iter().rev() {
         // 主类以子版本为准（Fabric 的 KnotClient 会覆盖原版 Main）
@@ -85,13 +88,13 @@ pub struct LibPlan {
 }
 
 fn artifact_item(a: &Artifact, name: &str) -> Item {
-    let rel = a
-        .path
-        .clone()
-        .unwrap_or_else(|| meta::maven_path(name));
+    let rel = a.path.clone().unwrap_or_else(|| meta::maven_path(name));
     Item {
         url: if a.url.is_empty() {
-            format!("https://libraries.minecraft.net/{}", rel.trim_start_matches('/'))
+            format!(
+                "https://libraries.minecraft.net/{}",
+                rel.trim_start_matches('/')
+            )
         } else {
             a.url.clone()
         },
@@ -101,9 +104,9 @@ fn artifact_item(a: &Artifact, name: &str) -> Item {
     }
 }
 
-
-/// 根据当前平台把 libraries 拆成 classpath 与 natives
-pub fn plan_libs(v: &VersionJson, source: Source) -> Result<LibPlan, String> {
+/// 根据当前平台把 libraries 拆成 classpath 与 natives。
+/// source 保留在签名里给调用方传递下载源；实际 URL 改写统一在 download::one 里做。
+pub fn plan_libs(v: &VersionJson, _source: Source) -> Result<LibPlan, String> {
     let mut classpath = Vec::new();
     let mut natives = Vec::new();
     let classifier = meta::natives_classifier();
@@ -123,7 +126,7 @@ pub fn plan_libs(v: &VersionJson, source: Source) -> Result<LibPlan, String> {
                         path: Some(rel.clone()),
                         sha1: lib.sha1.clone(),
                         size: lib.size,
-                        url: format!("{}{}", repo.trim_end_matches('/'), format!("/{rel}")),
+                        url: format!("{}/{rel}", repo.trim_end_matches('/')),
                     }),
                     classifiers: None,
                 };
@@ -152,14 +155,22 @@ pub fn plan_libs(v: &VersionJson, source: Source) -> Result<LibPlan, String> {
                 .and_then(|c| c.get(classifier).or_else(|| c.get("natives-linux")))
                 .cloned();
             if let Some(art) = art {
-                let exclude = lib.extract.as_ref().map(|e| e.exclude.clone()).unwrap_or_default();
+                let exclude = lib
+                    .extract
+                    .as_ref()
+                    .map(|e| e.exclude.clone())
+                    .unwrap_or_default();
                 let it = artifact_item(&art, &lib.name);
                 natives.push((it.dest.clone(), it, exclude));
                 continue;
             }
             if let Some(art) = &dl.artifact {
                 // 有些版本把 natives jar 直接放 artifact
-                let exclude = lib.extract.as_ref().map(|e| e.exclude.clone()).unwrap_or_default();
+                let exclude = lib
+                    .extract
+                    .as_ref()
+                    .map(|e| e.exclude.clone())
+                    .unwrap_or_default();
                 let it = artifact_item(art, &lib.name);
                 natives.push((it.dest.clone(), it, exclude));
                 continue;
@@ -247,13 +258,16 @@ pub fn extract_natives(jar: &Path, dest: &Path, exclude: &[String]) -> Result<()
         return Ok(());
     }
     let f = std::fs::File::open(jar).map_err(|e| format!("打开 {} 失败: {e}", jar.display()))?;
-    let mut zip = zip::ZipArchive::new(f).map_err(|e| format!("{} 不是合法 zip: {e}", jar.display()))?;
+    let mut zip =
+        zip::ZipArchive::new(f).map_err(|e| format!("{} 不是合法 zip: {e}", jar.display()))?;
     for i in 0..zip.len() {
         let mut entry = match zip.by_index(i) {
             Ok(e) => e,
             Err(_) => continue,
         };
-        let Some(raw) = entry.enclosed_name() else { continue };
+        let Some(raw) = entry.enclosed_name() else {
+            continue;
+        };
         let name = raw.to_string_lossy().to_string();
         if name.starts_with("META-INF/") || name.ends_with('/') {
             continue;
@@ -262,11 +276,18 @@ pub fn extract_natives(jar: &Path, dest: &Path, exclude: &[String]) -> Result<()
             continue;
         }
         let lower = name.to_lowercase();
-        if !(lower.ends_with(".so") || lower.ends_with(".dll") || lower.ends_with(".dylib") || lower.ends_with(".jnilib")) {
+        if !(lower.ends_with(".so")
+            || lower.ends_with(".dll")
+            || lower.ends_with(".dylib")
+            || lower.ends_with(".jnilib"))
+        {
             continue;
         }
         // 只取文件名，各级目录拉平（MC 官方启动器同样做法）
-        let base = Path::new(&name).file_name().map(PathBuf::from).unwrap_or_else(|| PathBuf::from("lib"));
+        let base = Path::new(&name)
+            .file_name()
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from("lib"));
         let out = dest.join(base);
         let mut buf = Vec::new();
         use std::io::Read;
@@ -290,7 +311,9 @@ pub async fn install_assets(
 ) -> Result<(), String> {
     let index_path = paths::indexes_dir().join(format!("{}.json", ai.id));
     let need_index = match (&ai.sha1, index_path.is_file()) {
-        (Some(h), true) => download::sha1_file(&index_path).map(|g| !g.eq_ignore_ascii_case(h)).unwrap_or(true),
+        (Some(h), true) => download::sha1_file(&index_path)
+            .map(|g| !g.eq_ignore_ascii_case(h))
+            .unwrap_or(true),
         (_, true) => false,
         _ => true,
     };
@@ -302,7 +325,8 @@ pub async fn install_assets(
         std::fs::write(&index_path, text).map_err(|e| format!("写资源索引失败: {e}"))?;
     }
     let body = std::fs::read_to_string(&index_path).map_err(|e| e.to_string())?;
-    let parsed: meta::AssetIndexJson = serde_json::from_str(&body).map_err(|e| format!("资源索引解析失败: {e}"))?;
+    let parsed: meta::AssetIndexJson =
+        serde_json::from_str(&body).map_err(|e| format!("资源索引解析失败: {e}"))?;
     let mut items = Vec::new();
     for (name, obj) in &parsed.objects {
         if obj.hash.len() < 2 {
@@ -328,7 +352,9 @@ pub fn is_installed(id: &str) -> bool {
 }
 
 pub fn installed_ids() -> Vec<String> {
-    let Ok(rd) = std::fs::read_dir(paths::versions_dir()) else { return Vec::new() };
+    let Ok(rd) = std::fs::read_dir(paths::versions_dir()) else {
+        return Vec::new();
+    };
     let mut ids: Vec<String> = rd
         .flatten()
         .filter(|e| e.path().is_dir())

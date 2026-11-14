@@ -11,7 +11,7 @@ export interface UseJobTrackerOptions {
 
 export interface JobTracker {
   job: Job | null;
-  /** SSE 连上了；false 时界面提示「进度来自轮询」 */
+  /** 实时进度连上了；false 时界面提示「进度会自己刷新」 */
   live: boolean;
   error: string | null;
   /** 任务已进入 done / error */
@@ -24,8 +24,8 @@ function isTerminal(job: Job): boolean {
 }
 
 /**
- * 追踪单个 job：优先吃 SSE 增量，同时低频轮询 /api/jobs/:id 兜底
- * （后端 SSE 未实现或被代理掐断时界面也不会永远卡住）。
+ * 追踪单个任务：优先吃实时进度，同时低频查看 /api/jobs/:id 兜底
+ * （实时进度没连上或被掐断时界面也不会永远卡住）。
  * job 用「存下来的结果 + 是否属于当前 jobId」派生，避免在 effect 里清状态。
  */
 export function useJobTracker(

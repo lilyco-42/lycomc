@@ -83,3 +83,51 @@ test result: ok. 17 passed; 0 failed
 - 新增真实浏览器交互脚本 `/home/lilyco/.cache/lycomc-cdp/four-fixes.mjs`：账号快速切换四处同步、设默认/清除默认持久化、真实图标、页面退/入场动效与 reduced-motion，共 13 项。
 - 第一次运行发现 3 项失败 → 定位 `PUT /api/settings` 的 `Option<Option<String>>` 把显式 null 当字段缺失 → `double_option` 修复；重启加载修复后的二进制，HTTP 9 次可逆探针全部符合契约，CDP 复跑 **13/13 checks=true**、error=null、原始默认账号复原。
 - 证据：`/home/lilyco/.cache/lycomc-cdp/four-fixes-result.json`、5 张 `four-fixes-*.png`；逐项口径见 `docs/UI-MIGRATION.md` §7 与 `docs/DECISION.md` 末节。
+
+## 7. 2026-11-13/14 桌面壳 · 教程 · 四端源码（追加记录）
+
+本节记录「小白开箱即用 + 四端源码」这一轮的实际验收，不改写上面的历史矩阵。
+
+### 7.1 桌面壳 WebView 黑屏（已修）
+
+| 步骤 | 做法 | 结果 |
+|---|---|---|
+| 现象 | 窗口起来但整片空白，截图 mean=4.29e-06 / colors=17；嵌入式端口无 ESTAB | 排除后端未启动 |
+| 对照 A | 纯 Python GTK3 + WebKit2 `load_html` 橙底 | 正常渲染（mean=0.510349，橙像素 210637）→ 环境本身没问题 |
+| 对照 B | `examples/wry_min.rs` 跑 wry 两种建法 | `build()` 全黑；`build_as_child()` 红底正常 → 非 child 模式在本机 Xwayland 下把 webkit 的 GtkWindow 顶到宿主窗口 |
+| 环境变量矩阵 | WEBKIT_DISABLE_COMPOSITING_MODE / LIBGL_ALWAYS_SOFTWARE / WEBKIT_DISABLE_DMABUF_RENDERER 四组 | 红像素都是 7937，无差异 → 排除渲染器开关假设 |
+| 修复 | `src/desktop.rs` 改为 `with_bounds(...).build_as_child(&window)`，Resized 时同步 `set_bounds` | 首屏完整 UI，resize 不裁切不留黑边 |
+
+### 7.2 桌面壳实机
+
+- 启动：`systemd-run --user --unit=lycomc-desktop --collect`（DISPLAY=:0 / XAUTHORITY / GDK_BACKEND=x11），pid 172929，嵌入式端口 `127.0.0.1:36527`，`/api/health` 返回 `webMode:"embedded"`，且端口的实际地址与端口号不出现在 UI 与启动日志里。
+- 窗口：WM_NAME「LilyCraft 启动器」，2360x1560；`XResizeWindow` 到 1800x1200 再复原，WebView 跟随（`set_bounds` 生效）。
+- 侧栏点击（XTest 注入）：点「版本管理」真跳到 `#/versions`，三个实例行与每行操作按钮齐全。
+- 关窗：`WM_DELETE_WINDOW` → 窗口从 `_NET_CLIENT_LIST` 消失，进程仍存活、`/api/health` 仍 200 → 关闭即最小化到托盘。
+- 托盘：`org.kde.StatusNotifierWatcher.Get RegisteredStatusNotifierItems` 含本实例的 `org/ayatana/NotificationItem/tray_icon_tray_app_*`，托盘图标 PNG 已落盘。
+- 快捷方式：`~/.local/share/applications/lilycraft.desktop`、`~/.local/share/icons/hicolor/scalable/apps/lilycraft.svg`、`~/Desktop/LilyCraft.desktop` 三个文件自动生成，`.desktop` 内容无技术术语（单测 `desktop_shortcut_body_has_no_technical_terms` 守住）。
+
+### 7.3 教程与首启向导（真跑）
+
+- 首启向导 3 步（认识它 / 取个名字 / 选个版本），首屏实测文案「欢迎来到 LilyCraft 启动器」「它是一个「帮你把 Minecraft 装好、开起来」的小工具…」，底部「跳过引导」+「开始 →」；点「开始」推进到第 2 步（步骤条实测「1 认识它 / 2 取个名字 / 3 选个版本」）。
+- 教程页 `#/guide`：四步（第一次，把游戏装进来 / 想用正版账号 / 想加点新玩法 / 让游戏变成中文）+ 三条 FAQ + 「重看新手引导」；顶栏与侧栏都有入口。
+- CDP 全流程（`/home/lilyco/.cache/lycomc-cdp/guide-check.mjs`，13 项）：onboardingVisible / onboardingClosed / onboardedFlag / guideHeading / guideSteps / reopenWorks / topbarGuideLink / sidebarGuideLink 全为真；六个路由加载后均无骨架屏残留。
+- 截图：`guide-onb.png`、`guide-page.png`、`guide-topbar.png`、`guide-route_*.png`。
+
+### 7.4 四端源码与打包配置
+
+| 项 | 状态 | 证据 |
+|---|---|---|
+| Linux 桌面 | ✅ 实机验过 | 上述 7.2 全部实测 |
+| Windows | 🟡 源码 + CI | `desktop.rs` 同一份源码 + workflow windows-latest；本机 `cargo check --target x86_64-pc-windows-msvc` 因无 MSVC `lib.exe` 失败，未产出 .exe |
+| macOS | 🟡 源码 + CI | 同上，workflow macos-latest；无 mac 实机 |
+| Android | 🟡 源码 + CI | `android/` Gradle + Kotlin WebView + JNI `nativeStart`；本机无 NDK/Gradle，仓库不含 APK |
+| 浏览器 PWA | ✅ 实测 | `GET /manifest.webmanifest` → 200 `application/manifest+json` 543 B；`/` 的 head 含 manifest 与 theme-color |
+
+- 打包配置 `packaging/Packager.toml` 与官方 schema 逐 key 比对通过（顶层 unknown = []，linux/deb/appimage/nsis/dmg 嵌套全 ok）；本机无 `cargo-packager`，未真实产出安装包。
+- `.github/workflows/release.yml` 两个 job（desktop 10 步 / android 10 步）YAML 解析通过；只 upload artifact，不建 Release、不打 tag。
+- `scripts/package-front.sh`、`scripts/build-android.sh` `bash -n` 通过并已 `chmod +x`。
+
+### 7.5 守卫
+
+`cargo fmt -- --check` 0 diff；`cargo clippy --all-targets -D warnings` 0 错；`cargo test --no-fail-fast` **27 passed / 0 failed**；`pnpm lint` 4 warnings / 0 errors（既有告警）；`pnpm build` 通过（`index-DXA7FZTF.js` 595.24 kB / `index-aXCjO_tR.css` 91.93 kB）。

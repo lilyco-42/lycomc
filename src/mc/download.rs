@@ -34,7 +34,9 @@ pub struct Stats {
 }
 
 fn file_ok(path: &Path, sha1_hex: Option<&str>, size: Option<u64>) -> bool {
-    let Ok(md) = std::fs::metadata(path) else { return false };
+    let Ok(md) = std::fs::metadata(path) else {
+        return false;
+    };
     if !md.is_file() {
         return false;
     }
@@ -47,7 +49,9 @@ fn file_ok(path: &Path, sha1_hex: Option<&str>, size: Option<u64>) -> bool {
     if want.is_empty() {
         return true;
     }
-    sha1_file(path).map(|h| h.eq_ignore_ascii_case(want)).unwrap_or(false)
+    sha1_file(path)
+        .map(|h| h.eq_ignore_ascii_case(want))
+        .unwrap_or(false)
 }
 
 pub fn sha1_file(path: &Path) -> Result<String, String> {
@@ -73,7 +77,10 @@ pub async fn fetch_all(
     progress: ProgressFn<'_>,
 ) -> Result<Stats, String> {
     let mut todo: Vec<Item> = Vec::new();
-    let mut stats = Stats { total: items.len(), ..Default::default() };
+    let mut stats = Stats {
+        total: items.len(),
+        ..Default::default()
+    };
     for it in items {
         if file_ok(&it.dest, it.sha1.as_deref(), it.size) {
             stats.skipped += 1;
@@ -87,7 +94,11 @@ pub async fn fetch_all(
     let todo_len = todo.len();
 
     if todo.is_empty() {
-        progress(Progress { percent: 100.0, message: "文件均已存在，跳过下载".into(), log: None });
+        progress(Progress {
+            percent: 100.0,
+            message: "文件均已存在，跳过下载".into(),
+            log: None,
+        });
         return Ok(stats);
     }
 
@@ -110,10 +121,7 @@ pub async fn fetch_all(
             } else {
                 (dc_now / todo_len as f64) * 100.0
             };
-            Ok::<(u64, f64), String>((
-                n,
-                byte_pct.min(99.0),
-            ))
+            Ok::<(u64, f64), String>((n, byte_pct.min(99.0)))
         }));
     }
 
@@ -185,7 +193,11 @@ pub async fn fetch_all(
     }
     stats.downloaded = count;
     stats.bytes = bytes;
-    progress(Progress { percent: 100.0, message: "下载完成".into(), log: None });
+    progress(Progress {
+        percent: 100.0,
+        message: "下载完成".into(),
+        log: None,
+    });
     Ok(stats)
 }
 
@@ -208,11 +220,16 @@ async fn one(
     }
     candidates.dedup();
     if let Some(dir) = it.dest.parent() {
-        std::fs::create_dir_all(dir).map_err(|e| format!("创建目录 {} 失败: {e}", dir.display()))?;
+        std::fs::create_dir_all(dir)
+            .map_err(|e| format!("创建目录 {} 失败: {e}", dir.display()))?;
     }
     let part = it.dest.with_extension(format!(
         "{}part",
-        it.dest.extension().and_then(|e| e.to_str()).map(|e| format!("{e}.")).unwrap_or_default()
+        it.dest
+            .extension()
+            .and_then(|e| e.to_str())
+            .map(|e| format!("{e}."))
+            .unwrap_or_default()
     ));
     let mut last_err = String::new();
     for (attempt, url) in candidates.iter().enumerate() {
@@ -292,7 +309,9 @@ async fn stream_to(
         f.seek(std::io::SeekFrom::End(0)).await.ok();
         f
     } else {
-        tokio::fs::File::create(part).await.map_err(|e| e.to_string())?
+        tokio::fs::File::create(part)
+            .await
+            .map_err(|e| e.to_string())?
     };
     let mut stream = resp.bytes_stream();
     while let Some(chunk) = stream.next().await {
@@ -312,14 +331,17 @@ pub async fn fetch_text(url: &str, source: Source) -> Result<String, String> {
     let u = source.rewrite(url);
     let r = match c.get(&u).send().await {
         Ok(r) if r.status().is_success() => r,
-        _ => c.get(url).send().await.map_err(|e| format!("请求 {url} 失败: {e}"))?,
+        _ => c
+            .get(url)
+            .send()
+            .await
+            .map_err(|e| format!("请求 {url} 失败: {e}"))?,
     };
     if !r.status().is_success() {
         return Err(format!("{} 返回 HTTP {}", url, r.status()));
     }
     r.text().await.map_err(|e| e.to_string())
 }
-
 
 #[cfg(test)]
 mod resume_tests {
@@ -381,10 +403,20 @@ mod resume_tests {
         // 本地已有前 10 字节，模拟上次被超时截断
         std::fs::write(&part, &BODY[..10]).unwrap();
         let done = Arc::new(AtomicU64::new(0));
-        let n = stream_to(&meta::client(), &url, &part, &done).await.unwrap();
+        let n = stream_to(&meta::client(), &url, &part, &done)
+            .await
+            .unwrap();
         assert_eq!(n as usize, BODY.len(), "续传后字节数应等于完整长度");
-        assert_eq!(std::fs::read(&part).unwrap(), BODY, "续传内容必须完整且不重复");
-        assert_eq!(done.load(Ordering::Relaxed) as usize, BODY.len(), "进度应计入已续传字节");
+        assert_eq!(
+            std::fs::read(&part).unwrap(),
+            BODY,
+            "续传内容必须完整且不重复"
+        );
+        assert_eq!(
+            done.load(Ordering::Relaxed) as usize,
+            BODY.len(),
+            "进度应计入已续传字节"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -412,9 +444,14 @@ mod resume_tests {
         let part = dir.join("g.jar.part");
         std::fs::write(&part, b"stale").unwrap();
         let done = Arc::new(AtomicU64::new(0));
-        let n = stream_to(&meta::client(), &format!("http://{addr}/g.jar"), &part, &done)
-            .await
-            .unwrap();
+        let n = stream_to(
+            &meta::client(),
+            &format!("http://{addr}/g.jar"),
+            &part,
+            &done,
+        )
+        .await
+        .unwrap();
         assert_eq!(n as usize, SMALL.len());
         assert_eq!(std::fs::read(&part).unwrap(), SMALL);
         let _ = std::fs::remove_dir_all(&dir);

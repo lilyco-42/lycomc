@@ -1,0 +1,25 @@
+{
+  "name": "LilyCraft 启动器",
+  "short_name": "LilyCraft",
+  "description": "装一次版本，之后每次只要点一个按钮。",
+  "start_url": "/#/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f5f7fc",
+  "theme_color": "#3b6fe0",
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

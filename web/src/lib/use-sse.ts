@@ -39,7 +39,7 @@ export interface UseSseOptions {
 }
 
 /**
- * 订阅 /api/events（SSE：事件名 progress|done|error，data 为 Job）。
+ * 订阅 /api/events（实时事件：progress / done / error，内容为任务状态）。
  * 断线自动重连；jobId 变化或组件卸载时关闭连接。
  */
 const SUPPORTED = typeof EventSource !== "undefined";

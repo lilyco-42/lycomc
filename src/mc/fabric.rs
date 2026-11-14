@@ -16,7 +16,9 @@ pub async fn latest_loader(game_version: &str, source: Source) -> Result<String,
     let body = super::download::fetch_text(&url, source).await?;
     let arr: serde_json::Value =
         serde_json::from_str(&body).map_err(|e| format!("Fabric loader 列表解析失败: {e}"))?;
-    let list = arr.as_array().ok_or_else(|| "Fabric loader 列表格式异常".to_string())?;
+    let list = arr
+        .as_array()
+        .ok_or_else(|| "Fabric loader 列表格式异常".to_string())?;
     // 优先 stable=true 的第一个
     for item in list {
         let stable = item
@@ -27,7 +29,11 @@ pub async fn latest_loader(game_version: &str, source: Source) -> Result<String,
         if !stable {
             continue;
         }
-        if let Some(v) = item.get("loader").and_then(|l| l.get("version")).and_then(|v| v.as_str()) {
+        if let Some(v) = item
+            .get("loader")
+            .and_then(|l| l.get("version"))
+            .and_then(|v| v.as_str())
+        {
             return Ok(v.to_string());
         }
     }
@@ -58,7 +64,12 @@ pub async fn install_fabric(
         install::install_vanilla(game_version, source, concurrency, progress).await?;
     }
     progress(super::pct(80.0, "拉取 Fabric loader profile…"));
-    let url = format!("{}/versions/loader/{}/{}/profile/json", meta::FABRIC_META, game_version, loader);
+    let url = format!(
+        "{}/versions/loader/{}/{}/profile/json",
+        meta::FABRIC_META,
+        game_version,
+        loader
+    );
     let body = super::download::fetch_text(&url, source).await?;
     let profile: meta::VersionJson =
         serde_json::from_str(&body).map_err(|e| format!("Fabric profile 解析失败: {e}"))?;
@@ -79,7 +90,10 @@ pub async fn install_fabric(
         items.push(it.clone());
     }
     if !items.is_empty() {
-        progress(super::pct(85.0, format!("下载 {} 个 Fabric 库…", items.len())));
+        progress(super::pct(
+            85.0,
+            format!("下载 {} 个 Fabric 库…", items.len()),
+        ));
         super::download::fetch_all(items, source, concurrency, progress).await?;
     }
 

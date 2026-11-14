@@ -1,0 +1,55 @@
+# cargo-packager 配置：把同一个 lycomc 二进制打成四平台安装包。
+#
+#   cargo install cargo-packager --locked
+#   cargo packager --release -c packaging/Packager.toml
+#
+# 字段依据官方 schema：
+# https://raw.githubusercontent.com/crabnebula-dev/cargo-packager/main/crates/packager/schema.json
+# 注意：本机不具备 MSVC / osxcross / 签名证书，仓库里只有这份配置，
+# 没有已签名的 .exe / .dmg；真实产物由 .github/workflows/release.yml 在对应 runner 上生成。
+
+productName = "LilyCraft"
+version = "0.1.0"
+identifier = "app.lilycraft.launcher"
+description = "小白也能用的 Minecraft 启动器：装一次版本，之后每次只要点一个按钮。"
+longDescription = """LilyCraft 是一款类 PCL 的 Minecraft 启动器。
+内置原版 / Fabric 安装、国内镜像下载、Modrinth Mod 管理、一键汉化、
+微软正版登录与皮肤展示；双击图标即用，界面上不出现端口和 IP。"""
+publisher = "LilyCraft"
+copyright = "个人项目，未指定许可证"
+category = "Game"
+homepage = "https://github.com/"
+authors = ["LilyCraft"]
+
+# 前端产物必须先构建：web/dist 会被 include_dir! 编进二进制。
+beforePackagingCommand = "bash scripts/package-front.sh && cargo build --release"
+
+binaries = [{ path = "lycomc", main = true }]
+outDir = "packaging/dist"
+# 不写死 formats：cargo-packager 会用当前平台的 platform_default，
+# 即 Linux → deb + AppImage，Windows → NSIS 安装器，macOS → .app + .dmg。
+# 写死其它平台的格式会在本机直接报「不支持该格式」。
+icons = ["packaging/icons/icon-256.png", "packaging/icons/icon.ico"]
+
+[linux]
+# 生成 .desktop 由 cargo-packager 负责；运行期另有 desktop.rs 自建快捷方式（幂等）。
+generateDesktopEntry = true
+
+[deb]
+depends = ["libwebkit2gtk-4.1-0", "libgtk-3-0", "libayatana-appindicator3-1"]
+section = "games"
+priority = "optional"
+
+[appimage]
+# WebKitGTK 在 AppImage 里不能自带，必须用宿主的；其余照默认。
+excludedLibs = ["libwebkit2gtk-4.1.so.0", "libgtk-3.so.0", "libsoup-3.0.so.0"]
+
+[nsis]
+installMode = "currentUser"
+languages = ["SimpChinese", "English"]
+displayLanguageSelector = true
+
+[dmg]
+windowSize = { width = 660, height = 400 }
+appPosition = { x = 180, y = 170 }
+appFolderPosition = { x = 480, y = 170 }

@@ -24,7 +24,7 @@ type TypeFilter = "all" | "release" | "snapshot";
 
 const PAGE_SIZE = 40;
 
-/** 下载页：远程版本列表 + 类型过滤 + 搜索 + 安装进度（SSE）。 */
+/** 下载页：可下载版本列表 + 类型过滤 + 搜索 + 安装进度（实时显示）。 */
 export function DownloadPage() {
   const { remote, remoteLoading, remoteError, reloadRemote, reload, versions, backendDown, loading } =
     useAppData();

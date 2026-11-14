@@ -9,7 +9,7 @@ import { normalizeHash, useRoutePath } from "@/lib/router";
 import { shortUuid } from "@/lib/format";
 import { useKeyedFetch } from "@/lib/use-keyed-fetch";
 import { cn } from "@/lib/utils";
-import { ChevronsUpDown, Languages, Package, Palette, SquareStack } from "lucide-react";
+import { BookOpen, ChevronsUpDown, Languages, Package, Palette, SquareStack } from "lucide-react";
 
 /** 浅蓝分组侧栏：分组标题 + 蓝色竖条激活项 + 底部账号卡。 */
 export function AppSidebar() {
@@ -68,6 +68,21 @@ export function AppSidebar() {
         <div>
           <p className="px-3 pb-2 text-[11px] font-medium tracking-wide text-muted-foreground">启动器</p>
           <div className="flex flex-col gap-0.5">
+            <a
+              href="#/guide"
+              className={cn(
+                "group relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors",
+                path === "/guide"
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground/75 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground",
+              )}
+            >
+              {path === "/guide" ? (
+                <span className="brand-gradient absolute top-1/2 left-0 h-5 w-[3px] -translate-y-1/2 rounded-full" />
+              ) : null}
+              <BookOpen className={cn("size-4 shrink-0", path === "/guide" ? "text-primary" : "text-muted-foreground")} />
+              使用教程
+            </a>
             <a href="#/settings" className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] text-sidebar-foreground/75 transition-colors hover:bg-sidebar-accent/70 hover:text-sidebar-foreground">
               <Palette className="size-4 shrink-0 text-muted-foreground" />
               个性化

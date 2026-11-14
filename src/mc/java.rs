@@ -24,13 +24,19 @@ pub fn probe(path: &Path) -> Option<JavaInfo> {
         String::from_utf8_lossy(&out.stdout)
     );
     let version = parse_major(&text)?;
-    Some(JavaInfo { path: path.display().to_string(), version, source: "system".into() })
+    Some(JavaInfo {
+        path: path.display().to_string(),
+        version,
+        source: "system".into(),
+    })
 }
 
 /// 从 `openjdk version "17.0.20.1" 2026-08-18` 抠 17；兼容 "1.8.0_392" → 8
 pub fn parse_major(text: &str) -> Option<u32> {
     for line in text.lines() {
-        let Some(idx) = line.find("version \"") else { continue };
+        let Some(idx) = line.find("version \"") else {
+            continue;
+        };
         let rest = &line[idx + "version \"".len()..];
         let Some(end) = rest.find('"') else { continue };
         let v = &rest[..end];
@@ -65,7 +71,9 @@ pub fn scan_system() -> Vec<JavaInfo> {
         "/opt/jdk",
         "/Library/Java/JavaVirtualMachines",
     ] {
-        let Ok(rd) = std::fs::read_dir(base) else { continue };
+        let Ok(rd) = std::fs::read_dir(base) else {
+            continue;
+        };
         for e in rd.flatten() {
             let p = e.path();
             for cand in [
@@ -126,9 +134,16 @@ pub fn pick(required: u32) -> Option<JavaInfo> {
 }
 
 /// 从 Adoptium 下载一个 JRE 到 java/<major>/，返回 java 可执行路径
-pub async fn ensure(required: u32, source: Source, progress: ProgressFn<'_>) -> Result<PathBuf, String> {
+pub async fn ensure(
+    required: u32,
+    source: Source,
+    progress: ProgressFn<'_>,
+) -> Result<PathBuf, String> {
     if let Some(j) = pick(required) {
-        progress(super::pct(100.0, format!("使用已有 Java {}（{}）", j.version, j.source)));
+        progress(super::pct(
+            100.0,
+            format!("使用已有 Java {}（{}）", j.version, j.source),
+        ));
         return Ok(PathBuf::from(j.path));
     }
     let target = paths::java_dir().join(required.to_string());
@@ -140,7 +155,10 @@ pub async fn ensure(required: u32, source: Source, progress: ProgressFn<'_>) -> 
             }
         }
     }
-    progress(super::pct(0.0, format!("本机缺 Java {required}，正在下载托管 JRE…")));
+    progress(super::pct(
+        0.0,
+        format!("本机缺 Java {required}，正在下载托管 JRE…"),
+    ));
     let (os, arch) = adoptium_platform();
     let official = format!(
         "https://api.adoptium.net/v3/binary/latest/{required}/ga/{os}/{arch}/jre/hotspot/normal/eclipse?project=jdk"
@@ -161,7 +179,10 @@ pub async fn ensure(required: u32, source: Source, progress: ProgressFn<'_>) -> 
         match c.get(u).send().await {
             Ok(r) if r.status().is_success() => match r.bytes().await {
                 Ok(b) if b.len() > 2 && b[0] == 0x1f && b[1] == 0x8b => {
-                    progress(super::pct(20.0, format!("已从国内镜像取得 Java {required} 运行时…")));
+                    progress(super::pct(
+                        20.0,
+                        format!("已从国内镜像取得 Java {required} 运行时…"),
+                    ));
                     bytes = Some(b.to_vec());
                     break;
                 }
@@ -173,7 +194,13 @@ pub async fn ensure(required: u32, source: Source, progress: ProgressFn<'_>) -> 
         }
     }
     let bytes = bytes.ok_or_else(|| format!("下载 Java {required} 失败（{last}）"))?;
-    progress(super::pct(60.0, format!("已下载 {:.1} MB，正在解包…", bytes.len() as f64 / 1_048_576.0)));
+    progress(super::pct(
+        60.0,
+        format!(
+            "已下载 {:.1} MB，正在解包…",
+            bytes.len() as f64 / 1_048_576.0
+        ),
+    ));
     let staging = paths::java_dir().join(format!("{required}.tmp"));
     if staging.exists() {
         let _ = std::fs::remove_dir_all(&staging);
@@ -206,12 +233,7 @@ pub async fn ensure(required: u32, source: Source, progress: ProgressFn<'_>) -> 
 
 /// 从清华 TUNA 的 Adoptium 目录页里挑出当前平台的 JRE 包名。
 /// 目录文件名形如 OpenJDK17U-jre_x64_linux_hotspot_17.0.21_9.tar.gz。
-async fn tuna_jre_url(
-    c: &reqwest::Client,
-    required: u32,
-    os: &str,
-    arch: &str,
-) -> Option<String> {
+async fn tuna_jre_url(c: &reqwest::Client, required: u32, os: &str, arch: &str) -> Option<String> {
     let dir = format!("https://mirrors.tuna.tsinghua.edu.cn/Adoptium/{required}/jre/{arch}/{os}/");
     let text = c.get(&dir).send().await.ok()?.text().await.ok()?;
     tuna_jre_name(&text, arch, os).map(|name| format!("{dir}{name}"))
@@ -246,7 +268,11 @@ fn adoptium_platform() -> (&'static str, &'static str) {
 }
 
 fn single_root(dir: &Path) -> Option<PathBuf> {
-    let mut entries: Vec<PathBuf> = std::fs::read_dir(dir).ok()?.flatten().map(|e| e.path()).collect();
+    let mut entries: Vec<PathBuf> = std::fs::read_dir(dir)
+        .ok()?
+        .flatten()
+        .map(|e| e.path())
+        .collect();
     entries.retain(|p| p.is_dir());
     if entries.len() == 1 {
         Some(entries.remove(0))
@@ -273,7 +299,6 @@ pub fn extract_archive(bytes: &[u8], dest: &Path) -> Result<(), String> {
     }
     Ok(())
 }
-
 
 #[cfg(test)]
 mod mirror_tests {

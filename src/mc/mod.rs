@@ -3,13 +3,13 @@
 pub mod auth;
 pub mod download;
 pub mod fabric;
-pub mod java;
 pub mod install;
+pub mod java;
 pub mod launch;
-pub mod meta;
 pub mod localize;
-pub mod options;
+pub mod meta;
 pub mod modrinth;
+pub mod options;
 pub mod paths;
 
 /// 进度事件：内核所有长操作统一用它上报
@@ -23,12 +23,20 @@ pub struct Progress {
 pub type ProgressFn<'a> = &'a (dyn Fn(Progress) + Send + Sync);
 
 pub fn pct(percent: f64, message: impl Into<String>) -> Progress {
-    Progress { percent, message: message.into(), log: None }
+    Progress {
+        percent,
+        message: message.into(),
+        log: None,
+    }
 }
 
 pub fn logline(percent: f64, message: impl Into<String>) -> Progress {
     let m = message.into();
-    Progress { percent, log: Some(m.clone()), message: m }
+    Progress {
+        percent,
+        log: Some(m.clone()),
+        message: m,
+    }
 }
 
 /// 启动游戏用的账号（离线或微软正版）。
@@ -59,7 +67,11 @@ impl GameAccount {
     /// 从持久化账号构造；调用方应先跑 auth::ensure_fresh 保证 token 没过期
     pub fn from_account(a: &crate::settings::Account) -> Self {
         let mut out = Self::offline(&a.name);
-        out.uuid = if a.uuid.is_empty() { offline_uuid(&a.name) } else { a.uuid.clone() };
+        out.uuid = if a.uuid.is_empty() {
+            offline_uuid(&a.name)
+        } else {
+            a.uuid.clone()
+        };
         if a.is_microsoft() {
             out.kind = "microsoft".into();
             out.access_token = a.access_token.clone().unwrap_or_default();
@@ -68,8 +80,16 @@ impl GameAccount {
         out
     }
 
-    pub fn is_microsoft(&self) -> bool { self.kind == "microsoft" }
-    pub fn user_type(&self) -> &'static str { if self.is_microsoft() { "msa" } else { "legacy" } }
+    pub fn is_microsoft(&self) -> bool {
+        self.kind == "microsoft"
+    }
+    pub fn user_type(&self) -> &'static str {
+        if self.is_microsoft() {
+            "msa"
+        } else {
+            "legacy"
+        }
+    }
 }
 
 pub fn offline_uuid(name: &str) -> String {
@@ -78,7 +98,14 @@ pub fn offline_uuid(name: &str) -> String {
     b[6] = (b[6] & 0x0f) | 0x30;
     b[8] = (b[8] & 0x3f) | 0x80;
     let hex: String = b.iter().map(|x| format!("{x:02x}")).collect();
-    format!("{}-{}-{}-{}-{}", &hex[0..8], &hex[8..12], &hex[12..16], &hex[16..20], &hex[20..32])
+    format!(
+        "{}-{}-{}-{}-{}",
+        &hex[0..8],
+        &hex[8..12],
+        &hex[12..16],
+        &hex[16..20],
+        &hex[20..32]
+    )
 }
 
 /// 极简 MD5（只用于离线 UUID，不用于安全）
@@ -103,7 +130,12 @@ pub fn md5(data: &[u8]) -> [u8; 16] {
     for chunk in msg.chunks(64) {
         let mut w = [0u32; 16];
         for i in 0..16 {
-            w[i] = u32::from_le_bytes([chunk[i * 4], chunk[i * 4 + 1], chunk[i * 4 + 2], chunk[i * 4 + 3]]);
+            w[i] = u32::from_le_bytes([
+                chunk[i * 4],
+                chunk[i * 4 + 1],
+                chunk[i * 4 + 2],
+                chunk[i * 4 + 3],
+            ]);
         }
         let (mut a, mut b, mut c, mut d) = (state[0], state[1], state[2], state[3]);
         for i in 0..64 {

@@ -5,7 +5,6 @@
 
 use std::collections::HashMap;
 use std::path::{Path as StdPath, PathBuf};
-use std::sync::atomic::AtomicU64;
 use std::sync::{Arc, RwLock};
 
 use axum::extract::{Path, Query, State};
@@ -80,7 +79,6 @@ pub struct AppState {
     remote: Arc<RwLock<Option<Value>>>,
     /// 最近的启动命令（前端展示「将执行什么」）
     last_cmd: Arc<RwLock<Option<String>>>,
-    pid_seq: Arc<AtomicU64>,
 }
 
 impl AppState {
@@ -91,7 +89,6 @@ impl AppState {
             running: Arc::new(RwLock::new(HashMap::new())),
             remote: Arc::new(RwLock::new(None)),
             last_cmd: Arc::new(RwLock::new(None)),
-            pid_seq: Arc::new(AtomicU64::new(1)),
         }
     }
 
@@ -920,11 +917,11 @@ async fn get_version(
 async fn get_logs(State(st): State<AppState>, Path(id): Path<String>) -> Json<Value> {
     // 优先给「正在跑的那个进程」的日志，否则给最新一份历史日志
     let running_log = st.running.read().ok().and_then(|g| {
-            g.values()
-                .filter(|r| r.version_id == id)
-                .max_by_key(|r| r.started_at)
-                .map(|r| r.log_path.clone())
-        });
+        g.values()
+            .filter(|r| r.version_id == id)
+            .max_by_key(|r| r.started_at)
+            .map(|r| r.log_path.clone())
+    });
     let path = match running_log {
         Some(p) => Some(p),
         None => {
@@ -1113,17 +1110,67 @@ pub fn serve() {
     });
 }
 
+/// 给桌面壳 / Android WebView 用：后台启动内嵌 axum，返回实际监听端口。
+/// 不打印地址、不写 web.port、不打开浏览器；端口只是进程内部实现细节。
+pub fn start_embedded() -> u16 {
+    let _ = paths::ensure_all();
+    let (tx, rx) = std::sync::mpsc::channel::<Result<u16, String>>();
+    std::thread::Builder::new()
+        .name("lycomc-embedded-api".into())
+        .spawn(move || {
+            let st = AppState::new(settings::load());
+            set_global_running(Arc::clone(&st.running));
+            let rt = match tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()
+            {
+                Ok(rt) => rt,
+                Err(e) => {
+                    let _ = tx.send(Err(format!("tokio: {e}")));
+                    return;
+                }
+            };
+            rt.block_on(async move {
+                // 端口 0 交给内核选一个空闲端口，用户永远不需要知道端口或 IP。
+                let addr = std::net::SocketAddr::from(([127, 0, 0, 1], 0u16));
+                let listener = match tokio::net::TcpListener::bind(addr).await {
+                    Ok(l) => l,
+                    Err(e) => {
+                        let _ = tx.send(Err(format!("无法启动本地服务: {e}")));
+                        return;
+                    }
+                };
+                let chosen = match listener.local_addr() {
+                    Ok(a) => a.port(),
+                    Err(e) => {
+                        let _ = tx.send(Err(format!("无法读取本地服务地址: {e}")));
+                        return;
+                    }
+                };
+                let _ = tx.send(Ok(chosen));
+                if let Err(e) = axum::serve(listener, router(st)).await {
+                    eprintln!("lycomc: 内嵌服务异常退出: {e}");
+                }
+            });
+        })
+        .expect("spawn embedded api thread");
+    rx.recv()
+        .unwrap_or_else(|e| Err(format!("embedded api: {e}")))
+        .unwrap_or_else(|e| panic!("lycomc 内嵌服务启动失败: {e}"))
+}
+
 #[cfg(test)]
 mod settings_patch_tests {
     use super::*;
 
     fn baseline() -> Settings {
-        let mut s = Settings::default();
-        s.memory_mb = 6144;
-        s.java_path = Some("/usr/bin/java".to_string());
-        s.select_version = Some("1.20.1".to_string());
-        s.default_account = Some("Steve".to_string());
-        s
+        Settings {
+            memory_mb: 6144,
+            java_path: Some("/usr/bin/java".to_string()),
+            select_version: Some("1.20.1".to_string()),
+            default_account: Some("Steve".to_string()),
+            ..Settings::default()
+        }
     }
 
     #[test]

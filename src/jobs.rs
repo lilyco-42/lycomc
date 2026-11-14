@@ -11,7 +11,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast;
 
-use crate::mc::{Progress, ProgressFn};
+use crate::mc::Progress;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -45,7 +45,10 @@ pub struct Job {
 }
 
 pub fn now_ms() -> u64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0)
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
 }
 
 #[derive(Clone)]
@@ -64,7 +67,11 @@ impl Default for JobStore {
 impl JobStore {
     pub fn new() -> Self {
         let (tx, _rx) = broadcast::channel(1024);
-        Self { inner: Arc::new(Mutex::new(HashMap::new())), tx, seq: Arc::new(AtomicU64::new(0)) }
+        Self {
+            inner: Arc::new(Mutex::new(HashMap::new())),
+            tx,
+            seq: Arc::new(AtomicU64::new(0)),
+        }
     }
 
     pub fn subscribe(&self) -> broadcast::Receiver<Job> {
@@ -97,8 +104,11 @@ impl JobStore {
     }
 
     pub fn list(&self) -> Vec<Job> {
-        let mut v: Vec<Job> =
-            self.inner.lock().map(|m| m.values().cloned().collect()).unwrap_or_default();
+        let mut v: Vec<Job> = self
+            .inner
+            .lock()
+            .map(|m| m.values().cloned().collect())
+            .unwrap_or_default();
         v.sort_by(|a, b| {
             let ra = u8::from(!a.state.is_active());
             let rb = u8::from(!b.state.is_active());
@@ -108,7 +118,10 @@ impl JobStore {
     }
 
     pub fn active(&self) -> Vec<Job> {
-        self.list().into_iter().filter(|j| j.state.is_active()).collect()
+        self.list()
+            .into_iter()
+            .filter(|j| j.state.is_active())
+            .collect()
     }
 
     fn mutate<F: FnOnce(&mut Job)>(&self, id: &str, f: F) {

@@ -66,7 +66,6 @@ fn valid_zip(bytes: &[u8]) -> bool {
     found
 }
 
-
 /// 从已落盘的 client jar 里读 version.json 的 pack_version.resource；
 /// 读不到就按 MC 版本号猜（1.20.x=15、1.19.x=13、1.21.x=34…）。
 fn resource_pack_format(v: &meta::VersionJson, id: &str) -> u32 {
@@ -75,7 +74,10 @@ fn resource_pack_format(v: &meta::VersionJson, id: &str) -> u32 {
         let f = std::fs::File::open(jar).ok()?;
         let mut z = zip::ZipArchive::new(f).ok()?;
         let mut raw = String::new();
-        z.by_name("version.json").ok()?.read_to_string(&mut raw).ok()?;
+        z.by_name("version.json")
+            .ok()?
+            .read_to_string(&mut raw)
+            .ok()?;
         let j: Value = serde_json::from_str(&raw).ok()?;
         let n = j.get("pack_version")?.get("resource")?.as_u64()?;
         Some(n as u32)
@@ -97,13 +99,16 @@ fn resource_pack_format(v: &meta::VersionJson, id: &str) -> u32 {
 /// 其余 zip 条目用 raw_copy_file 原样搬运。资源包只是 lang json，改格式不改内容。
 fn rewrite_pack_format(path: &Path, fmt: u32) -> Result<(), String> {
     let bytes = std::fs::read(path).map_err(|e| format!("读取 {} 失败: {e}", path.display()))?;
-    let mut src = ZipArchive::new(Cursor::new(&bytes))
-        .map_err(|e| format!("打开资源包失败: {e}"))?;
+    let mut src =
+        ZipArchive::new(Cursor::new(&bytes)).map_err(|e| format!("打开资源包失败: {e}"))?;
 
     let mut mcmeta: Value = {
-        let mut f = src.by_name("pack.mcmeta").map_err(|e| format!("缺 pack.mcmeta: {e}"))?;
+        let mut f = src
+            .by_name("pack.mcmeta")
+            .map_err(|e| format!("缺 pack.mcmeta: {e}"))?;
         let mut raw = String::new();
-        f.read_to_string(&mut raw).map_err(|e| format!("读 pack.mcmeta 失败: {e}"))?;
+        f.read_to_string(&mut raw)
+            .map_err(|e| format!("读 pack.mcmeta 失败: {e}"))?;
         // 有些作者会在 JSON 之后追加 // 注释（Sodium 包就有），截到最后一个 } 再解析。
         let end = raw.rfind('}').map(|i| i + 1).unwrap_or(raw.len());
         serde_json::from_str(&raw[..end]).map_err(|e| format!("解析 pack.mcmeta 失败: {e}"))?
@@ -113,21 +118,29 @@ fn rewrite_pack_format(path: &Path, fmt: u32) -> Result<(), String> {
         .and_then(Value::as_object_mut)
         .ok_or_else(|| "pack.mcmeta 缺 pack 对象".to_string())?;
     pack.insert("pack_format".into(), json!(fmt));
-    pack.insert("supported_formats".into(), json!({"min_inclusive": fmt, "max_inclusive": fmt}));
-    let new_meta = serde_json::to_vec_pretty(&mcmeta).map_err(|e| format!("序列化 pack.mcmeta 失败: {e}"))?;
+    pack.insert(
+        "supported_formats".into(),
+        json!({"min_inclusive": fmt, "max_inclusive": fmt}),
+    );
+    let new_meta =
+        serde_json::to_vec_pretty(&mcmeta).map_err(|e| format!("序列化 pack.mcmeta 失败: {e}"))?;
 
     let tmp = path.with_extension("zip.tmp");
     let out = std::fs::File::create(&tmp).map_err(|e| format!("创建临时包失败: {e}"))?;
     let mut dst = ZipWriter::new(out);
     for i in 0..src.len() {
-        let f = src.by_index_raw(i).map_err(|e| format!("读资源包条目失败: {e}"))?;
+        let f = src
+            .by_index_raw(i)
+            .map_err(|e| format!("读资源包条目失败: {e}"))?;
         let name = f.name().to_string();
         if name == "pack.mcmeta" {
             dst.start_file("pack.mcmeta", SimpleFileOptions::default())
                 .map_err(|e| format!("写入 pack.mcmeta 失败: {e}"))?;
-            dst.write_all(&new_meta).map_err(|e| format!("写入 pack.mcmeta 失败: {e}"))?;
+            dst.write_all(&new_meta)
+                .map_err(|e| format!("写入 pack.mcmeta 失败: {e}"))?;
         } else {
-            dst.raw_copy_file(f).map_err(|e| format!("复制资源包条目失败: {e}"))?;
+            dst.raw_copy_file(f)
+                .map_err(|e| format!("复制资源包条目失败: {e}"))?;
         }
     }
     dst.finish().map_err(|e| format!("收尾资源包失败: {e}"))?;
@@ -186,11 +199,17 @@ async fn sodium_pack(
         urls.push(m);
     }
     urls.push(f.url.clone());
-    progress(super::pct(72.0, format!("下载 Sodium 中文包 {}…", f.filename)));
+    progress(super::pct(
+        72.0,
+        format!("下载 Sodium 中文包 {}…", f.filename),
+    ));
     let size = fetch_pack(&urls, dest).await?;
     let fmt = resource_pack_format(v, id);
     rewrite_pack_format(dest, fmt)?;
-    progress(super::pct(84.0, format!("Sodium 中文包已适配资源包格式 {fmt}")));
+    progress(super::pct(
+        84.0,
+        format!("Sodium 中文包已适配资源包格式 {fmt}"),
+    ));
     Ok(size)
 }
 
@@ -219,7 +238,10 @@ pub async fn run(
     let size = match fetch_pack(&cfpa_urls(asset), &cfpa_dest).await {
         Ok(n) => n,
         Err(e) if asset != CFPA_ALL => {
-            progress(super::logline(20.0, format!("{asset} 不可用，改用 CFPA 全量包：{e}")));
+            progress(super::logline(
+                20.0,
+                format!("{asset} 不可用，改用 CFPA 全量包：{e}"),
+            ));
             fetch_pack(&cfpa_urls(CFPA_ALL), &cfpa_dest).await?
         }
         Err(e) => return Err(format!("CFPA 汉化包下载失败: {e}")),
@@ -256,7 +278,6 @@ pub async fn run(
         "localized": true,
     }))
 }
-
 
 #[cfg(test)]
 mod mirror_tests {

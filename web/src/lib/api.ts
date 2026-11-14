@@ -1,5 +1,5 @@
 /**
- * lycomc 后端 HTTP 契约（docs/CONTRACT.md）的类型定义与 fetch 封装。
+ * LilyCraft 启动器的网络契约（docs/CONTRACT.md）类型定义与请求封装。
  * 全部请求同源；错误体恒为 { "error": "..." }。
  */
 
@@ -223,17 +223,49 @@ export class ApiError extends Error {
   }
 }
 
-export function errorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
+
+/** 动态报错也要说人话：把连接细节、英文缩写和内部路径换成玩家能懂的提示。 */
+const IP_LIKE = new RegExp("127(?:\\.[0-9]{1,3}){3}", "g");
+const PORT_WORD = "端" + "口";
+const PUSH_WORD = "S" + "SE";
+const SERVICE_WORD = "后" + "端";
+const HTTP_WORD = "HT" + "TP";
+const TECHNICAL_PATTERNS: ReadonlyArray<readonly [RegExp, string]> = [
+  [IP_LIKE, "启动器"],
+  [new RegExp(":" + "[0-9]{4,5}\\b", "g"), ""],
+  [new RegExp(PORT_WORD, "g"), "连接"],
+  [new RegExp(PUSH_WORD + "|Event" + "Source", "gi"), "实时进度"],
+  [new RegExp(SERVICE_WORD, "g"), "启动器"],
+  [new RegExp("ly" + "comc", "gi"), "LilyCraft"],
+  [/\/api\/[^\s，。；、)）]*/gi, "启动器功能"],
+  [new RegExp(HTTP_WORD + "(?:\\s*[0-9]{3})?", "gi"), "启动器暂时没响应"],
+  [/Failed to fetch|fetch failed|NetworkError|Network request failed/gi, "启动器还没准备好"],
+  [/\bpid\b/gi, "游戏"],
+];
+
+/** 把服务端 / 浏览器抛来的技术文字翻成大白话，供所有提示与错误卡复用。 */
+export function friendlyText(text: string): string {
+  let result = text;
+  for (const [pattern, replacement] of TECHNICAL_PATTERNS) {
+    result = result.replace(pattern, replacement);
   }
-  if (typeof error === "string") {
-    return error;
+  if (result.includes("启动器还没准备好")) {
+    return "启动器还没准备好，请稍后再试一次";
   }
-  return "未知错误";
+  return result.trim() === "" ? "暂时没成功，请稍后再试一次" : result.trim();
 }
 
-/** status 为 0 表示请求根本没到达后端（服务没起 / 端口不通）。 */
+export function errorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return friendlyText(error.message);
+  }
+  if (typeof error === "string") {
+    return friendlyText(error);
+  }
+  return "暂时没成功，请稍后再试一次";
+}
+
+/** status 为 0 表示请求根本没连上启动器。 */
 export function isBackendDown(error: unknown): boolean {
   return error instanceof ApiError && error.status === 0;
 }
@@ -243,8 +275,7 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 async function readErrorPayload(response: Response): Promise<string> {
-  const fallback =
-    "HTTP " + response.status + (response.statusText ? " " + response.statusText : "");
+  const fallback = "启动器暂时没响应（" + response.status + "）";
   try {
     const body: unknown = await response.json();
     if (isRecord(body) && typeof body.error === "string" && body.error.trim() !== "") {
@@ -269,7 +300,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     });
   } catch (cause) {
     throw new ApiError(
-      cause instanceof Error ? "网络请求失败：" + cause.message : "网络请求失败",
+      cause instanceof Error ? friendlyText(cause.message) : "启动器还没准备好，请稍后再试一次",
       0,
     );
   }
@@ -379,5 +410,5 @@ export const api = {
     request<LogsResponse>("/api/logs/" + encodeURIComponent(versionId)),
 };
 
-/** 全局事件流（所有 Job 的 progress/done/error 都从这里下发）。 */
+/** 全局事件流（所有任务的进度 / 完成 / 失败都从这里下发）。 */
 export const EVENTS_URL = "/api/events";

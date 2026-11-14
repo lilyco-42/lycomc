@@ -21,7 +21,7 @@ export interface AppDataValue {
   loading: boolean;
   /** /api/state 的错误（后端未就绪时为网络错误） */
   error: string | null;
-  /** 连不上后端（服务没起 / 端口不通） */
+  /** 启动器还没准备好 */
   backendDown: boolean;
   reload: () => void;
   patchVersions: (updater: (versions: VersionInfo[]) => VersionInfo[]) => void;

@@ -141,8 +141,8 @@ fn run_install(app: &InstallCmd, ctx: &Context) -> Result<Value, AppError> {
             s.max_concurrent,
             &rep,
         ))
-            .map(|dir| json!({ "versionId": app.version, "dir": dir.display().to_string() }))
-            .map_err(AppError::Runtime)?
+        .map(|dir| json!({ "versionId": app.version, "dir": dir.display().to_string() }))
+        .map_err(AppError::Runtime)?
     };
     ctx.log(LogLevel::Info, format!("安装完成: {out}"));
     ctx.done(out.clone(), 0);
@@ -315,7 +315,7 @@ fn run_mod_add(app: &ModAddCmd, ctx: &Context) -> Result<Value, AppError> {
         "fabric",
         &rep,
     ))
-        .map_err(AppError::Runtime)?;
+    .map_err(AppError::Runtime)?;
     let out = json!({ "file": p.display().to_string() });
     ctx.log(LogLevel::Info, format!("已安装: {}", p.display()));
     ctx.done(out.clone(), 0);
