@@ -340,3 +340,12 @@ cargo test（解析逻辑单测：device code / XBL / XSTS / MC token / textures
 - 证据：服务端日志 Steve joined the game；客户端日志 Connecting to 127.0.0.1, 25565；KWin 激活后用 spectacle --activewindow 抓取到标题含「Minecraft 1.20.1 - 多人游戏（第三方服务器）」的游戏画面；POST /api/launch/{pid}/kill 返回 200，服务端 / Web 服务 / 客户端均退出，25565 与 9490 端口释放，真实用户数据四项哈希不变。
 - 安全：隔离目录只放离线账号 Steve；online-mode=false 仅用于本机离线服；证据中的启动命令凭据已替换为 <redacted>，严格凭据扫描 0 命中；没有读取或打印真实微软账号 token。
 - 边界：这是本机 1.20.1 离线模式独立服务端的实机联机补证，不是公网服务器 / 正版账号联机 / 跨 Windows、macOS、Android、鸿蒙实机演示；不宣称安装包或签名包已产出。m03957 其余部分与 m04829 / m04836 三问仍待用户重新界定。
+
+## 性能 / 稳定性优化与 GitHub Actions Release 决策（2026-11-15，m07261）
+
+- 需求：用户要求「写出测试完成报告、做好各种功能 / 性能 / 对比测试，接下来发布 GitHub Runner Action Release 和性能优化、稳定性优化」。约束是 Web 优先不回退：默认本地 Web 可执行程序仍是主入口，桌面壳仍仅是可选 Cargo feature，14 命令、26 条后端路由、SSE、正版登录 / 皮肤、教程、图表、quickPlay 与 §11 真服联机证据均不回退。
+- 调研：旧 release.yml 是手工 artifact-only 工作流，Rust 检查大量以 `|| true` 掩盖失败；`Cargo.toml` 使用本机绝对路径 `lilyco` 依赖，公共 Runner 必然无法解析。性能热点实证为 `/api/state` 在 axum async worker 上串行 `java -version`，静态资源每次请求复制近 1 MB JS，SSE 每个百分比都克隆并广播完整 Job；稳定性风险是 Java 探测无超时、管道填满或慢候选后代持有 fd 时会挂住。
+- 方案矩阵：A 只改文档不做实测（否决，无法回答「测试完成 / 对比测试」）；B 全局放开缓存且不区分启动前 / 状态刷新（否决，新装 JRE 可能 30 s 内看不到，且 /api/state 仍可能阻塞）；C 本机采集 baseline 后再做限界优化 + 独立功能 / 性能 / 稳定性对比（采纳）；D 把 Rust 失败继续 `|| true` 隐藏（否决，与发布可信度冲突）；E 把 17 MB lilyco 源码 vendor 进仓库（否决，采用公开固定 Git rev 更轻且可复现）。
+- 决策：Java 探测采用 2 s 超时、Unix process-group SIGKILL、pipe drain、30 s 数据目录键缓存、候选并行与 `spawn_blocking`；启动路径 `pick()` 强制 fresh scan 保证新装 Java 立即可用；静态资源零拷贝；SSE 仅节流纯百分比且保留日志与终态事件；`lilyco` 锁到公开 Git rev；CI 与 Release 改成真门禁，Release 在三种 Runner 上产出 Web 可执行程序、校验和和 GitHub Release。
+- 证据口径：§12 使用最终二进制 `f4442166…` 与 baseline `be2690aca…` 的独立对比；第 11 组证据用完整 SHA-256 登记 36 个产物 / 脚本 / 源码 + manifest 自身。所有远端平台产物只认 GitHub Actions 运行与 Release 资产，不把本机 debug Linux 数据冒充 release / 跨平台实机结果。
+- 边界与未决项：本机仍有 m03957 的全平台形态 / 安装包 / 公网正版联机 / 实机演示，以及 m04829 / m04836 的 Android 形态、Win/mac 是否必须签名安装包、快捷方式口径三问待用户定义；桌面输入 P0 已按 m06445 降级冻结，本轮不复活原生桌面壳工作。

@@ -6,7 +6,7 @@
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast;
@@ -56,6 +56,7 @@ pub struct JobStore {
     inner: Arc<Mutex<HashMap<String, Job>>>,
     tx: broadcast::Sender<Job>,
     seq: Arc<AtomicU64>,
+    last_progress: Arc<Mutex<HashMap<String, Instant>>>,
 }
 
 impl Default for JobStore {
@@ -71,6 +72,7 @@ impl JobStore {
             inner: Arc::new(Mutex::new(HashMap::new())),
             tx,
             seq: Arc::new(AtomicU64::new(0)),
+            last_progress: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -134,11 +136,18 @@ impl JobStore {
         let _ = self.tx.send(snapshot);
     }
 
-    /// 内核的进度回调 -> 任务快照更新。内核线程同步调用，这里只做内存写。
+    /// 内核的进度回调 -> 任务快照更新。
+    ///
+    /// 下载器的 300 ms 进度泵会为每个文件广播完整 Job 快照；这里把纯百分比
+    /// 更新限流到 100 ms，日志行、100% 与完成/失败事件一律立即广播。
     pub fn sink(&self, id: &str) -> impl Fn(Progress) + Send + Sync + 'static {
         let store = self.clone();
         let id = id.to_string();
         move |p: Progress| {
+            let terminal = p.percent >= 100.0 || p.log.is_some();
+            if !terminal && store.should_throttle(&id) {
+                return;
+            }
             store.mutate(&id, |job| {
                 job.progress = p.percent.clamp(0.0, 100.0);
                 job.message = p.message.clone();
@@ -146,6 +155,23 @@ impl JobStore {
                     push_log(&mut job.logs, line.clone());
                 }
             });
+        }
+    }
+
+    fn should_throttle(&self, id: &str) -> bool {
+        let now = Instant::now();
+        let mut m = match self.last_progress.lock() {
+            Ok(m) => m,
+            Err(_) => return false,
+        };
+        let slot = m
+            .entry(id.to_string())
+            .or_insert(now - PROGRESS_MIN_INTERVAL);
+        if now.duration_since(*slot) < PROGRESS_MIN_INTERVAL {
+            true
+        } else {
+            *slot = now;
+            false
         }
     }
 
@@ -182,6 +208,7 @@ impl JobStore {
 }
 
 const MAX_LOGS: usize = 400;
+const PROGRESS_MIN_INTERVAL: Duration = Duration::from_millis(100);
 
 fn push_log(logs: &mut Vec<String>, line: String) {
     logs.push(line);
@@ -194,4 +221,35 @@ fn push_log(logs: &mut Vec<String>, line: String) {
 /// 借一个 Box 版进度回调给需要 'static 的场景（spawn 出去的异步任务里）。
 pub fn boxed_sink(store: &JobStore, id: &str) -> Arc<dyn Fn(Progress) + Send + Sync> {
     Arc::new(store.sink(id))
+}
+
+#[cfg(test)]
+mod broadcast_tests {
+    use super::*;
+
+    #[test]
+    fn progress_throttles_but_terminal_events_are_exact() {
+        let store = JobStore::new();
+        let mut rx = store.subscribe();
+        let id = store.create("test", "限流");
+        let sink = store.sink(&id);
+        sink(crate::mc::pct(1.0, "a"));
+        sink(crate::mc::pct(2.0, "b"));
+        sink(crate::mc::pct(100.0, "done"));
+        sink(crate::mc::logline(3.0, "log"));
+        store.done(&id, serde_json::json!({ "ok": true }));
+        let mut seen = Vec::new();
+        while let Ok(job) = rx.try_recv() {
+            seen.push((job.progress, job.message.clone(), job.logs.len()));
+        }
+        let latest = store.get(&id).unwrap();
+        assert_eq!(latest.progress, 100.0);
+        assert_eq!(latest.state, State::Done);
+        assert_eq!(latest.logs, vec!["log".to_string()]);
+        assert_eq!(
+            seen.len(),
+            5,
+            "create + first progress + 100% + log + done, with one mid-progress throttled: {seen:?}"
+        );
+    }
 }

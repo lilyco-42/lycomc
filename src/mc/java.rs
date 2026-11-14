@@ -1,7 +1,12 @@
 //! Java 管理：探测系统 JRE、按 need 版本选最优、必要时从 Adoptium 下载托管 JRE。
 
+use std::io::Read;
+#[cfg(unix)]
+use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
+use std::sync::{Arc, Mutex, OnceLock};
+use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 
@@ -15,20 +20,90 @@ pub struct JavaInfo {
     pub source: String,
 }
 
-/// 跑 java -version，从 stderr 抠 major 版本
+const PROBE_TIMEOUT: Duration = Duration::from_secs(2);
+
+/// 跑 java -version，从 stderr 抠 major 版本；卡住的候选最多等 2 秒后杀掉。
 pub fn probe(path: &Path) -> Option<JavaInfo> {
-    let out = Command::new(path).arg("-version").output().ok()?;
-    let text = format!(
-        "{}{}",
-        String::from_utf8_lossy(&out.stderr),
-        String::from_utf8_lossy(&out.stdout)
-    );
+    let mut command = Command::new(path);
+    command
+        .arg("-version")
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    #[cfg(unix)]
+    {
+        command.process_group(0);
+    }
+    let mut child = command.spawn().ok()?;
+    let stdout = child.stdout.take();
+    let stderr = child.stderr.take();
+
+    // 两个管道必须由独立线程持续排空，否则输出超过 pipe buffer 的候选会卡在 write。
+    // 超时路径不 join 读取线程：若后代进程仍持有 fd，线程随管道关闭自行退出；
+    // Unix 下还会杀掉整个进程组，主线程不会被 scope 的隐式 join 拖死。
+    let (tx, rx) = std::sync::mpsc::channel::<Vec<u8>>();
+    let tx_out = tx.clone();
+    std::thread::spawn(move || {
+        let mut buf = Vec::new();
+        if let Some(mut pipe) = stdout {
+            let _ = pipe.read_to_end(&mut buf);
+        }
+        let _ = tx_out.send(buf);
+    });
+    let tx_err = tx.clone();
+    std::thread::spawn(move || {
+        let mut buf = Vec::new();
+        if let Some(mut pipe) = stderr {
+            let _ = pipe.read_to_end(&mut buf);
+        }
+        let _ = tx_err.send(buf);
+    });
+    drop(tx);
+
+    let deadline = Instant::now() + PROBE_TIMEOUT;
+    loop {
+        if child.try_wait().ok()?.is_some() {
+            let _ = child.wait();
+            break;
+        }
+        if Instant::now() >= deadline {
+            let _ = child.kill();
+            #[cfg(unix)]
+            terminate_probe_group(&child);
+            let _ = child.wait();
+            return None;
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+
+    // 正常退出也可能有后代继续持有管道；统一以 2 秒为上限等待 EOF。
+    // 超时则放弃该候选并清理 Unix 进程组，避免验收线程被后台进程拖住。
+    let read_deadline = Instant::now() + PROBE_TIMEOUT;
+    let mut combined = Vec::new();
+    for _ in 0..2 {
+        let left = read_deadline.saturating_duration_since(Instant::now());
+        if left.is_zero() {
+            #[cfg(unix)]
+            terminate_probe_group(&child);
+            return None;
+        }
+        let mut buf = rx.recv_timeout(left).ok()?;
+        combined.append(&mut buf);
+    }
+    let text = String::from_utf8_lossy(&combined);
     let version = parse_major(&text)?;
     Some(JavaInfo {
         path: path.display().to_string(),
         version,
         source: "system".into(),
     })
+}
+#[cfg(unix)]
+fn terminate_probe_group(child: &std::process::Child) {
+    // 超时候选可能把 fd 交给 sleep 等后代；杀掉整个进程组，防止主线程被 read_to_end 拖住。
+    // setpgid(0,0) 子进程组 id 等于其 pid。
+    unsafe {
+        libc::kill(-(child.id() as libc::pid_t), libc::SIGKILL);
+    }
 }
 
 /// 从 `openjdk version "17.0.20.1" 2026-08-18` 抠 17；兼容 "1.8.0_392" → 8
@@ -50,19 +125,66 @@ pub fn parse_major(text: &str) -> Option<u32> {
     None
 }
 
-/// 扫描常见安装点 + JAVA_HOME + PATH
+/// 扫描常见安装点 + JAVA_HOME + PATH。
+///
+/// Web 主页每秒都要读 /api/state；Java 安装目录在两次刷新之间通常不变，
+/// 这里按数据目录缓存 30 秒，并把每个候选的探测限制在 2 秒内、最多并行 4 个，
+/// 避免一个挂死的 java 进程把整个 axum worker 线程拖住。
+/// CLI javas / 启动前选 JRE 仍直接扫盘。
 pub fn scan_system() -> Vec<JavaInfo> {
-    let mut found: Vec<JavaInfo> = Vec::new();
-    let mut push = |p: PathBuf| {
-        if found.iter().any(|f| f.path == p.display().to_string()) {
-            return;
+    cached_scan(false)
+}
+
+/// 强制绕过缓存：用户刚装完 Java、或调用方需要绝对新鲜的数据时使用。
+pub fn scan_system_fresh() -> Vec<JavaInfo> {
+    cached_scan(true)
+}
+
+struct ScanCache {
+    key: PathBuf,
+    at: Instant,
+    items: Vec<JavaInfo>,
+}
+
+static SCAN_CACHE: OnceLock<Mutex<Option<ScanCache>>> = OnceLock::new();
+const SCAN_TTL: Duration = Duration::from_secs(30);
+
+fn cached_scan(force: bool) -> Vec<JavaInfo> {
+    let key = paths::data_dir();
+    let lock = SCAN_CACHE.get_or_init(|| Mutex::new(None));
+    if !force {
+        if let Ok(g) = lock.lock() {
+            if let Some(c) = g.as_ref() {
+                if c.key == key && c.at.elapsed() < SCAN_TTL {
+                    return c.items.clone();
+                }
+            }
         }
-        if let Some(i) = probe(&p) {
-            found.push(i);
+    }
+    let items = scan_system_uncached();
+    if let Ok(mut g) = lock.lock() {
+        *g = Some(ScanCache {
+            key,
+            at: Instant::now(),
+            items: items.clone(),
+        });
+    }
+    items
+}
+
+fn scan_system_uncached() -> Vec<JavaInfo> {
+    let mut candidates: Vec<(PathBuf, &'static str)> = Vec::new();
+    let mut push = |p: PathBuf, source: &'static str| {
+        let key = p.display().to_string();
+        if !candidates
+            .iter()
+            .any(|(q, _)| q.display().to_string() == key)
+        {
+            candidates.push((p, source));
         }
     };
     if let Some(home) = std::env::var_os("JAVA_HOME") {
-        push(PathBuf::from(home).join("bin").join(java_bin()));
+        push(PathBuf::from(home).join("bin").join(java_bin()), "system");
     }
     for base in [
         "/usr/lib/jvm",
@@ -81,7 +203,7 @@ pub fn scan_system() -> Vec<JavaInfo> {
                 p.join("Contents/Home/bin").join(java_bin()),
             ] {
                 if cand.is_file() {
-                    push(cand);
+                    push(cand, "system");
                 }
             }
         }
@@ -90,7 +212,7 @@ pub fn scan_system() -> Vec<JavaInfo> {
     if let Ok(out) = Command::new("which").arg("java").output() {
         let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
         if !s.is_empty() {
-            push(PathBuf::from(s));
+            push(PathBuf::from(s), "system");
         }
     }
     // 托管 JRE
@@ -98,16 +220,41 @@ pub fn scan_system() -> Vec<JavaInfo> {
         for e in rd.flatten() {
             let p = e.path().join("bin").join(java_bin());
             if p.is_file() {
-                if let Some(mut i) = probe(&p) {
-                    i.source = "managed".into();
-                    found.push(i);
-                }
+                push(p, "managed");
             }
         }
     }
+    let mut found: Vec<JavaInfo> = probe_candidates(candidates);
     found.sort_by_key(|j| j.version);
     found.dedup_by(|a, b| a.path == b.path);
     found
+}
+
+fn probe_candidates(candidates: Vec<(PathBuf, &'static str)>) -> Vec<JavaInfo> {
+    let queue = Arc::new(Mutex::new(
+        candidates
+            .into_iter()
+            .collect::<std::collections::VecDeque<_>>(),
+    ));
+    let workers = queue.lock().map(|q| q.len().clamp(1, 4)).unwrap_or(1);
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::scope(|scope| {
+        for _ in 0..workers {
+            let queue = Arc::clone(&queue);
+            let tx = tx.clone();
+            scope.spawn(move || loop {
+                let next = queue.lock().ok().and_then(|mut q| q.pop_front());
+                let Some((path, source)) = next else { break };
+                if let Some(mut info) = probe(&path) {
+                    info.source = source.into();
+                    let _ = tx.send(info);
+                }
+            });
+        }
+        drop(tx);
+        let found: Vec<JavaInfo> = rx.into_iter().collect();
+        found
+    })
 }
 
 fn java_bin() -> &'static str {
@@ -120,7 +267,8 @@ fn java_bin() -> &'static str {
 
 /// 选一个满足 demanded major 的 JRE：优先精确匹配，其次更高版本
 pub fn pick(required: u32) -> Option<JavaInfo> {
-    let all = scan_system();
+    // 启动前必须看见刚装好的 JRE，不能等 30 秒缓存过期。
+    let all = scan_system_fresh();
     all.iter()
         .filter(|j| j.version == required)
         .max_by_key(|j| j.version)
@@ -302,7 +450,87 @@ pub fn extract_archive(bytes: &[u8], dest: &Path) -> Result<(), String> {
 
 #[cfg(test)]
 mod mirror_tests {
-    use super::tuna_jre_name;
+    use super::{probe, tuna_jre_name, PROBE_TIMEOUT, SCAN_TTL};
+    use std::time::{Duration, Instant};
+
+    #[cfg(unix)]
+    fn probe_script(label: &str, body: &str) -> std::path::PathBuf {
+        use std::os::unix::fs::PermissionsExt;
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!(
+            "lycomc-java-probe-{}-{}-{nanos}.sh",
+            std::process::id(),
+            label
+        ));
+        let script = format!("#!/usr/bin/env sh\n{body}\n");
+        std::fs::write(&path, script).unwrap();
+        let mut perms = std::fs::metadata(&path).unwrap().permissions();
+        perms.set_mode(0o755);
+        std::fs::set_permissions(&path, perms).unwrap();
+        path
+    }
+
+    #[test]
+    fn probe_bounds_and_cache_ttl_are_configured() {
+        assert_eq!(PROBE_TIMEOUT, Duration::from_secs(2));
+        assert_eq!(SCAN_TTL, Duration::from_secs(30));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn probe_drains_large_output_without_deadlock() {
+        let script = probe_script(
+            "large",
+            "head -c 1048576 /dev/zero | tr '\\0' 'x'
+head -c 1048576 /dev/zero | tr '\\0' 'y' >&2
+printf 'openjdk version \"17.0.20.1\" 2026-08-18\\n' >&2",
+        );
+        let started = Instant::now();
+        let found = probe(&script);
+        std::fs::remove_file(&script).ok();
+        assert_eq!(found.map(|j| j.version), Some(17));
+        assert!(
+            started.elapsed() < Duration::from_secs(2),
+            "大输出探测不应等到超时: {:?}",
+            started.elapsed()
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn probe_times_out_slow_candidate() {
+        let script = probe_script("slow", "sleep 5");
+        let started = Instant::now();
+        let found = probe(&script);
+        std::fs::remove_file(&script).ok();
+        assert!(found.is_none());
+        assert!(
+            started.elapsed() < Duration::from_secs(3),
+            "挂起探测必须在 2 秒量级返回: {:?}",
+            started.elapsed()
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn probe_bounds_detached_descendant_holding_pipes() {
+        let script = probe_script(
+            "detached",
+            "sleep 5 &\nprintf 'openjdk version \"17.0.20.1\" 2026-08-18\\n' >&2\nexit 0",
+        );
+        let started = Instant::now();
+        let found = probe(&script);
+        std::fs::remove_file(&script).ok();
+        assert!(found.is_none());
+        assert!(
+            started.elapsed() < Duration::from_secs(3),
+            "后代持有管道时探测必须有界返回: {:?}",
+            started.elapsed()
+        );
+    }
 
     #[test]
     fn parses_tuna_jre_directory() {

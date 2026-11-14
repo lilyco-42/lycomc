@@ -124,7 +124,7 @@ bash scripts/build-android.sh        # 需 Android SDK + NDK + cargo-ndk + Gradl
 > `packaging/Packager.toml` 的 `beforePackagingCommand` 会显式带 `--features desktop`；默认 `cargo build` 不带桌面依赖。
 ```
 
-CI 见 `.github/workflows/release.yml`（手动触发，只上传 artifact，不建 Release、不打 tag）。
+CI 见 `.github/workflows/ci.yml`（push / PR 自动跑 `scripts/check.sh` 与 Web smoke）与 `.github/workflows/release.yml`（`v*` 标签推送或 `workflow_dispatch` 指定已存在标签时，构建三平台默认 Web 可执行程序、SHA-256 校验和及 GitHub Release）。
 
 ## 架构
 
@@ -156,20 +156,21 @@ web/          React 19 + shadcn/ui + Tailwind 4 + hash 路由，构建产物被 
 ## 文档
 
 - [docs/DECISION.md](docs/DECISION.md) —— lyco 预研：候选对比、niche 知识、自研薄壳，以及 Web 优先 / NSH 观察项决策
-- [docs/TEST-REPORT.md](docs/TEST-REPORT.md) —— 逐轮测试记录与平台达成矩阵（§7 桌面壳历史、§8 Web 优先回归）
+- [docs/TEST-REPORT.md](docs/TEST-REPORT.md) —— 逐轮测试记录与平台达成矩阵（§7 桌面壳历史、§8 Web 优先回归、§9 本机 Web 可执行程序、§10 quickPlay、§11 真服联机、§12 性能与发布回归）
 - [docs/CONTRACT.md](docs/CONTRACT.md) —— 前后端契约（HTTP API、类型、数据根布局、变更记录）
 - [docs/DECISION.md](docs/DECISION.md) 末节 —— 本地化 / 镜像源调研、接入决策与许可说明（CFPA 包 CC BY-NC-SA 4.0、Sodium 中文包 MIT）；本项目二进制不含第三方汉化资源，用户点「一键汉化」时自行下载。国内镜像决策：adopt 现状 + 局部补齐，CurseForge 完整接入 / Forge·NeoForge·OptiFine 安装器 / 自搭反代 ROI 未过门槛暂不做。
 
 ## 开发与维护边界
 
-本仓库当前把 `lilyco` 依赖写成绝对路径（`/home/lilyco/code/lilyco/lilyco`），因此定位为**本机开发仓库**，不提供公共 CI：
+本仓库把 `lilyco` 依赖锁到公开 git rev（`1fc383e44b51dbfe249562b4ca0ef5c271a712e9`），本机与公共 GitHub Runner 使用同一份 `Cargo.lock`：
 
 ```bash
 # 需要 pnpm 9+；前端产物会被 include_dir! 编进二进制
 ./scripts/check.sh
+./scripts/smoke-web.sh      # 临时数据目录，不碰真实账号与版本
 ```
 
-本地检查包含 `pnpm lint`、前端构建、`cargo fmt --check`、`cargo clippy -D warnings`、`cargo test`，并额外用 `--features desktop` 再跑一轮 clippy / test / build（`scripts/check.sh` 双轨守卫）。`.github/workflows/release.yml` 是为多平台出包准备的**手动**工作流，同样受这条限制：要让它在公共 runner 上真正跑通，需要先把 `Cargo.toml` 的 `lilyco` 依赖改成可复现的 git rev 或发布包，并在 CI 中检出对应源码（当前 Rust 检查步骤带 `|| true` 就是为了不误报）。
+本地检查包含 `pnpm lint`、前端构建、`cargo fmt --check`、`cargo clippy -D warnings`、`cargo test`，并额外用 `--features desktop` 再跑一轮 clippy / test / build（`scripts/check.sh` 双轨守卫）。`.github/workflows/ci.yml` 在 push / PR 上原样跑这一套；标签 `v*` 触发 `.github/workflows/release.yml` 产出 Linux / Windows / macOS 的默认 Web 可执行程序与校验和，不再用 `|| true` 掩盖失败。
 
 ## License
 

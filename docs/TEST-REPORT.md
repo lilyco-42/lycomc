@@ -269,3 +269,55 @@ test result: ok. 17 passed; 0 failed
 ### 11.5 边界
 - 这是本机 1.20.1 离线模式独立服务端的实机联机补证，证明 Web/CLI 的 server 参数能驱动真实客户端直连并进入多人游戏；不宣称公网 Hypixel / 正版账号联机、服务器浏览器、好友组队或内网穿透。
 - 不宣称 Windows / macOS / Android / 鸿蒙实机或签名安装包已产出；m03957 全平台实机演示、m04829 / m04836 三问（Android 形态、Win/mac 安装包、快捷方式口径）仍待用户重新界定；桌面壳输入 P0 继续按 m06445 降级冻结。
+
+## 12. 2026-11-15 测试完成报告：性能 / 稳定性优化与 GitHub Actions Release（§8–§11 历史不改写）
+
+### 12.1 测试对象与完成口径
+
+- 触发需求：m07261「写出测试完成报告、做好各种功能 / 性能 / 对比测试，接下来发布 GitHub Runner Action Release 和性能优化、稳定性优化」；不改写 §8 Web 优先、§9 本机 Web 可执行程序、§10 quickPlay 独立回归、§11 真实本机联机补证。
+- 本机环境：Linux 16 CPU / 23 GB RAM；默认 Web 二进制为 debug build；性能对比注入一个 `JAVA_HOME/bin/java`，该候选执行 `sleep 5`，用于放大 Java 探测对 `/api/state` 的尾延迟。结论只适用本机 Linux debug 二进制与慢 Java 压力场景，不等同 release build、Windows / macOS / Android / 鸿蒙实机或公网正版联机基准。
+- 基线二进制 `/home/lilyco/.cache/lycomc-perf/baseline-lycomc`：40159856 B，SHA-256 `be2690aca8721f84c57c89e1e87f4a0df4c914e8be69d6d1d70db17703a2b2c6`。
+- 最终优化二进制 `/home/lilyco/.cache/lilyco-build/target/debug/lycomc`：40651824 B，SHA-256 `f4442166d9ccd1a04659eece8ad02e46dcc11547c435c13d8d369fcfab9aa649`；`ldd` 无 WebKit / GTK / appindicator / libxdo，`--schema` 仍为 14 命令，后端 `router` 仍为 26 条 `.route`，Web-first 能力不回退。
+- 完成判定：本机双轨守卫、功能对比、性能对比、稳定性边界测试、独立 CDP 回归、workflow / shell / Node / YAML / JSON / 差异检查全部通过；GitHub Actions 与 Release 的远端运行结果以实际推送后的 workflow 和 Release 资产为准，不以本机结果冒充远端成功。
+
+### 12.2 测试完成矩阵
+
+| 类别 | 结果 | 证据 |
+| --- | --- | --- |
+| 全量双轨守卫 | `bash scripts/check.sh` EXIT=0；pnpm lint 4 warnings / 0 errors；pnpm build 2600 modules；默认 cargo test 40 passed / 0 failed；`--features desktop` 45 passed / 0 failed；cargo fmt / clippy `-D warnings` / build 双轨通过；脚本末尾恢复默认 Web-only 二进制 | `final-guard.log` SHA-256 `715a8580b5171fa7f536882f4e5c794a5dde761d4af225ef0f212d389b8bc9c6` |
+| 独立运行时 smoke | `LYCOMC_PORT=9560 bash scripts/runtime-smoke.sh` EXIT=0，`/api/health` 返回 `name:lycomc` / `webMode:embedded`；消除了 web.port 启动竞态的无害 stderr | `runtime-smoke-final.log` SHA-256 `bad1d1526e8965e8019496504584e131b2fa496dc95d864d97e4c140822709bf` |
+| 后端功能对比 | baseline 与 optimized 均为：5 项设置语义通过、9/9 只读端点通过、SSE `text/event-stream` 通过、7/7 quickPlay 启动用例通过、最终设置清空 / 运行中列表为空 / health / healthAfterLoad 全通过 | `compare/compare-result.json` SHA-256 `271b19043eeef04d85244a09c5096f9dd555151869075aa33e4b0fff0bb53757` |
+| 浏览器功能回归 | 最终二进制独立 CDP：health / onboarding / nameInput / onboarded / guide / routes / chartCardFound / charts / all 九项全 true；真实键盘 `WebQA → blur BODY → 回 INPUT → WebQAOK`；7 路由、2 recharts surfaces、4 pie sectors、4 bar rects、BrandMark `gradientDefs=0` | `cdp-final/final-result.json` SHA-256 `733903b6d5bb13e790c96596b78b4cdf0942a16a057a33c6a76c9126d792ba3d`，12 张 `final-*.png` |
+| 稳定性边界 | Java 探测 2 s 超时；1 MiB stdout + 1 MiB stderr 不死锁；`sleep 5` 慢候选与 detached descendant holding pipes 均在 3 s 内返回；SSE 纯百分比广播 100 ms 节流但日志 / 100% / done / error 事件精确 | 默认 40 / desktop 45 单测，含 `probe_drains_large_output_without_deadlock`、`probe_times_out_slow_candidate`、`probe_bounds_detached_descendant_holding_pipes`、`progress_throttles_but_terminal_events_are_exact` |
+| 隔离与清理 | 对比使用独立数据目录、fake Java、离线 Steve 账号；`realDataUnchanged=true`，真实 settings.json / accounts.json / web.port / options.txt 哈希不变；9510 / 9512 / 9530 / 9534 / 9550 / 9554 / 9560 端口空闲，无残留服务 / Chromium / fake Java / Minecraft 进程 | `compare/cleanup.json` SHA-256 `47875232b8dd2f9f7ffca1af7d6cdbb7a6a6a3e7bebe1fccdd0d1bfa7ac90292`；`cdp-final/cdp-final-meta.json` |
+| 发布前静态校验 | PyYAML 解析 `ci.yml` / `release.yml` 通过且 release 无 `|| true`；`bash -n` 三个 shell 脚本通过；`/usr/bin/node --check scripts/compare-binaries.mjs` 通过；`git diff --check`、`python3 -m json.tool docs/TEST-EVIDENCE.json` 通过 | `check_workflows.py` 输出 `YAML_OK` / `NO_MASKED_FAILURES` |
+
+### 12.3 性能对比结果（最终二进制 f4442166…）
+
+`/home/lilyco/code/lycomc/scripts/compare-binaries.mjs` 在两台隔离服务上分别跑 baseline 与 optimized：5 次串行 `/api/state`、8 个并发 `/api/state`、2 次静态资源预热 + 24 次串行静态资源 / 16 个并发静态资源，采集 p50 / p95 / worst、RSS 与加载后 health。
+
+| 指标 | baseline | optimized | 改善 |
+| --- | ---: | ---: | ---: |
+| `/api/state` p50 | 10098.697 ms | 1.575 ms | 99.984% |
+| `/api/state` worst | 10177.991 ms | 2012.117 ms | 80.231% |
+| 8 并发 `/api/state` 总耗时 | 20213.766 ms | 5.172 ms | 99.974% |
+| 静态资源 p50 | 2.489 ms | 1.281 ms | 48.534% |
+| 静态资源并发吞吐 | 387.491 MiB/s | 502.419 MiB/s | +29.66% |
+| 常驻 RSS | 22781952 B | 19550208 B | -3231744 B |
+
+机制说明：baseline 在 axum async worker 上串行执行 `java -version`，慢候选会把 `/api/state` 拖到 10 s 量级；优化把 `state_all` 的磁盘 / Java 扫描放进 `tokio::task::spawn_blocking`，Java 探测限 2 s 且 Unix 进程组 SIGKILL，候选并行度上限 4，30 s 内按数据目录缓存，静态资源由 `include_dir!` 的 `static [u8]` 零拷贝返回，SSE 纯百分比快照 100 ms 节流。`stateWorstAfterMs` 约 2012 ms 是首次 / 缓存过期时受控的 2 s 慢 Java 探测，不是旧的 5 s 无界挂起。
+
+### 12.4 优化与稳定性改动范围
+
+- `src/mc/java.rs`：`PROBE_TIMEOUT=2s`、`SCAN_TTL=30s`、按 `LYCOMC_DATA_DIR` 键缓存、候选并行探测；`pub fn scan_system()` 用缓存，`pub fn scan_system_fresh()` 供 `pick()` 在启动前立即看到新装 JRE；探测进程使用独立 pipe reader，慢候选超时时 `kill` + Unix process-group SIGKILL，避免 shell 后代继承 fd 造成 pipe hang。
+- `src/api.rs`：`state_all` 把账号 / 版本 / Java 扫描移入 `spawn_blocking`；`static_file` 改为 `(StatusCode::OK, f.contents()).into_response()`，利用 `include_dir!` 静态字节避免每请求复制约 1 MB JS；`router` 仍为 26 条 `.route`，无端点删除。
+- `src/jobs.rs`：`PROGRESS_MIN_INTERVAL=100ms` 仅节流纯百分比广播；日志、`100%`、完成 / 错误快照保持精确，满足前端 `use-job.ts` 的 logs 单调合并语义。
+- `Cargo.toml` / `Cargo.lock`：`lilyco` 依赖从本机绝对路径改为公开 Git rev `1fc383e44b51dbfe249562b4ca0ef5c271a712e9`，GitHub Runner 可复现解析；`cargo check --locked --all-targets` 已在本机通过。
+- `.github/workflows/ci.yml`：push / PR / workflow_dispatch 在 ubuntu-24.04 执行 `scripts/check.sh` 与 runtime smoke，安装 WebKitGTK 依赖以支持可选 desktop 双轨检查；不再用 `|| true` 掩盖失败。
+- `.github/workflows/release.yml`：`v*` tag push 或 `workflow_dispatch` 指定已存在标签；matrix 为 ubuntu-24.04 / x86_64-unknown-linux-gnu、windows-latest / x86_64-pc-windows-msvc、macos-15 / aarch64-apple-darwin；构建 release Web 可执行程序、运行时 smoke、打包二进制 + README、生成 SHA-256、上传 artifacts 并创建 / 更新 GitHub Release。macos-15 是 Arm64 runner label，`macos-14` 为 x64 且已标记 deprecated，见 `runner-images-README-excerpt.txt`。
+
+### 12.5 证据登记与边界
+
+- 第 11 组证据由 `/home/lilyco/.cache/lycomc-perf/evidence-group11-manifest.json` 生成：清单本身 7066 B，SHA-256 `1c433eb9417ab0cc715122eebc114fac9d9651d24b62ba2c472307df3384dce7`；36 个文件均使用完整 64 位 SHA-256，清单本身作为第 37 项追加到 `docs/TEST-EVIDENCE.json`，前 10 组逐字节保留。
+- 本机未产出 Windows `.exe` / macOS 二进制 / Android / 鸿蒙包；release 三平台产物只应由 GitHub Runner 的 `release.yml` 生成并在 Release 页面复核。真实本机 1.20.1 服务器联机证据仍为 §11，不因 fake Java 对比重写。
+- 远端 GitHub Actions / Release 运行结果在推送与 tag 后用 `gh run` / `gh release view` 复核；若任一 job 失败，必须按失败日志修复并重新发布，不能把本机 YAML 校验当作 runner 成功。

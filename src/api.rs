@@ -212,22 +212,33 @@ fn running_list(st: &AppState) -> Vec<Value> {
 }
 
 async fn state_all(State(st): State<AppState>) -> Json<Value> {
-    let javas: Vec<Value> = java::scan_system()
-        .into_iter()
-        .map(|j| json!({ "path": j.path, "version": j.version, "source": j.source }))
-        .collect();
+    // Java 探测会启动外部进程、读多个安装目录；放到 blocking 线程池，
+    // 即使某个候选卡住也不会占住 axum 的 async worker。
+    let settings = st.settings();
     let remote = st.remote.read().ok().and_then(|g| g.clone());
     let last_cmd = st.last_cmd.read().ok().and_then(|g| g.clone());
+    let running = running_list(&st);
+    let jobs = st.jobs.list();
+    let data_dir = paths::data_dir().display().to_string();
+    let disk = tokio::task::spawn_blocking(|| {
+        let javas: Vec<Value> = java::scan_system()
+            .into_iter()
+            .map(|j| json!({ "path": j.path, "version": j.version, "source": j.source }))
+            .collect();
+        (settings::load_accounts(), installed_versions(), javas)
+    })
+    .await
+    .unwrap_or_else(|_| (Vec::new(), Vec::new(), Vec::new()));
     Json(json!({
-        "settings": st.settings(),
-        "accounts": settings::load_accounts(),
-        "versions": installed_versions(),
-        "running": running_list(&st),
-        "javas": javas,
+        "settings": settings,
+        "accounts": disk.0,
+        "versions": disk.1,
+        "running": running,
+        "javas": disk.2,
         "remote": remote,
-        "jobs": st.jobs.list(),
+        "jobs": jobs,
         "lastCommand": last_cmd,
-        "dataDir": paths::data_dir().display().to_string(),
+        "dataDir": data_dir,
     }))
 }
 
@@ -987,7 +998,8 @@ async fn static_file(uri: Uri) -> Response {
             } else {
                 "no-cache"
             };
-            let mut resp = (StatusCode::OK, f.contents().to_vec()).into_response();
+            // include_dir! 的字节具有 static 生命周期；直接作为 Body，避免每次请求复制近 1 MB JS。
+            let mut resp = (StatusCode::OK, f.contents()).into_response();
             resp.headers_mut().insert(
                 header::CONTENT_TYPE,
                 HeaderValue::from_str(mime.as_ref())

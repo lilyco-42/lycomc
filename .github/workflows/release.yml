@@ -1,140 +1,133 @@
-# LilyCraft 多平台构建（手动触发）。
-#
-# 只做「构建 + 上传 artifact」：不创建 GitHub Release、不打 tag、不推送，
-# 这些动作须由维护者显式执行。
-#
-# Web 优先：Rust 默认只构建 Web 内核；桌面壳需显式 --features desktop。
-# 注意：本仓库的 Rust 依赖 lilyco 当前是绝对路径，公共 runner 上无法解析，
-# 因此 desktop job 默认 dry-run 式跳过实际 cargo 构建（见 README「开发与维护边界」）。
-# 若要真正跑起来，需要先把 Cargo.toml 的 lilyco 依赖改成 git rev 并在下方
-# bootstrap 步骤里 checkout 对应仓库。
-name: build
+# 标签 v* 触发三平台默认 Web 可执行程序构建、运行时 smoke、SHA-256 与 GitHub Release。
+# 这是「本机 Web 可执行程序」发布，不是原生桌面壳；桌面壳仍是可选 --features desktop。
+name: release
 
 on:
+  push:
+    tags: ["v*"]
   workflow_dispatch:
     inputs:
-      make_packages:
-        description: "是否同时用 cargo-packager 生成安装包（deb/AppImage/NSIS/DMG）"
-        type: boolean
-        default: false
+      tag:
+        description: "要发布的标签（必须已存在）"
+        required: true
+        type: string
 
 permissions:
-  contents: read
+  contents: write
+
+env:
+  CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: "1"
 
 jobs:
-  desktop:
-    name: desktop ${{ matrix.os }}
+  build:
+    name: build ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-22.04
+          - os: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            bin: lycomc
+            ext: tar.gz
           - os: windows-latest
-          - os: macos-latest
+            target: x86_64-pc-windows-msvc
+            bin: lycomc.exe
+            ext: zip
+          - os: macos-15
+            target: aarch64-apple-darwin
+            bin: lycomc
+            ext: tar.gz
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 12.19.0
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
 
       - uses: dtolnay/rust-toolchain@stable
         with:
-          components: rustfmt, clippy
+          targets: ${{ matrix.target }}
 
-      - name: Linux 桌面依赖（WebKitGTK / AppIndicator）
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev \
-            libayatana-appindicator3-dev librsvg2-dev patchelf
-
-      - name: 前端构建
+      - name: 构建 shadcn Web 前端
         working-directory: web
         run: |
           pnpm install --frozen-lockfile
-          pnpm lint
           pnpm build
 
-      - name: Rust 检查与测试（Web 默认 + 可选桌面 feature）
+      - name: 构建 release Web 可执行程序
+        run: cargo build --release --locked --target ${{ matrix.target }}
+
+      - name: 运行时 smoke（临时数据目录，不打开浏览器）
+        shell: bash
         run: |
-          cargo fmt -- --check || true
-          cargo clippy --all-targets -- -D warnings || true
-          cargo test --no-fail-fast || true
-          cargo clippy --all-targets --features desktop -- -D warnings || true
-          cargo test --features desktop --no-fail-fast || true
-        # 绝对路径依赖导致在公共 runner 上必然失败，这里不阻断打包步骤的演示。
-        # 依赖改成 git rev 之后请删掉 || true。
+          BIN="$PWD/target/${{ matrix.target }}/release/${{ matrix.bin }}"
+          bash scripts/runtime-smoke.sh "$BIN"
 
-      - name: 安装 cargo-packager
-        if: ${{ inputs.make_packages }}
-        run: cargo install cargo-packager --locked
-
-      - name: 生成安装包
-        if: ${{ inputs.make_packages }}
-        run: cargo packager --release -c packaging/Packager.toml
+      - name: 打包与校验和
+        shell: bash
+        run: |
+          set -euo pipefail
+          BIN="$PWD/target/${{ matrix.target }}/release/${{ matrix.bin }}"
+          TAG="${{ inputs.tag || github.ref_name }}"
+          ASSET="lycomc-${TAG}-${{ matrix.target }}.${{ matrix.ext }}"
+          mkdir -p stage release
+          cp "$BIN" stage/
+          cp README.md stage/
+          if [ "${{ matrix.ext }}" = "zip" ]; then
+            STAGE_WIN="$(cygpath -w "$PWD/stage")"
+            ASSET_WIN="$(cygpath -w "$PWD/$ASSET")"
+            powershell.exe -NoProfile -Command "Compress-Archive -Path '$STAGE_WIN/*' -DestinationPath '$ASSET_WIN' -Force"
+          else
+            tar -czf "$ASSET" -C stage .
+          fi
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum "$ASSET" > "$ASSET.sha256"
+          elif command -v shasum >/dev/null 2>&1; then
+            shasum -a 256 "$ASSET" > "$ASSET.sha256"
+          else
+            openssl dgst -sha256 -r "$ASSET" | awk '{print $1 "  " $2}' > "$ASSET.sha256"
+          fi
+          mv "$ASSET" "$ASSET.sha256" release/
+          ls -lh release/
 
       - uses: actions/upload-artifact@v4
-        if: always()
         with:
-          name: lilycraft-${{ matrix.os }}
-          path: |
-            packaging/dist/*
-            web/dist/index.html
-          if-no-files-found: warn
+          name: release-${{ matrix.target }}
+          path: release/*
+          if-no-files-found: error
 
-  android:
-    name: android apk
-    runs-on: ubuntu-22.04
+  publish:
+    name: publish GitHub Release
+    needs: build
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
+      - uses: actions/download-artifact@v4
         with:
-          version: 9
+          pattern: release-*
+          path: dist
+          merge-multiple: true
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: pnpm
-          cache-dependency-path: web/pnpm-lock.yaml
-
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "17"
-
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-linux-android,x86_64-linux-android
-
-      - name: Rust NDK 工具
-        run: cargo install cargo-ndk --locked
-
-      - name: Android SDK / NDK
-        uses: android-actions/setup-android@v3
-
-      - name: 前端构建
-        working-directory: web
-        run: |
-          pnpm install --frozen-lockfile
-          pnpm build
-
-      - name: 构建 APK
+      - name: 创建/更新 Release 并上传产物与校验和
         env:
-          ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
-        run: bash scripts/build-android.sh || echo "内核依赖未解析时这里会失败，属预期"
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: lilycraft-android
-          path: android/app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: warn
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          TAG="${{ inputs.tag || github.ref_name }}"
+          ls -lh dist/
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --clobber
+          else
+            gh release create "$TAG" dist/* --title "LilyCraft Web $TAG" --generate-notes
+          fi

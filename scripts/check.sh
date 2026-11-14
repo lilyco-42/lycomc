@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # lycomc 本地维护检查。
 #
-# 该仓库的 lilyco 依赖当前是绝对路径（../lilyco/lilyco），因此不提供公共 CI：
-# 在普通 GitHub Runner 上无法解析该路径。这里只保证本机开发闭环。
+# lilyco 依赖已锁到公开 git rev，本机与 GitHub Runner 使用同一套解析方式。
 set -euo pipefail
 cd "$(dirname "$0")/.."
 

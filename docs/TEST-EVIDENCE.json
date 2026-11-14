@@ -742,5 +742,196 @@
         }
       ]
     }
+    ,
+    {
+      "label": "测试完成报告 / 性能与稳定性对比 / GitHub Actions Release 预发布回归（2026-11-15，m07261）",
+      "files": [
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/cdp-final/cdp-final-meta.json",
+          "bytes": 3242,
+          "sha256": "0db0abdc505f17565293dae83b50cbbf3b26c32ed5f265830c7049702ac67057"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/cdp-final/final-cdp.mjs",
+          "bytes": 11631,
+          "sha256": "e8b43443870aa470473862822903e4d7cf20da92ff370690b9c43590420dec18"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/cdp-final/final-guide.png",
+          "bytes": 158920,
+          "sha256": "4c8b6b0e51c729c9f9d8288b5bc8d7a89f126856529f7000bb83acbbe651cb7e"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/cdp-final/final-home-chart.png",
+          "bytes": 164643,
+          "sha256": "c17eee428f1e965c9a90652df995b9e1bfdcd5038aa8073f253dc1b9ca1e7965"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/cdp-final/final-name-input.png",
+          "bytes": 128202,
+          "sha256": "8e202dfdc0b87cd38cb5a3ee153860f1a478620c5f2916ace2a3f2229abae3ba"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/cdp-final/final-onboarding-step1.png",
+          "bytes": 127467,
+          "sha256": "5ccd2e9d0b7dff700240c8158bd0fa48c8221e86507ced1fae652df5e673c55b"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/cdp-final/final-onboarding.png",
+          "bytes": 128338,
+          "sha256": "e92ee6234eba0889894413fbadf801db71e0cbd588d8f1b3180ba757d9c900e4"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/cdp-final/final-result.json",
+          "bytes": 4923,
+          "sha256": "733903b6d5bb13e790c96596b78b4cdf0942a16a057a33c6a76c9126d792ba3d"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/cdp-final/final-route--.png",
+          "bytes": 164717,
+          "sha256": "53227e255ee8f3cf041f3d77d77702dd7ba4a6cdca453fbf87fa93d20e311e5f"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/cdp-final/final-route--download.png",
+          "bytes": 141799,
+          "sha256": "0815dc09627a5eca7b82ee98a3dd61fcfa094ce3ba8634f888180fb7139adc1f"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/cdp-final/final-route--guide.png",
+          "bytes": 158920,
+          "sha256": "4c8b6b0e51c729c9f9d8288b5bc8d7a89f126856529f7000bb83acbbe651cb7e"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/cdp-final/final-route--mods.png",
+          "bytes": 153164,
+          "sha256": "4a06fe389a23d705771905f79bdd879e1935dde040a928c60936b5b85c8280bd"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/cdp-final/final-route--no-such-page.png",
+          "bytes": 64382,
+          "sha256": "b5689c63523417e57aa5b8f54285f940d1900c6c11d7cd4ccb5ea3fcebde45ba"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/cdp-final/final-route--settings.png",
+          "bytes": 129202,
+          "sha256": "21cbca43b6534c9329269931419e6a830f38745170fcc81738bbf9102eecbb2a"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/cdp-final/final-route--versions.png",
+          "bytes": 123906,
+          "sha256": "95cd65dc5d3d2331b99434aeae1156fe928f2bfff3c7263ffc1952b50f953841"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/compare/baseline/cleanup.json",
+          "bytes": 60,
+          "sha256": "6de9d2ab4b372083390d346a37194b2db7574bbd6d908e86fe7c518f0e29364d"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/compare/baseline/fake-java-args.txt",
+          "bytes": 7849,
+          "sha256": "ac19c5a56149b663e49c40934b5984d1185d8e0fdd4096f2bc8abba655245f45"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/compare/baseline/fake-java.sh",
+          "bytes": 309,
+          "sha256": "13be4d5f897558248c18211ff3d4675126b6da2ca0afac3c4c25d3ef7c0b3557"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/compare/cleanup.json",
+          "bytes": 1282,
+          "sha256": "47875232b8dd2f9f7ffca1af7d6cdbb7a6a6a3e7bebe1fccdd0d1bfa7ac90292"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/compare/compare-result.json",
+          "bytes": 27202,
+          "sha256": "271b19043eeef04d85244a09c5096f9dd555151869075aa33e4b0fff0bb53757"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/compare/optimized/cleanup.json",
+          "bytes": 60,
+          "sha256": "261949b327dec20c6d7509ab3def4d1acc8216f186489ab20b46c642f37dac15"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/compare/optimized/fake-java-args.txt",
+          "bytes": 7910,
+          "sha256": "914bf00c7a7c1d0186d3a4a2b0bcb0e2dd22ae6ae7096f3aa85de31c902c5e41"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/compare/optimized/fake-java.sh",
+          "bytes": 311,
+          "sha256": "25839150f7c0031d4919a64af04d58d3f821f467ad82d8e7aa2a869219783997"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/final-guard.log",
+          "bytes": 11046,
+          "sha256": "715a8580b5171fa7f536882f4e5c794a5dde761d4af225ef0f212d389b8bc9c6"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/runner-images-README-excerpt.txt",
+          "bytes": 1977,
+          "sha256": "45b1c03c049cf344fa9afe49d1f45ec419cc9aad52168f5e1380dd289be45a0b"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/runtime-smoke-final.log",
+          "bytes": 167,
+          "sha256": "bad1d1526e8965e8019496504584e131b2fa496dc95d864d97e4c140822709bf"
+        },
+        {
+          "path": "/home/lilyco/code/lycomc/.github/workflows/ci.yml",
+          "bytes": 1621,
+          "sha256": "07af97fd06f1414a43b800343d168bc554a64deee5f0d327f9ba6078fb784728"
+        },
+        {
+          "path": "/home/lilyco/code/lycomc/.github/workflows/release.yml",
+          "bytes": 4052,
+          "sha256": "ab5af83ebb5b8960c103e5928885a2126cf70b1174de2e4b4830592db940b7d7"
+        },
+        {
+          "path": "/home/lilyco/code/lycomc/Cargo.lock",
+          "bytes": 112859,
+          "sha256": "8cb9358f5ec114e8c72d02ff97649acaaf76e899520acf672993908f68c70d73"
+        },
+        {
+          "path": "/home/lilyco/code/lycomc/Cargo.toml",
+          "bytes": 2492,
+          "sha256": "b5e6cb2f06530d5cc565eb1610bf1401421b7b718e6f18e750e649d5c3442bda"
+        },
+        {
+          "path": "/home/lilyco/code/lycomc/README.md",
+          "bytes": 14899,
+          "sha256": "0ba5bd6eaee513427b5198368304fca792a00b287005721935caef195ee7e4af"
+        },
+        {
+          "path": "/home/lilyco/code/lycomc/scripts/compare-binaries.mjs",
+          "bytes": 22107,
+          "sha256": "c5d30265962b54b77c448adb53247efe35056d62f0fa74e3417522e4676975e9"
+        },
+        {
+          "path": "/home/lilyco/code/lycomc/scripts/runtime-smoke.sh",
+          "bytes": 1500,
+          "sha256": "770b117dc7d66a0f41ca2f113596e222effbefc55fc112f9303cb44f3edf76fc"
+        },
+        {
+          "path": "/home/lilyco/code/lycomc/src/api.rs",
+          "bytes": 48042,
+          "sha256": "fa4a29023b938fc9bdcd262e35a08e71a289bdcef4bad596b6dcdf5ea828b776"
+        },
+        {
+          "path": "/home/lilyco/code/lycomc/src/jobs.rs",
+          "bytes": 7528,
+          "sha256": "16ca34251e5eeb97ebe8e70c14c7e54039e7ad9c5da0ff8d65c843f5c5802c2f"
+        },
+        {
+          "path": "/home/lilyco/code/lycomc/src/mc/java.rs",
+          "bytes": 18309,
+          "sha256": "874d813a80566a497e1d99c9b426dd69516066cf88dd3b1d0aaba4cde4bef636"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/evidence-group11-manifest.json",
+          "bytes": 7066,
+          "sha256": "1c433eb9417ab0cc715122eebc114fac9d9651d24b62ba2c472307df3384dce7"
+        }
+      ]
+    }
   ]
 }
