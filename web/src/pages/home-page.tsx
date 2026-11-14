@@ -1,9 +1,10 @@
 import { LauncherStatsCard } from "@/components/launcher-stats-card";
 import { useCallback, useRef, useState } from "react";
-import { Boxes, CircleAlert, Cpu, FileClock, Globe, Loader2, Play, Power, RotateCw, Settings2, ShieldCheck, Sparkles, Square, UserRound } from "lucide-react";
+import { Boxes, CircleAlert, Cpu, FileClock, Globe, Loader2, Play, Power, RotateCw, Server, Settings2, ShieldCheck, Sparkles, Square, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -76,6 +77,8 @@ export function HomePage() {
 
   const [launching, setLaunching] = useState(false);
   const [jobId, setJobId] = useState<string | null>(null);
+  // null = 主页输入框还没被改过，此时跟随设置里的默认直连服务器
+  const [serverDraft, setServerDraft] = useState<string | null>(null);
   const [killing, setKilling] = useState(false);
   const [logTail, setLogTail] = useState<string[]>(readCachedLogTail);
   const [logError, setLogError] = useState<string | null>(null);
@@ -127,6 +130,8 @@ export function HomePage() {
 
   const pid = (runningEntry?.pid ?? pickPid(job?.result ?? null)) || null;
   const memoryMb = settings?.memoryMb;
+  const defaultServer = settings?.quickPlayServer ?? "";
+  const serverValue = serverDraft ?? defaultServer;
 
   const handleLaunch = useCallback(async () => {
     if (version === null) {
@@ -141,15 +146,21 @@ export function HomePage() {
     setLaunching(true);
     setLogError(null);
     reset();
+    // 与默认设置不同就顺手记下来，供以后启动沿用；不等待它，避免和本次启动抢顺序。
+    if (serverValue !== defaultServer) {
+      void saveSettings({ quickPlayServer: serverValue || null }).catch((cause: unknown) => {
+        toast.error("保存默认直连服务器失败", { description: errorMessage(cause) });
+      });
+    }
     try {
-      const result = await api.launch(version.id, accountName, memoryMb);
+      const result = await api.launch(version.id, accountName, memoryMb, serverValue);
       setJobId(result.jobId);
       toast.info("已提交启动任务", { description: "正在准备客户端…" });
     } catch (cause: unknown) {
       setLaunching(false);
       toast.error("提交启动失败", { description: errorMessage(cause) });
     }
-  }, [version, accountName, memoryMb, reset]);
+  }, [version, accountName, memoryMb, reset, serverValue, defaultServer, saveSettings]);
 
   const handleKill = useCallback(async () => {
     if (pid === null) {
@@ -264,6 +275,27 @@ export function HomePage() {
             </div>
 
             <div className="mt-7 w-full space-y-2.5">
+              <div className="rounded-xl border border-border bg-pcl-8/60 p-2.5 text-left dark:bg-muted/40">
+                <label htmlFor="quick-play-server" className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-primary">
+                  <span className="flex size-5 items-center justify-center rounded-md bg-pcl-7 text-primary dark:bg-muted">
+                    <Server className="size-3.5" />
+                  </span>
+                  直连服务器
+                </label>
+                <Input
+                  id="quick-play-server"
+                  aria-label="直连服务器"
+                  value={serverValue}
+                  onChange={(event) => { setServerDraft(event.target.value); }}
+                  placeholder="例如 mc.hypixel.net"
+                  spellCheck={false}
+                  autoComplete="off"
+                  className="h-9 bg-card text-xs"
+                />
+                <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
+                  留空就正常进主菜单；填了就直接进入这个服务器。
+                </p>
+              </div>
               <LaunchButton
                 onClick={() => { void handleLaunch(); }}
                 disabled={!hasVersion || (isRunning && !launching)}

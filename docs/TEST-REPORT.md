@@ -208,3 +208,35 @@ test result: ok. 17 passed; 0 failed
 
 - 验收服务已停止，真实 `web.port` 从 `9440` 恢复为 `8790`；`9440` / `9444` / `9450` 无残留监听；Chromium profile 与临时数据目录都在 `/home/lilyco/.cache/lycomc-web-final`，未写入用户数据；账号仍是 Steve（离线）/ lilyco42（微软）/ lilyco4242（离线），没有新增测试账号、没有打印 token。
 - 不宣称 Windows / macOS / Android / 鸿蒙实机安装包或签名包已产出；不宣称原生桌面壳输入焦点 P0 已完成干净 GUI 复验（m06445 已降级冻结）；m03957 全平台实机演示与 m04829 / m04836 三问仍待用户重新界定。
+
+## 10. 2026-11-14 一键直连多人服务器（quickPlay）回归（§8 / §9 历史不改写）
+
+> 本节是 m06887「继续」后推进的 m03957「服务器游玩」最小闭环；§8 的 25 / 30 与 §9 的 26 / 31 都是历史数值，本节不改写。
+
+### 10.1 改动与双轨守卫
+- 9 个文件：src/api.rs、src/commands.rs、src/mc/launch.rs、src/mc/meta.rs、src/settings.rs 与 4 个 web/src 文件；git diff --stat 399 insertions / 24 deletions（文档另计）。
+- bash scripts/check.sh 全绿，日志 /home/lilyco/.cache/lycomc-web-server/quickplay-guard.log（10257 B，sha256 0db76b20…）：默认 cargo test **35 passed / 0 failed**，--features desktop **40 passed / 0 failed**（新增 9 个 quickPlay / 设置语义单测）；cargo fmt -- --check PASS、cargo clippy --all-targets -- -D warnings 0 错（首跑的 2 个 clippy 提示已修：enabled.iter().any → contains、手动 Option::map → map）、git diff --check CLEAN。
+- pnpm lint 4 warnings / 0 errors（均为既有告警）、pnpm build 2600 modules，产物 index-B6_XqSyM.js 992.14 kB（gzip 293.76 kB）、index-BIRyMoZJ.css 87.41 kB（gzip 14.91 kB）、index.html 0.85 kB；touch build.rs && cargo build 已把新 dist 编进默认二进制。
+- 默认二进制 sha256=be2690ac…、ldd NO_DESKTOP_LIBS、--schema 仍 14 命令、src/api.rs::router 仍 26 条 .route；SSE、微软设备码、皮肤、Modrinth、设置与本地化端点未删减。
+
+### 10.2 真实实例 CLI --dry-run 矩阵
+- 临时 LYCOMC_DATA_DIR=/home/lilyco/.cache/lycomc-web-server/cli-data，versions/1.20.1 与 versions/fabric-loader-0.20.1-1.20.1 符号链接到真实实例，assets / libraries / java 软链真实数据；不 spawn 游戏、不打印 token。结果在 cli-dry-run.json / cli-default-server.json。
+- 1.20.1 --server mc.hypixel.net → --quickPlayMultiplayer 后跟 mc.hypixel.net（index 34），且不含 --demo / --width；省略 --server 且无默认值 → index -1；显式 --server 空串 → index -1（覆盖默认值）；fabric-loader-0.20.1-1.20.1 --server fabric.example.net:25565 → index 35 后跟该地址（证明父版规则经 install::merge 对 Fabric 生效）；临时设置写 quickPlayServer=default.example.net 后省略 --server → index 34 后跟 default.example.net；--server 后接形似选项的值被 clap 拒绝（exit 2、unexpected argument 提示），不是后端注入。
+- 真实 /home/lilyco/.local/share/lycomc/settings.json sha256 662e2ffc… 与 web.port=8790 均未变。
+
+### 10.3 隔离 HTTP + fake-Java 探针（不真启动 MC）
+- 直接 detached 启动 start-server.sh：127.0.0.1:9470、LYCOMC_NO_OPEN=1、临时 http-data，settings.javaPath 指向 fake-java.sh（-version 输出 17，其余 argv 逐行写盘后立即退出）；health webMode=embedded。首次失败已定位为 process.execPath 是 Electron 宿主，跑 .mjs 必须用 /usr/bin/node；systemd-run transient unit 会被回收，改用 detached bash。
+- 设置语义 5/5：initial null → PUT quickPlayServer=default.example.net → 只改 memoryMb 的 patch 保持默认值 → 显式 null 清空 → 非法地址被 sanitize 成 null；最终再把 quickPlayServer 复位为 null。
+- 只读端点 9/9 返回 200；/api/events 响应头 content-type: text/event-stream（curl 超时 28 属预期）。
+- POST /api/launch 7/7 用例，全部 job.state=done，从 job「命令:」行与 fake-Java argv 双向核对：缺省回落默认值 default.example.net（index 32）、显式 null / 空串覆盖为不直连、显式 server=mc.hypixel.net 覆盖默认值、非法地址与形似选项的地址被丢弃、Fabric 继承父规则得到 fabric.example.net:25565（index 33）。所有用例均不含 --demo / --quickPlaySingleplayer / --quickPlayRealms / --width / --evil。
+
+### 10.4 独立 Chromium CDP 真实交互
+- web-server-cdp.mjs 用 CDP 127.0.0.1:9474、独立 profile 与结果目录 /home/lilyco/.cache/lycomc-web-server，截图前缀 web-server-，没有覆盖 web-first-* / web-final-* 证据。
+- pass 11 项 quickPlayHome / quickPlaySettingsSave / health / onboarding / nameInput / onboarded / guide / routes / chartCardFound / charts / all 全 true；15 张截图。
+- 新增交互：主页 aria-label=直连服务器 输入 ui.example.net:25565（placeholder 例如 mc.hypixel.net、零术语说明可见）→ 设置页 aria-label=默认直连服务器 输入 default.example.net 并点精确文案「保存」→ savedValue=default.example.net → reload 后主页回落 homeFallback=default.example.net。
+- 已交付能力不回退：首启向导与真实键盘 WebQA → blur → 回 INPUT → OK、跳过引导持久化、#/guide 重看引导、七路由（含 404、skeletons=0）、两张 recharts 图（本次隔离数据 surfaces=2 / pieSectors=4 / barRects=2，数值随实例数变化）、BrandMark gradientDefs=0 / urlFill=false。浏览器实际调用 13 类 /api/* 端点，含 /api/events 与皮肤代理。
+
+### 10.5 证据、清理与边界
+- docs/TEST-EVIDENCE.json 追加第 9 组「一键直连多人服务器 / quickPlay 独立验收（2026-11-14）」40 项：quickplay-guard.log、schema、CLI / HTTP / CDP 结果与脚本、fake-Java argv、15 张 web-server-*.png、清理与真实数据基线，全部完整 64 位 sha256，逐项复核 ok=40 / bad=0；第 7 / 8 组仍 ok=47 / bad=0，前 6 组历史短哈希口径不动。
+- 清理：serverKilled=true、unitActive=inactive、9470 / 9474 端口空闲、无 MC 残留进程、realDataUnchanged=true（settings.json / accounts.json / 两个 options.txt / web.port 前后哈希一致）、临时 web.port=9470、真实 web.port=8790；账号仍 Steve（离线）/ lilyco42（微软）/ lilyco4242（离线），未新增账号、未打印 token。
+- 不宣称已连接真实多人服务器或产出进服后游戏截图（fake-Java 只验启动参数与 job 命令）；不宣称 Windows / macOS / Android / 鸿蒙实机或签名安装包；m03957 其余部分与 m04829 / m04836 三问仍待用户重新界定。

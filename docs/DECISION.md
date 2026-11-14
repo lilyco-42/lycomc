@@ -299,3 +299,35 @@ cargo test（解析逻辑单测：device code / XBL / XSTS / MC token / textures
 - m04829 / m04836 三问（Android 形态、Win/mac 是否必须安装包、快捷方式生成方式）仍未答；Web 优先下先按「浏览器 PWA + 源码 / CI」推进，不阻塞主线。
 - m06349 桌面输入 P0 已由 m06445 取代 / 降级；焦点桥代码与单测保留，但不宣称完成干净 GUI 复验。
 - m06729 补充：「exe 也可以，优先本机 web exe 程序」——Windows / macOS / Linux 默认入口都是同一个本机 Web 可执行程序，启动后由平台默认浏览器打开；`maybe_open_browser` 增加 Windows `rundll32` / macOS `open` / Linux `xdg-open` 分支，并让 Windows 不再依赖 DISPLAY。本机仍缺 MSVC `lib.exe`，不产出 Windows `.exe`；源码与 CI 路径保留。
+
+## 一键直连多人服务器（quickPlay，2026-11-14 晚，m06887 / m03957 子项）
+
+> 本节只推进 m03957 的「服务器游玩」最小闭环；全平台实机演示、Android / 鸿蒙、Win/mac 安装包仍按上一节边界，不在此宣称达成。
+
+### 需求 Requirement / 理解门槛
+- m06887「继续」时，Web 优先目标（goal-ff34eb90…）已 complete；在浏览器主链路上选一个不回退、不加依赖、可实机验证的增量。
+- 「服务器游玩」理解为启动后直接进入多人服务器，而不是在启动器内嵌 MC 服务器浏览器 / 好友组队 / 内网穿透；PCL 式「一键进服」先做最小闭环。
+- 门槛：默认入口仍是本机 Web 可执行程序；不新增 API 端点、不引入新依赖、不动 14 命令 / 26 路由 / SSE / 正版登录 / 皮肤 / 教程 / 图表；旧 settings.json 与旧客户端必须继续可用。
+
+### 调研 Research（本机真实元数据与字节码）
+- 本机 `1.20.1.json` 与 `26.3.json` 的 arguments.game 均有 6 条 feature 规则，其中 is_quick_play_multiplayer → `["--quickPlayMultiplayer","${quickPlayMultiplayer}"]`；另有 has_quick_plays_support → --quickPlayPath、is_quick_play_singleplayer、is_quick_play_realms、is_demo_user、has_custom_resolution。
+- javap 1.20.1 / 26.3 的 net.minecraft.client.main.Main 对 --quickPlayMultiplayer 均 OptionParser.accepts(...).withRequiredArg()；26.3 的 QuickPlayLog / GameConfig$QuickPlayData 说明 --quickPlayPath 仅是可选会话日志，直连不必启用它。
+- fabric-loader-0.20.1-1.20.1.json 顶层无 arguments.game，靠 inheritsFrom=1.20.1 经 install::merge 继承父参数，所以父版 quickPlay 规则对 Fabric 同样生效。
+- 阻断根因：meta::rule_matches 原为 `if features.values().any(|want| *want) { return false; }`，一刀切拒绝所有 features 规则；install::plan_libs 也调用 rules_allow，不能全局放开，否则会误开 --demo / --width 并破坏 libraries 规则求值。
+
+### 分析 · fit / ROI 矩阵
+- A 全局放开 features：会让 demo / 自定义分辨率 / 单人 / Realms 规则同时生效，且改变 libraries 选择；否决。
+- B 在 args 末尾手工追加 --quickPlayMultiplayer <addr>：绕过元数据，旧版本不认识该选项会直接崩，且可能与元数据重复；否决。
+- C 白名单 opt-in：rules_allow_with(rules, enabled) 只按调用方传入的 enabled 放行指定 feature，rules_allow 仍传 &[] 保持 libraries 旧行为；launch::expand(list, enabled) 只给启动参数传 ["is_quick_play_multiplayer"]，并把 quickPlayMultiplayer 加入变量表。零新端点、零新依赖、旧版自动退化为进主菜单；采纳。
+
+### 决策 Decision（本节即记录）
+- 内核：mc/meta.rs 增 rules_allow_with 与 rule_matches(r, enabled)，rules_allow 保留旧签名 / 旧行为；mc/launch.rs 增 QuickPlay::Multiplayer、clean_server_address（host[:port] 白名单：trim、<=255、拒绝前导 - / -- / 空白 / 控制 / 引号 / 反斜杠）、resolve_quick_play(override, default)、LaunchOpts.quick_play；prepare 只在元数据规则存在时注入参数并写「直连服务器: …」日志，否则写「当前版本元数据不支持 quickPlay，已正常进主菜单」。
+- 配置 / API：Settings.quickPlayServer?:string|null 默认 null、sanitize 经白名单；PUT /api/settings 用 double_option 区分缺失 / 显式 null；POST /api/launch 增 server?:string|null，语义为「本次覆盖」：字段缺失才回落默认值，显式 null / 空串 / 非法值清空本次直连但不改写默认值；lycomc launch 增 --server <地址>（命令数仍 14）。
+- 前端：主页启动区「直连服务器」与设置页「默认直连服务器」两个 shadcn Input；主页本次值作为 api.launch 第 4 参，且与默认值不同时异步 saveSettings 写回默认，不阻塞启动；零术语说明「留空就正常进主菜单」。
+- 验收：真实 1.20.1 / Fabric CLI --dry-run 矩阵、临时 LYCOMC_DATA_DIR + fake-Java 的 HTTP 探针（不真启动 MC）、独立 Chromium CDP 真实输入与保存 / reload 回落；详见 TEST-REPORT.md §10 与 TEST-EVIDENCE.json 第 9 组。
+
+### 边界与未决问题
+- 只覆盖带 is_quick_play_multiplayer 规则的 MC 1.20+ 版本；旧版本不会追加未知选项。
+- 本次验收用 fake-Java 记录 argv 与 job 命令，未连接真实多人服务器、未产出进服后的游戏截图；不宣称「已实机联机成功」。
+- 地址白名单是防选项注入的最小防护，不替代 SRV / IPv6 / 中文域名的完整解析支持。
+- 全平台实机演示 / 签名安装包、m04829 / m04836 三问仍未答；桌面壳输入 P0 仍按 m06445 降级冻结；Windows .exe 本机仍缺 MSVC lib.exe。

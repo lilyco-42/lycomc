@@ -27,6 +27,8 @@ pub struct Settings {
     pub game_lang: String,
     /// 默认账号：启动时未显式指定账号就用它；None = 账号列表第一项
     pub default_account: Option<String>,
+    /// 默认直连服务器；None / 空串 = 正常进主菜单
+    pub quick_play_server: Option<String>,
 }
 
 impl Default for Settings {
@@ -41,6 +43,7 @@ impl Default for Settings {
             close_on_launch: false,
             game_lang: "zh_cn".into(),
             default_account: None,
+            quick_play_server: None,
         }
     }
 }
@@ -80,6 +83,10 @@ impl Settings {
         {
             self.default_account = None;
         }
+        self.quick_play_server = self
+            .quick_play_server
+            .as_deref()
+            .and_then(crate::mc::launch::clean_server_address);
         let g = self.game_lang.trim().to_lowercase();
         if g.is_empty() || !g.chars().all(|c| c.is_ascii_lowercase() || c == '_') {
             self.game_lang = "zh_cn".into();
@@ -455,6 +462,47 @@ mod tests {
         let back: Settings = serde_json::from_str(r#"{"memoryMb":2048,"downloadSource":"bmcl"}"#)
             .expect("旧配置应能解析");
         assert_eq!(back.default_account, None);
+        assert_eq!(back.memory_mb, 2048);
+    }
+}
+
+#[cfg(test)]
+mod quick_play_server_tests {
+    use super::*;
+
+    #[test]
+    fn quick_play_server_sanitizes_and_roundtrips_through_json() {
+        let mut s = Settings {
+            quick_play_server: Some("  mc.example.net:25565  ".into()),
+            ..Default::default()
+        };
+        s.sanitize();
+        assert_eq!(s.quick_play_server.as_deref(), Some("mc.example.net:25565"));
+        let text = serde_json::to_string(&s).expect("序列化失败");
+        assert!(
+            text.contains("\"quickPlayServer\":\"mc.example.net:25565\""),
+            "落盘字段名应为 camelCase: {text}"
+        );
+        let back: Settings = serde_json::from_str(&text).expect("反序列化失败");
+        assert_eq!(
+            back.quick_play_server.as_deref(),
+            Some("mc.example.net:25565")
+        );
+        let mut bad = Settings {
+            quick_play_server: Some("bad address".into()),
+            ..Default::default()
+        };
+        bad.sanitize();
+        assert_eq!(bad.quick_play_server, None);
+    }
+
+    #[test]
+    fn old_settings_json_without_quick_play_server_still_loads() {
+        let back: Settings = serde_json::from_str(
+            r#"{"memoryMb":2048,"downloadSource":"bmcl","quickPlayServer":null}"#,
+        )
+        .expect("旧配置应能解析");
+        assert_eq!(back.quick_play_server, None);
         assert_eq!(back.memory_mb, 2048);
     }
 }

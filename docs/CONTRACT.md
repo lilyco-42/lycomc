@@ -20,7 +20,7 @@ GET    /api/remote/versions?refresh=1  -> latest{release,snapshot}, versions[{id
 POST   /api/versions/install           body {versionId, fabric?:bool} -> {jobId}
 GET    /api/versions/:id               -> VersionInfo & {mods:[{file,name,size}], running:[{pid}], lang?, resourcePacks:string[], localized:bool}
 DELETE /api/versions/:id               -> {ok}
-POST   /api/launch                     body {versionId, accountName, memoryMb?} -> {jobId}
+POST   /api/launch                     body {versionId, accountName, memoryMb?, server?:string|null} -> {jobId}
 POST   /api/launch/:pid/kill           -> {ok}
 GET    /api/jobs/:id                   -> Job
 GET    /api/events                     -> SSE: event: progress|done|error, data: Job
@@ -39,7 +39,7 @@ POST   /api/mods/install               body {versionId, projectId} -> {jobId}
 GET    /api/mods?versionId=            -> {mods:[{file,name,size}]}
 POST   /api/mods/remove                body {versionId,file} -> {ok}
 GET    /api/settings                   -> Settings
-PUT    /api/settings                   -> Settings（部分更新：只改请求体里出现的键，缺省字段保持原值；显式传 null 才清空 javaPath / selectVersion / defaultAccount）
+PUT    /api/settings                   -> Settings（部分更新：只改请求体里出现的键，缺省字段保持原值；显式传 null 才清空 javaPath / selectVersion / defaultAccount / quickPlayServer）
 POST   /api/localize                   body {versionId} -> {jobId}（异步汉化：写 lang + 下载并启用汉化资源包，进度走 /api/events）
 GET    /api/logs/:versionId            -> {lines:string[]}
 
@@ -56,17 +56,26 @@ SkinInfo = {name, uuid, skinUrl?, capeUrl?, skinModel:"classic"|"slim",
 // hasSession 仅表示「微软正版登录态是否有效」；离线账号恒为 false、无需登录且永远可启动。
 // kind="microsoft" 且 hasSession=false 时 UI 才显示「需重新登录」；启动前后端自动 refresh，失败则明确报错。
 // kind="microsoft" 且 entitled=false 时 UI 按 PCL 的购买劝导显示「未检测到正版授权，请购买 Minecraft」，不阻止离线启动。
-Settings = {memoryMb, javaPath?, extraJvmArgs[], selectVersion?, downloadSource:"mojang"|"bmcl", maxConcurrent, closeOnLaunch, gameLang:string, defaultAccount?:string|null}
+Settings = {memoryMb, javaPath?, extraJvmArgs[], selectVersion?, downloadSource:"mojang"|"bmcl", maxConcurrent, closeOnLaunch, gameLang:string, defaultAccount?:string|null, quickPlayServer?:string|null}
 // gameLang 默认 "zh_cn"，只允许 [a-z_]；启动前由 launch::prepare 写入实例 options.txt 的 lang 行
 // defaultAccount = null 时启动缺省取账号列表第一项；PUT /api/settings 用 double_option 区分字段缺失与显式 null，显式 null 才清空可空字段
 // downloadSource 默认 "bmcl"（国内镜像），已在磁盘上的 settings.json 不受默认值变更影响；"mojang" = 全官方直连
+// POST /api/launch 的 server?:string|null 是「本次启动」覆盖值：字段缺失才回落 settings.quickPlayServer；
+// 显式 null / 空串 / 非法地址都表示这次正常进主菜单，不改写默认值；合法值形如 host 或 host:port。
+// Settings.quickPlayServer 是默认直连地址；None / 空串 = 正常进主菜单，保存时由 clean_server_address 白名单净化。
+// 仅当版本元数据的 arguments.game 含 is_quick_play_multiplayer 规则时才注入 --quickPlayMultiplayer <addr>；
+// 旧版本不追加未知选项，任务日志写「当前版本元数据不支持 quickPlay，已正常进主菜单」。
 Job = {id, kind, title, state:"running"|"done"|"error", progress:0-100, message, logs[], result?, createdAt}
+
 
 ## 前端
 - 路由：/ 主页（PCL 风大启动按钮）、/versions、/download、/mods、/settings
 - 左侧固定竖栏 + 主内容区；中文；深色/浅色切换
 
+- 主页启动区「直连服务器」与设置页「默认直连服务器」两个输入框；留空正常进主菜单，主页本次值会异步写回默认设置（2026-11-14 追加）。
+
 ## 下载源与镜像（downloadSource = "bmcl" 时生效）
+
 - 所有 HTTP 请求统一 User-Agent lycomc/0.1（MCIM 要求「名称/版本」格式，禁止默认 UA）。
 - Mojang 版本清单 / 版本 JSON / libraries / assets / Fabric meta / Fabric maven 库 → bmclapi2.bangbang93.com（失败自动回落官方域名，不写死 302 后的节点域名）。
 - Modrinth 搜索/版本 API → mod.mcimirror.top/modrinth/v2，文件 CDN → mod.mcimirror.top/data/...（必须保留 /data/）；官方 API/CDN 仍作兜底。MCIM 为公益镜像，仅作用户可回落镜像、不做二次封装，接入登记（启动器名 lycomc / UA lycomc/0.1）为运维待办。
@@ -88,3 +97,4 @@ Job = {id, kind, title, state:"running"|"done"|"error", progress:0-100, message,
 - 2026-11-11 修 MCIM 版本列表顺序过期：`pick_version` 改按 `date_published` 降序挑最新（不再信任数组顺序），避免镜像优先时装回旧版 Mod。仅影响「装 Mod / 汉化包」选中的版本，API 形状不变。
 - 2026-11-13 新增默认账号：Settings 增加 `defaultAccount?:string|null`（旧 settings.json 缺省按 null 兼容）；新增 `POST /api/accounts/:name/default`，launch 与 CLI 缺省账号按 defaultAccount → 账号列表第一项 → Steve 解析；当前账号快速切换只保留在前端会话，不落盘。
 - 2026-11-13 P0 契约修复：`PUT /api/settings` 的 javaPath / selectVersion / defaultAccount 三个可空字段改用 serde `double_option`，区分字段缺失（保持原值）与显式 JSON null（清空）。CDP 与可逆 HTTP 探针复验 13/13、9 次 PUT 语义通过；详见 docs/UI-MIGRATION.md §7 与 docs/DECISION.md「交互验收发现的 P0」。
+- 2026-11-14 一键直连多人服务器（quickPlay）：POST /api/launch 增 `server?:string|null` 本次覆盖值（缺省才回落 `settings.quickPlayServer`，显式 null / 空串 / 非法值清空本次直连但不改写默认值）；Settings 增 `quickPlayServer?:string|null`，沿用 double_option 区分缺失 / 显式 null；CLI `lycomc launch` 增 `--server <地址>`。不新增端点、不新增依赖、不改 14 命令与 26 条 HTTP 路由；仅当版本元数据含 `is_quick_play_multiplayer` 规则时注入 `--quickPlayMultiplayer <addr>`。前端主页与设置页各增一个输入框，教程 / 图表 / 正版登录 / 皮肤 / SSE 均不回退。详见 DECISION.md「一键直连多人服务器」与 TEST-REPORT.md §10。

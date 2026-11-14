@@ -38,12 +38,15 @@ lycomc                      # 起 Web 控制台（默认 http://127.0.0.1:8766�
 lycomc --desktop            # 仅 desktop feature 构建可用：原生窗口；否则提示后回落 Web
 lycomc install --version 1.20.1
 lycomc launch  --version-id 1.20.1 --account Steve
+lycomc launch  --version-id 1.20.1 --account Steve --server mc.hypixel.net  # 本次直连服务器
 lycomc list                 # 已装实例
 lycomc javas                # 系统 Java 探测
 lycomc mod-search --query sodium --version-id 1.20.1
 lycomc --schema             # 全部命令的 JSON 清单（给脚本 / Agent 看）
-# Web 控制台：版本管理页点「一键汉化」，设置页选「游戏语言」
+# Web 控制台：版本管理页点「一键汉化」，设置页选「游戏语言」/「默认直连服务器」，主页启动区填「直连服务器」
 ```
+
+> **一键直连多人服务器**：主页「直连服务器」填 `mc.hypixel.net` 或 `mc.hypixel.net:25565` 再点「启动游戏」即可直接进入该服务器；留空正常进主菜单。设置页「默认直连服务器」会记住常用地址，主页本次填写的值覆盖它（显式清空只影响本次启动，不改写默认值）。CLI 对应 `--server <地址>`。地址只接受域名 / IP / 端口常见字符；仅 MC 1.20+ 且版本元数据带 quickPlay 规则时生效，旧版本不会追加未知参数。
 
 最小开箱验收：`bash scripts/smoke-web.sh`（临时数据目录，不打开浏览器、不碰真实账号与版本）；完整维护检查：`bash scripts/check.sh`（双轨检查后自动恢复默认 Web 二进制）。
 

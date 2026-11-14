@@ -393,6 +393,17 @@ struct LaunchReq {
     version_id: String,
     account_name: Option<String>,
     memory_mb: Option<u32>,
+    /// 本次启动直连地址；字段存在（含空串 / null）就覆盖设置默认值，缺省才回落。
+    #[serde(default, deserialize_with = "double_option")]
+    server: Option<Option<String>>,
+}
+
+/// POST /api/launch 的 server 覆盖语义：present 优先，missing 才用设置默认值。
+fn resolve_quick_play(req: &LaunchReq, s: &Settings) -> Option<launch::QuickPlay> {
+    match &req.server {
+        Some(override_server) => launch::resolve_quick_play(override_server.as_deref(), None),
+        None => launch::resolve_quick_play(None, s.quick_play_server.as_deref()),
+    }
 }
 
 async fn do_launch(
@@ -409,6 +420,7 @@ async fn do_launch(
     let s = st.settings();
     let name = req
         .account_name
+        .clone()
         .filter(|n| !n.trim().is_empty())
         .or_else(|| settings::resolve_account_name(&s))
         .unwrap_or_else(|| "Steve".to_string());
@@ -425,6 +437,7 @@ async fn do_launch(
         source: s.source(),
         concurrency: s.max_concurrent,
         game_lang: s.game_lang.clone(),
+        quick_play: resolve_quick_play(&req, &s),
     };
     let job = st.jobs.create("launch", format!("启动 {id}"));
     let st2 = st.clone();
@@ -828,6 +841,8 @@ struct SettingsPatch {
     game_lang: Option<String>,
     #[serde(default, deserialize_with = "double_option")]
     default_account: Option<Option<String>>,
+    #[serde(default, deserialize_with = "double_option")]
+    quick_play_server: Option<Option<String>>,
 }
 
 /// serde 的 Option<Option<T>> 不能直接区分 missing 与 present null：
@@ -868,6 +883,9 @@ impl SettingsPatch {
         }
         if let Some(v) = self.default_account {
             s.default_account = v;
+        }
+        if let Some(v) = self.quick_play_server {
+            s.quick_play_server = v;
         }
         s
     }
@@ -1244,6 +1262,7 @@ mod settings_patch_tests {
             java_path: Some("/usr/bin/java".to_string()),
             select_version: Some("1.20.1".to_string()),
             default_account: Some("Steve".to_string()),
+            quick_play_server: Some("persisted.example.net".to_string()),
             ..Settings::default()
         }
     }
@@ -1256,30 +1275,37 @@ mod settings_patch_tests {
         assert_eq!(s.java_path.as_deref(), Some("/usr/bin/java"));
         assert_eq!(s.select_version.as_deref(), Some("1.20.1"));
         assert_eq!(s.default_account.as_deref(), Some("Steve"));
+        assert_eq!(
+            s.quick_play_server.as_deref(),
+            Some("persisted.example.net")
+        );
     }
 
     #[test]
     fn explicit_null_clears_all_nullable_fields() {
-        let patch: SettingsPatch =
-            serde_json::from_str(r#"{"javaPath":null,"selectVersion":null,"defaultAccount":null}"#)
-                .unwrap();
+        let patch: SettingsPatch = serde_json::from_str(
+            r#"{"javaPath":null,"selectVersion":null,"defaultAccount":null,"quickPlayServer":null}"#,
+        )
+        .unwrap();
         let s = patch.apply(baseline());
         assert_eq!(s.java_path, None);
         assert_eq!(s.select_version, None);
         assert_eq!(s.default_account, None);
+        assert_eq!(s.quick_play_server, None);
         assert_eq!(s.memory_mb, 6144);
     }
 
     #[test]
     fn explicit_values_update_nullable_fields() {
         let patch: SettingsPatch = serde_json::from_str(
-            r#"{"javaPath":"/opt/jdk/bin/java","selectVersion":"26.3","defaultAccount":"Alex"}"#,
+            r#"{"javaPath":"/opt/jdk/bin/java","selectVersion":"26.3","defaultAccount":"Alex","quickPlayServer":"mc.example.net:25565"}"#,
         )
         .unwrap();
         let s = patch.apply(baseline());
         assert_eq!(s.java_path.as_deref(), Some("/opt/jdk/bin/java"));
         assert_eq!(s.select_version.as_deref(), Some("26.3"));
         assert_eq!(s.default_account.as_deref(), Some("Alex"));
+        assert_eq!(s.quick_play_server.as_deref(), Some("mc.example.net:25565"));
     }
 
     #[test]
@@ -1289,5 +1315,56 @@ mod settings_patch_tests {
         assert_eq!(s.default_account, None);
         assert_eq!(s.java_path.as_deref(), Some("/usr/bin/java"));
         assert_eq!(s.select_version.as_deref(), Some("1.20.1"));
+    }
+}
+
+#[cfg(test)]
+mod launch_request_tests {
+    use super::*;
+
+    fn req(server: Option<&str>) -> LaunchReq {
+        LaunchReq {
+            version_id: "1.20.1".to_string(),
+            account_name: None,
+            memory_mb: None,
+            server: server.map(|s| Some(s.to_string())),
+        }
+    }
+
+    fn addr(q: Option<launch::QuickPlay>) -> Option<String> {
+        q.map(|launch::QuickPlay::Multiplayer(a)| a)
+    }
+
+    #[test]
+    fn launch_server_override_beats_settings_default() {
+        let s = Settings {
+            quick_play_server: Some("default.example.net".to_string()),
+            ..Settings::default()
+        };
+        assert_eq!(
+            addr(resolve_quick_play(&req(None), &s)).as_deref(),
+            Some("default.example.net")
+        );
+        assert_eq!(addr(resolve_quick_play(&req(Some("")), &s)), None);
+        assert_eq!(
+            addr(resolve_quick_play(&req(Some("mc.example.net:25565")), &s)).as_deref(),
+            Some("mc.example.net:25565")
+        );
+        assert_eq!(
+            addr(resolve_quick_play(&req(Some("bad address")), &s)),
+            None
+        );
+    }
+
+    #[test]
+    fn launch_request_json_distinguishes_missing_null_and_empty() {
+        let missing: LaunchReq = serde_json::from_str(r#"{"versionId":"1.20.1"}"#).unwrap();
+        assert!(missing.server.is_none());
+        let explicit_null: LaunchReq =
+            serde_json::from_str(r#"{"versionId":"1.20.1","server":null}"#).unwrap();
+        assert_eq!(explicit_null.server, Some(None));
+        let empty: LaunchReq =
+            serde_json::from_str(r#"{"versionId":"1.20.1","server":""}"#).unwrap();
+        assert_eq!(empty.server, Some(Some(String::new())));
     }
 }

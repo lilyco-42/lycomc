@@ -435,6 +435,211 @@
           "sha256": "8b27b3d1416c0164c6045c0da1f21b167e4629952c62181c4ecde436deb8ec9a"
         }
       ]
-    }
+    },
+  {
+    "label": "一键直连多人服务器 / quickPlay 独立验收（2026-11-14，m06887 / m03957 子项）",
+    "files": [
+      {
+        "path": "/home/lilyco/.cache/lycomc-web-server/quickplay-guard.log",
+        "bytes": 10257,
+        "sha256": "0db76b205c41f985f63c46187251fe031c38f0d6a35150d035cad0318afe1440"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-web-server/quickplay-schema.json",
+        "bytes": 9093,
+        "sha256": "f952baf1f908d7e287552359af21757d0e1b70dd8ef1ca502895c2937f7ba432"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-web-server/cli-dry-run.json",
+        "bytes": 2400,
+        "sha256": "640f0aac3e5d2e229a2bc41c0d6de57ffccad051dee66963d36521d756d21189"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-web-server/cli-default-server.json",
+        "bytes": 103,
+        "sha256": "2e05e6c839253ecd8f9efecc03698bf486cf73840e4c88246e9705e784561633"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-web-server/http-quickplay-probe.mjs",
+        "bytes": 7902,
+        "sha256": "f637b3449c05a8ae411303233fbc573cdc8b48a466e99a4a78b0c5f1964cca0b"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-web-server/http-quickplay-result.json",
+        "bytes": 13894,
+        "sha256": "5bfc6afac2e2325f48523e086573b68afab30dab626489ec68338c7d4e02871d"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-web-server/web-server-cdp.mjs",
+        "bytes": 15712,
+        "sha256": "a9a89297a528b415ddf1d690f3fc5d7bfcb2c627857110c9b3d4781039e79c6f"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-web-server/web-server-result.json",
+        "bytes": 5587,
+        "sha256": "2c0292701209917c5e33d56899a69d7d992279f744945de5eb309cdac4d614d3"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-web-server/start-server.sh",
+        "bytes": 271,
+        "sha256": "f8c391c3ae2181bba1b1358ff7ed6d209d6a17cfdcb9a8a5de18756de2216c4f"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-web-server/fake-java.sh",
+        "bytes": 251,
+        "sha256": "61c31d334406ed55ee7ee7b35ff19c3a5d66cd2fb9129658546d6b784e3c0b46"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-web-server/fake-java-args.txt",
+        "bytes": 7483,
+        "sha256": "89e4f7e0a8ddac8e3c3ad82cae94a3489ca7c9ff4c4c8efd2ae0c1baefa0dd5c"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-web-server/server.log",
+        "bytes": 531,
+        "sha256": "f133fd2a3c45f24cf2bf4c95a2c6187c9f587f2c12777df48927c385dfb702ea"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-web-server/real-data-baseline.json",
+        "bytes": 647,
+        "sha256": "6d9678a06e75bb7a86c57ec811171b4996e50bfd729a2f99a867f15e42670e47"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-web-server/cleanup.json",
+        "bytes": 7794,
+        "sha256": "5412af14518abb966f513a4f867fa5a475dd4e80b349256ea2dcb4a4bba0544f"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-web-server/default-binary-final.txt",
+        "bytes": 194,
+        "sha256": "0669fa8b9b7899388cd90de0dd758c1c9c9c4352a6f512d9535a14c58e35ae3d"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-web-server/http-data/settings.json",
+        "bytes": 319,
+        "sha256": "b7ef99af24873963d792b07eb8dfe266f47e7d447d7a64483ef23c112a6fe6bc"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-web-server/http-data/accounts.json",
+        "bytes": 216,
+        "sha256": "245cddcc54f9b0714063e892794da97a33e6b85cc7a445c23520ba996561c521"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-web-server/http-data/web.port",
+        "bytes": 4,
+        "sha256": "956e3a30aa831cf4c6506b135f5b1d1c5a634f8310f34193d89af1f2273c1c43"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-web-server/web-server-guide.png",
+        "bytes": 158921,
+        "sha256": "83f6e253df421165fefe877f3e4c465feb53bad6ac2e015be9f563fb08cae528"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-web-server/web-server-home-chart.png",
+        "bytes": 163382,
+        "sha256": "d3cfd5f12168d7ab896a3dd371b4a0aea4540d68d256df9db64fdb7d4a6d963d"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-web-server/web-server-home-quickplay-fallback.png",
+        "bytes": 166256,
+        "sha256": "2b832da5491b5de02795d1edbbb943e8f2932c8f885f06bcd4ee3b8b64c045c2"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-web-server/web-server-home-quickplay.png",
+        "bytes": 167126,
+        "sha256": "b26f429dcf16710d0f1dfad2bd48b0dd55ff0c357dddb932e94f2e0f6164d3b2"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-web-server/web-server-name-input.png",
+        "bytes": 128133,
+        "sha256": "9493320fe130903bf60413303a4d53fbc93e0da6d3ff8efad90ef62dc02d2e08"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-web-server/web-server-onboarding-step1.png",
+        "bytes": 135046,
+        "sha256": "486b7fb28d47a584e2030fcd4692b384c3e476de1d43adbb638966f8b76bc37e"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-web-server/web-server-onboarding.png",
+        "bytes": 135961,
+        "sha256": "c7e2149312f252aeb25de8e316ae96b8b406a3df19d92dcce152a87acf00aac9"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-web-server/web-server-route--.png",
+        "bytes": 166210,
+        "sha256": "76cc7fd3e502878746b61f092f7bd1cca2c9dd31cb7cd1fbf468897ef425e9d3"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-web-server/web-server-route--download.png",
+        "bytes": 96531,
+        "sha256": "11a0e766d9333ebcffe2517e7b7e027e4250306ff672758059047150d1401144"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-web-server/web-server-route--guide.png",
+        "bytes": 158921,
+        "sha256": "83f6e253df421165fefe877f3e4c465feb53bad6ac2e015be9f563fb08cae528"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-web-server/web-server-route--mods.png",
+        "bytes": 115184,
+        "sha256": "8a68c3901d3862192044e210b646ea6d7f1a0a368217ae1304deebd218439a25"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-web-server/web-server-route--no-such-page.png",
+        "bytes": 64401,
+        "sha256": "956b0fd3ae713363e159e5e2b7dcf92bf3fdcb3f1fac85cc57cd79b6677d5c48"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-web-server/web-server-route--settings.png",
+        "bytes": 135399,
+        "sha256": "39e795e3ebb1b5a931a7b8abc8a35b69fe6e66cc22fc498cd3b9dcce7c221120"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-web-server/web-server-route--versions.png",
+        "bytes": 109793,
+        "sha256": "9dcd260bf619a303d0ff4fdecdb096a80f7fba68f3140f2b8141a3b3b2a4e6d8"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-web-server/web-server-settings-quickplay.png",
+        "bytes": 132255,
+        "sha256": "4312fe3ed14ff7650a318759f21e50e0e51cd6ae6eb8fd67c5142535caa4ebfc"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-web-server/fake-java-args-01.json",
+        "bytes": 208,
+        "sha256": "4d6139cad26b1f51cc439d4e8f7bc695ac0db4d6b7cfb63b4eace29623c8d3a0"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-web-server/fake-java-args-02.json",
+        "bytes": 163,
+        "sha256": "ca2360eed3a48f153cb2c50ef60872152d10cb734e1c53fe57c76bad7292312e"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-web-server/fake-java-args-03.json",
+        "bytes": 155,
+        "sha256": "31b9be610991a47ec7f794f3bb919cc6f440d1dfc503e84dae4f4be7855309ef"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-web-server/fake-java-args-04.json",
+        "bytes": 209,
+        "sha256": "f844f39d9a0c30a69c04317ac52d190163c534c7602d16cda0304589cf3aae79"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-web-server/fake-java-args-05.json",
+        "bytes": 157,
+        "sha256": "32cfe78357e3c9713281ecc4464c76848800f2d658c54ff2b07c51352e93f357"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-web-server/fake-java-args-06.json",
+        "bytes": 161,
+        "sha256": "1340c06b68070f81455688ba213c723f09a861eb014c93d2c0ed9994e45a43ab"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-web-server/fake-java-args-07.json",
+        "bytes": 216,
+        "sha256": "49ecb085c6fdd5565c507d5a80763f9bf9c52535b55c2c0fcc514dea25a35c90"
+      }
+    ]
+  }
   ]
 }

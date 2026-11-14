@@ -337,12 +337,19 @@ pub fn natives_classifier() -> &'static str {
 }
 
 /// 规则求值：默认拒绝，遇 allow 命中即允许，遇 deny 命中即拒绝。
-/// features 一律当 false（我们不启用 demo / 自定义分辨率等特性）。
+/// enabled 列出本次启动真正开启的可选 feature；安装/依赖规划传空集，
+/// 与旧行为一致（不启用 demo / 自定义分辨率 / quickPlay）。
 pub fn rules_allow(rules: &Option<Vec<Rule>>) -> bool {
+    rules_allow_with(rules, &[])
+}
+
+/// 按本次启动的 feature 集合求值。只放开显式列出的规则，
+/// libraries 规则仍通过 rules_allow 走空集，避免把可选参数误当依赖条件。
+pub fn rules_allow_with(rules: &Option<Vec<Rule>>, enabled: &[&str]) -> bool {
     let Some(rules) = rules else { return true };
     let mut allowed = false;
     for r in rules {
-        if !rule_matches(r) {
+        if !rule_matches(r, enabled) {
             continue;
         }
         if r.action == "allow" {
@@ -354,14 +361,13 @@ pub fn rules_allow(rules: &Option<Vec<Rule>>) -> bool {
     allowed
 }
 
-fn rule_matches(r: &Rule) -> bool {
+fn rule_matches(r: &Rule, enabled: &[&str]) -> bool {
     if let Some(features) = &r.features {
-        // 只处理我们真正会开启的 feature；其它一律视为 false
-        // 我们一个可选 feature 都不开启（不加 --demo、不加 quickPlay 之类），
-        // 所以带 features 且要求 true 的参数一律不适用。
-        // 只要某个 feature 被要求为 true，而本启动器一个可选 feature 都不开，就不适用
-        if features.values().any(|want| *want) {
-            return false;
+        for (name, want) in features {
+            let have = enabled.contains(&name.as_str());
+            if have != *want {
+                return false;
+            }
         }
     }
     let Some(os) = &r.os else { return true };
@@ -503,5 +509,50 @@ mod mirror_tests {
         let u = "https://api.modrinth.com/v2/search";
         assert_eq!(Source::Mojang.rewrite(u), u);
         assert_eq!(Source::Bmcl.rewrite(u), u);
+    }
+}
+
+#[cfg(test)]
+mod feature_rule_tests {
+    use super::*;
+
+    fn rules(value: serde_json::Value) -> Option<Vec<Rule>> {
+        serde_json::from_value(value).expect("规则应能解析")
+    }
+
+    #[test]
+    fn quick_play_feature_is_opt_in() {
+        let r = rules(serde_json::json!([
+            {
+                "action": "allow",
+                "features": { "is_quick_play_multiplayer": true }
+            },
+            {
+                "action": "disallow",
+                "features": { "is_quick_play_singleplayer": true }
+            }
+        ]));
+        assert!(!rules_allow(&r), "旧路径仍不开启任何可选 feature");
+        assert!(
+            !rules_allow_with(&r, &["is_quick_play_singleplayer"]),
+            "开启别的 feature 不能顺带直连"
+        );
+        assert!(
+            rules_allow_with(&r, &["is_quick_play_multiplayer"]),
+            "显式开启直连时才放行"
+        );
+    }
+
+    #[test]
+    fn negative_feature_rules_keep_their_polarity() {
+        let r = rules(serde_json::json!([{
+            "action": "allow",
+            "features": { "is_demo_user": false }
+        }]));
+        assert!(rules_allow(&r), "want=false 且未开启时匹配");
+        assert!(
+            !rules_allow_with(&r, &["is_demo_user"]),
+            "开启后 want=false 规则应失配"
+        );
     }
 }

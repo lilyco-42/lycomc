@@ -12,6 +12,37 @@ use super::java;
 use super::meta::{self, Rule, Source, VersionJson};
 use super::{paths, GameAccount, ProgressFn};
 
+/// 启动后直接进某个多人服务器（Minecraft 1.20+ 的 quickPlay 参数）。
+#[derive(Debug, Clone)]
+pub enum QuickPlay {
+    Multiplayer(String),
+}
+
+/// 把用户输入的服务器地址收敛成一个安全的 argv 值。
+/// 只接受 host[:port] 常见字符，拒绝空白、控制字符、引号、反斜杠和前导短横线，
+/// 避免用户输入被当成另一个 JVM / 游戏选项。
+pub fn clean_server_address(input: &str) -> Option<String> {
+    let s = input.trim();
+    if s.is_empty() || s.len() > 255 || s.starts_with('-') || s.contains("--") {
+        return None;
+    }
+    if s.chars()
+        .any(|c| !c.is_ascii_alphanumeric() && !matches!(c, '.' | ':' | '-' | '_' | '[' | ']'))
+    {
+        return None;
+    }
+    Some(s.to_string())
+}
+
+/// 每次启动的地址优先级：显式请求（含空串清空）> 设置默认值 > 不启用。
+pub fn resolve_quick_play(
+    override_server: Option<&str>,
+    default_server: Option<&str>,
+) -> Option<QuickPlay> {
+    let raw = override_server.unwrap_or(default_server.unwrap_or(""));
+    clean_server_address(raw).map(QuickPlay::Multiplayer)
+}
+
 /// 启动参数
 #[derive(Debug, Clone)]
 pub struct LaunchOpts {
@@ -25,6 +56,8 @@ pub struct LaunchOpts {
     pub concurrency: usize,
     /// 游戏界面语言：启动前写进 options.txt 的 lang:
     pub game_lang: String,
+    /// 可选的 quickPlay 直连；None = 正常进主菜单
+    pub quick_play: Option<QuickPlay>,
 }
 
 /// 组装好的启动计划（不含进程，便于先展示「将执行什么」再真跑）
@@ -141,8 +174,8 @@ fn subst(input: &str, vars: &[(&str, String)]) -> String {
     out
 }
 
-/// 参数表展开：纯字符串直接用，带 rules 的对象先求值
-fn expand(list: &[serde_json::Value]) -> Vec<String> {
+/// 参数表展开：纯字符串直接用，带 rules 的对象先按本次 feature 集合求值
+fn expand(list: &[serde_json::Value], enabled: &[&str]) -> Vec<String> {
     let mut out = Vec::new();
     for item in list {
         match item {
@@ -151,7 +184,7 @@ fn expand(list: &[serde_json::Value]) -> Vec<String> {
                 let rules: Option<Vec<Rule>> = m
                     .get("rules")
                     .and_then(|r| serde_json::from_value(r.clone()).ok());
-                if !meta::rules_allow(&rules) {
+                if !meta::rules_allow_with(&rules, enabled) {
                     continue;
                 }
                 match m.get("value") {
@@ -270,8 +303,17 @@ pub async fn prepare(opts: &LaunchOpts, progress: ProgressFn<'_>) -> Result<Prep
         ));
     }
     let launcher_version = env!("CARGO_PKG_VERSION").to_string();
+    let quick_server = match &opts.quick_play {
+        Some(QuickPlay::Multiplayer(addr)) => clean_server_address(addr),
+        None => None,
+    };
+    let enabled: &[&str] = if quick_server.is_some() {
+        &["is_quick_play_multiplayer"]
+    } else {
+        &[]
+    };
 
-    let vars: Vec<(&str, String)> = vec![
+    let mut vars: Vec<(&str, String)> = vec![
         ("auth_player_name", opts.account.name.clone()),
         ("version_name", opts.id.clone()),
         ("game_directory", game_dir.display().to_string()),
@@ -319,11 +361,14 @@ pub async fn prepare(opts: &LaunchOpts, progress: ProgressFn<'_>) -> Result<Prep
             },
         ),
     ];
+    if let Some(addr) = &quick_server {
+        vars.push(("quickPlayMultiplayer", addr.clone()));
+    }
 
     let mut jvm: Vec<String> = Vec::new();
     match &v.arguments {
         Some(a) => {
-            for raw in expand(&a.jvm) {
+            for raw in expand(&a.jvm, enabled) {
                 jvm.push(subst(&raw, &vars));
             }
         }
@@ -374,7 +419,7 @@ pub async fn prepare(opts: &LaunchOpts, progress: ProgressFn<'_>) -> Result<Prep
     let mut game: Vec<String> = Vec::new();
     match &v.arguments {
         Some(a) => {
-            for raw in expand(&a.game) {
+            for raw in expand(&a.game, enabled) {
                 game.push(subst(&raw, &vars));
             }
         }
@@ -396,6 +441,16 @@ pub async fn prepare(opts: &LaunchOpts, progress: ProgressFn<'_>) -> Result<Prep
     let mut args = jvm;
     args.push(main_class);
     args.extend(game);
+    if args.iter().any(|a| a == "--quickPlayMultiplayer") {
+        if let Some(addr) = &quick_server {
+            progress(super::logline(9.5, format!("直连服务器: {addr}")));
+        }
+    } else if quick_server.is_some() {
+        progress(super::logline(
+            9.5,
+            "当前版本元数据不支持 quickPlay，已正常进主菜单".to_string(),
+        ));
+    }
 
     let log_path = paths::logs_dir().join(format!("{}-{}.log", opts.id, timestamp()));
     if let Some(d) = log_path.parent() {
@@ -461,4 +516,66 @@ pub fn spawn(p: &Prepared) -> Result<std::process::Child, String> {
         .spawn()
         .map_err(|e| format!("启动 java 失败: {e}"))?;
     Ok(child)
+}
+
+#[cfg(test)]
+mod quick_play_tests {
+    use super::*;
+
+    #[test]
+    fn clean_server_address_accepts_host_and_port() {
+        assert_eq!(
+            clean_server_address("  mc.example.net:25565  ").as_deref(),
+            Some("mc.example.net:25565")
+        );
+        assert_eq!(
+            clean_server_address("[::1]:25565").as_deref(),
+            Some("[::1]:25565")
+        );
+        assert_eq!(clean_server_address(""), None);
+        assert_eq!(clean_server_address("bad address"), None);
+        assert_eq!(clean_server_address("--server"), None);
+        assert_eq!(clean_server_address("a\"b"), None);
+        assert_eq!(clean_server_address("a\\b"), None);
+        assert_eq!(clean_server_address(&"x".repeat(256)), None);
+    }
+
+    #[test]
+    fn resolve_quick_play_honors_present_empty_override() {
+        let default = Some("default.example.net");
+        assert!(matches!(
+            resolve_quick_play(None, default),
+            Some(QuickPlay::Multiplayer(ref a)) if a.as_str() == "default.example.net"
+        ));
+        assert!(resolve_quick_play(Some(""), default).is_none());
+        assert!(matches!(
+            resolve_quick_play(Some("override.example.net"), default),
+            Some(QuickPlay::Multiplayer(ref a)) if a.as_str() == "override.example.net"
+        ));
+        assert!(resolve_quick_play(Some("bad address"), default).is_none());
+    }
+
+    #[test]
+    fn expand_enables_only_requested_quick_play_feature() {
+        let list = vec![serde_json::json!({
+            "rules": [{
+                "action": "allow",
+                "features": { "is_quick_play_multiplayer": true }
+            }],
+            "value": ["--quickPlayMultiplayer", "${quickPlayMultiplayer}"]
+        })];
+        assert!(expand(&list, &[]).is_empty(), "空 enabled 与旧行为一致");
+        let vars = [("quickPlayMultiplayer", "mc.example.net".to_string())];
+        let out: Vec<String> = expand(&list, &["is_quick_play_multiplayer"])
+            .iter()
+            .map(|raw| subst(raw, &vars))
+            .collect();
+        assert_eq!(
+            out,
+            vec![
+                "--quickPlayMultiplayer".to_string(),
+                "mc.example.net".to_string()
+            ]
+        );
+    }
 }

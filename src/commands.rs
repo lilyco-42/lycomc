@@ -191,6 +191,8 @@ pub struct LaunchCmd {
     pub account: Option<String>,
     /// 内存 MB（默认取设置）
     pub memory: Option<u32>,
+    /// 本次启动直连的服务器地址；留空 / 省略则按设置里的默认值
+    pub server: Option<String>,
     /// 只打印将执行的命令，不真的启动
     #[arg(default = false)]
     pub dry_run: bool,
@@ -216,6 +218,10 @@ fn run_launch(app: &LaunchCmd, ctx: &Context) -> Result<Value, AppError> {
         source: s.source(),
         concurrency: s.max_concurrent,
         game_lang: s.game_lang.clone(),
+        quick_play: launch::resolve_quick_play(
+            app.server.as_deref(),
+            s.quick_play_server.as_deref(),
+        ),
     };
     let rep = reporter(ctx);
     let prepared = block_on(launch::prepare(&opts, &rep)).map_err(AppError::Runtime)?;

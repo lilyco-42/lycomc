@@ -9,6 +9,7 @@ import {
   MemoryStick,
   RotateCw,
   Save,
+  Server,
   SlidersHorizontal,
   Undo2,
   Wrench,
@@ -72,6 +73,7 @@ export function SettingsPage() {
       draft.maxConcurrent !== settings.maxConcurrent ||
       draft.closeOnLaunch !== settings.closeOnLaunch ||
       (draft.gameLang ?? "zh_cn") !== (settings.gameLang ?? "zh_cn") ||
+      (draft.quickPlayServer ?? "") !== (settings.quickPlayServer ?? "") ||
       jvmArgsText.trim() !== settings.extraJvmArgs.join("\n")
     );
   }, [draft, settings, jvmArgsText]);
@@ -96,6 +98,7 @@ export function SettingsPage() {
       maxConcurrent: draft.maxConcurrent,
       closeOnLaunch: draft.closeOnLaunch,
       gameLang: draft.gameLang ?? "zh_cn",
+      quickPlayServer: (draft.quickPlayServer ?? "").trim() || null,
     };
     setSaving(true);
     setSaveError(null);
@@ -399,6 +402,34 @@ export function SettingsPage() {
               当前是英文界面。想玩中文请选「简体中文」，并在版本管理里对实例点一次「一键汉化」。
             </p>
           ) : null}
+        </div>
+
+        <div className="card-soft rounded-2xl border border-border bg-card p-4">
+          <SectionHeader
+            icon={Server}
+            title="默认直连服务器"
+            description="以后每次启动都直接进这个服务器；主页也能临时改"
+            action={
+              <Badge variant="outline" className="text-[10px]">
+                {(current.quickPlayServer ?? "") === "" ? "未设置" : "已设置"}
+              </Badge>
+            }
+          />
+          <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,20rem)_1fr] sm:items-center">
+            <Input
+              id="default-quick-play-server"
+              aria-label="默认直连服务器"
+              value={current.quickPlayServer ?? ""}
+              onChange={(event) => { update("quickPlayServer", event.target.value); }}
+              placeholder="例如 mc.hypixel.net"
+              spellCheck={false}
+              autoComplete="off"
+              className="h-9 font-mono text-xs"
+            />
+            <p className="text-[11px] leading-relaxed text-muted-foreground">
+              留空就正常进主菜单，不需要连服务器时清空即可。
+            </p>
+          </div>
         </div>
 
         <div className="card-soft rounded-2xl border border-border bg-card p-4">

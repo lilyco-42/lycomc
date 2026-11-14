@@ -26,6 +26,8 @@ export interface Settings {
   gameLang?: string;
   /** 默认账号名：启动时未显式指定账号就用它；null = 账号列表第一项 */
   defaultAccount: string | null;
+  /** 默认直连服务器地址；null / 空串 = 正常进入主菜单 */
+  quickPlayServer?: string | null;
 }
 
 export type AccountKind = "offline" | "microsoft";
@@ -342,10 +344,19 @@ export const api = {
   localize: (versionId: string) =>
     request<InstallResponse>("/api/localize", jsonBody({ versionId })),
 
-  launch: (versionId: string, accountName: string, memoryMb?: number) =>
+  /**
+   * 启动游戏。server 省略时由启动器使用设置里的默认直连服务器；
+   * 传 null / 空串时显式发送 ""，本次启动覆盖默认值、正常进入主菜单。
+   */
+  launch: (versionId: string, accountName: string, memoryMb?: number, server?: string | null) =>
     request<LaunchResponse>(
       "/api/launch",
-      jsonBody(memoryMb === undefined ? { versionId, accountName } : { versionId, accountName, memoryMb }),
+      jsonBody({
+        versionId,
+        accountName,
+        ...(memoryMb === undefined ? {} : { memoryMb }),
+        ...(server === undefined ? {} : { server: server ?? "" }),
+      }),
     ),
 
   kill: (pid: number) =>

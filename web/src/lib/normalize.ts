@@ -182,6 +182,7 @@ export const DEFAULT_SETTINGS: Settings = {
   closeOnLaunch: false,
   gameLang: "zh_cn",
   defaultAccount: null,
+  quickPlayServer: null,
 };
 
 export function normalizeSettings(raw: unknown): Settings {
@@ -202,6 +203,7 @@ export function normalizeSettings(raw: unknown): Settings {
     closeOnLaunch: raw["closeOnLaunch"] === true,
     gameLang: str(raw["gameLang"]) ?? DEFAULT_SETTINGS.gameLang,
     defaultAccount: str(raw["defaultAccount"]),
+    quickPlayServer: str(raw["quickPlayServer"]),
   };
 }
 
