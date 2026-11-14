@@ -331,3 +331,12 @@ cargo test（解析逻辑单测：device code / XBL / XSTS / MC token / textures
 - 本次验收用 fake-Java 记录 argv 与 job 命令，未连接真实多人服务器、未产出进服后的游戏截图；不宣称「已实机联机成功」。
 - 地址白名单是防选项注入的最小防护，不替代 SRV / IPv6 / 中文域名的完整解析支持。
 - 全平台实机演示 / 签名安装包、m04829 / m04836 三问仍未答；桌面壳输入 P0 仍按 m06445 降级冻结；Windows .exe 本机仍缺 MSVC lib.exe。
+
+## 真实本机联机补证（2026-11-14 深夜，m06887 / m03957 子项）
+
+> 本节只追加 e45976b 之后的实机证据，不改写上一节 quickPlay 决策与边界，也不改写 TEST-REPORT §8 / §9 / §10 的历史矩阵。上一节「未连接真实多人服务器、未产出进服后的游戏截图」是 §10 fake-Java 验收当时的事实陈述；现由本节与 TEST-REPORT §11 补充。
+
+- 决策：不新增功能、端点或依赖，直接用已提交的默认 Web 二进制，在隔离 LYCOMC_DATA_DIR 中启动官方 1.20.1 服务端与真实客户端，验证 POST /api/launch 的 server 字段能把 --quickPlayMultiplayer 127.0.0.1:25565 变成真实进服。
+- 证据：服务端日志 Steve joined the game；客户端日志 Connecting to 127.0.0.1, 25565；KWin 激活后用 spectacle --activewindow 抓取到标题含「Minecraft 1.20.1 - 多人游戏（第三方服务器）」的游戏画面；POST /api/launch/{pid}/kill 返回 200，服务端 / Web 服务 / 客户端均退出，25565 与 9490 端口释放，真实用户数据四项哈希不变。
+- 安全：隔离目录只放离线账号 Steve；online-mode=false 仅用于本机离线服；证据中的启动命令凭据已替换为 <redacted>，严格凭据扫描 0 命中；没有读取或打印真实微软账号 token。
+- 边界：这是本机 1.20.1 离线模式独立服务端的实机联机补证，不是公网服务器 / 正版账号联机 / 跨 Windows、macOS、Android、鸿蒙实机演示；不宣称安装包或签名包已产出。m03957 其余部分与 m04829 / m04836 三问仍待用户重新界定。

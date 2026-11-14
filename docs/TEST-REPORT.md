@@ -240,3 +240,32 @@ test result: ok. 17 passed; 0 failed
 - docs/TEST-EVIDENCE.json 追加第 9 组「一键直连多人服务器 / quickPlay 独立验收（2026-11-14）」40 项：quickplay-guard.log、schema、CLI / HTTP / CDP 结果与脚本、fake-Java argv、15 张 web-server-*.png、清理与真实数据基线，全部完整 64 位 sha256，逐项复核 ok=40 / bad=0；第 7 / 8 组仍 ok=47 / bad=0，前 6 组历史短哈希口径不动。
 - 清理：serverKilled=true、unitActive=inactive、9470 / 9474 端口空闲、无 MC 残留进程、realDataUnchanged=true（settings.json / accounts.json / 两个 options.txt / web.port 前后哈希一致）、临时 web.port=9470、真实 web.port=8790；账号仍 Steve（离线）/ lilyco42（微软）/ lilyco4242（离线），未新增账号、未打印 token。
 - 不宣称已连接真实多人服务器或产出进服后游戏截图（fake-Java 只验启动参数与 job 命令）；不宣称 Windows / macOS / Android / 鸿蒙实机或签名安装包；m03957 其余部分与 m04829 / m04836 三问仍待用户重新界定。
+
+## 11. 2026-11-14 真实本机联机补证（quickPlay 实机进服；§8 / §9 / §10 历史不改写）
+
+> 本节只补 e45976b 提交之后的实机验收证据，没有修改产品源码、API、命令或前端；默认二进制仍是 e45976b 的 sha256=be2690aca8721f84c57c89e1e87f4a0df4c914e8be69d6d1d70db17703a2b2c6、ldd NO_DESKTOP_LIBS、--schema 14 命令。
+
+### 11.1 隔离环境与前置条件
+- 独立目录 /home/lilyco/.cache/lycomc-live-server；LYCOMC_DATA_DIR 指向其 data/，LYCOMC_PORT=9490、LYCOMC_NO_OPEN=1；data/versions/1.20.1 是真实实例副本，libraries / assets 软链真实只读资源；data/accounts.json 只含离线账号 Steve，online-mode=false 的本机服务端使用扁平世界、和平难度。
+- 官方 1.20.1 server.jar 47791053 B，sha1=84194a2f286ef7c14ed7ce0090dba59902951553、sha256=3af73a9dc5a102e38147946360dd27d4d70bae7055bf91cf2151cd5d121b79e0；piston-data.mojang.com 直连 TLS 35 失败，改用 launcher.mojang.com 同 sha1 下载成功。
+- Web API /api/health 返回 webMode=embedded，数据目录为隔离目录；真实 /home/lilyco/.local/share/lycomc/web.port 保持 8790。
+
+### 11.2 真实启动与进服链路
+- 服务端 /usr/bin/java -Xmx1024M -jar server.jar nogui 在 3.4 s 内完成 Done (3.380s)! For help, type "help"，25565 监听。
+- POST /api/launch {versionId:"1.20.1",accountName:"Steve",memoryMb:2048,server:"127.0.0.1:25565"} 返回 jobId；job state=done、client pid=1386179、日志路径 /home/lilyco/.cache/lycomc-live-server/data/logs/1.20.1-1794670046.log；job 命令含 --quickPlayMultiplayer 127.0.0.1:25565，凭据已替换为 <redacted>。
+- 客户端日志出现 Connecting to 127.0.0.1, 25565；服务端日志出现 Steve[/127.0.0.1:49372] logged in with entity id 1 at (-9.5, -60.0, -7.5) 与 Steve joined the game。
+- KWin Scripting loadScript 返回 (2,)、unloadScript 返回 (true,)；激活后 xprop -root _NET_ACTIVE_WINDOW 为 0x1a00007，WM_NAME 含「Minecraft 1.20.1 - 多人游戏（第三方服务器）」。spectacle --activewindow 得到 live-join.png（246817 B，sha256=bd887a4b93a2553d7f12981484683b5d600ceab1d8c081c5bee0fecf8131bc9d）与缩略图 live-join-small.png（296512 B，sha256=b47437b72a71379ad2ef47a2789b265cc3ff5bd99bef77cf319da69dee7a8a1d）；缩略图 magick identify mean=22684.4、colors=12669，画面可见多人游戏 HUD 与无法验证聊天消息提示。
+
+### 11.3 清理、安全与不污染真实数据
+- POST /api/launch/{pid}/kill 返回 200 / {"ok":true}；随后服务端、Web 服务、客户端进程均退出，25565 / 9490 无残留监听，无 server.jar / net.minecraft.client.main.Main 残留进程。
+- 严格凭据扫描规则为「字面离线凭据或凭据参数后跟 8 位以上原始字符」，运行产物、隔离账号 / 设置、说明与 manifest 共 9 个文本证据命中 0；验收 harness scripts/live-run.mjs 中作为脱敏规则字面量的两段拼接字符串出现 3 次，不做产品运行时凭据计入，且未读取或打印真实微软账号 token。
+- 真实 settings.json / accounts.json / versions/1.20.1/options.txt / web.port 四项 sha256 与验收前完全一致，realDataUnchanged=true；临时 world、日志与截图都留在独立 cache 目录。
+
+### 11.4 证据与复核
+- docs/TEST-EVIDENCE.json 以 e45976b 原文文本追加第 10 组「真实本机联机补证 / quickPlay 实机进服（2026-11-14 深夜，m06887 / m03957 子项）」，共 19 项，全部使用完整 64 位 sha256；前 9 组原始文本前缀与后缀逐字不变（prefixSame=True，suffixSame=True，first9JsonSame=True），只在第 9 组后插入一行 JSON 数组分隔符。
+- evidence-manifest.json 自身不列入 manifest.files（避免自引用），其 sha256=66179874ee4a320a8f8f364611ff73129aff180cb8c8531c9418fd01695dc6bf、bytes=4037 已登记在第 10 组；run-result.json sha256=431041eee1576cf569f24b99d8b41a3f5f229e9e10ede7a60d3312b3f2410282、live-server.log sha256=670ed9e823fb94c813bf8c6a9293d51d861e6215040bbd3e717541653a9dcba9、live-client.log sha256=a1760dbeee534db312d009e6ec43016eae382c3cf1eab0731a2710e2c7bf683d、scripts/live-run.mjs sha256=2a4668d77c05bb2c0b1533b7a64bdcb38316718487b0ca82beb01421aab23a2d。
+- 第 7 / 8 / 9 / 10 组全部完整 64 位哈希逐项复核：ok=106 / bad=0；第 10 组 all64=True、selfRefs=0；前 6 组历史 16 位短哈希口径仍不动。python3 -m json.tool 与 git diff --check 通过。
+
+### 11.5 边界
+- 这是本机 1.20.1 离线模式独立服务端的实机联机补证，证明 Web/CLI 的 server 参数能驱动真实客户端直连并进入多人游戏；不宣称公网 Hypixel / 正版账号联机、服务器浏览器、好友组队或内网穿透。
+- 不宣称 Windows / macOS / Android / 鸿蒙实机或签名安装包已产出；m03957 全平台实机演示、m04829 / m04836 三问（Android 形态、Win/mac 安装包、快捷方式口径）仍待用户重新界定；桌面壳输入 P0 继续按 m06445 降级冻结。

@@ -641,5 +641,106 @@
       }
     ]
   }
+    ,
+    {
+      "label": "真实本机联机补证 / quickPlay 实机进服（2026-11-14 深夜，m06887 / m03957 子项）",
+      "files": [
+        {
+          "path": "/home/lilyco/.cache/lycomc-live-server/data/accounts.json",
+          "bytes": 107,
+          "sha256": "d8c6bf371837d55c44ce8cd64b219d8348301064fbf591e742c0d9f172559acd"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-live-server/data/accounts.readme",
+          "bytes": 44,
+          "sha256": "b1064d5e39e49b3f2898135b1709fb8eeaa4b6613f45860eb60b6031d13d5ba4"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-live-server/data/settings.json",
+          "bytes": 284,
+          "sha256": "8689c791bb657ba73ef744b0bc81af2f7f64f9ca83e85bf5b8f7cb35aa7c369e"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-live-server/data/versions/1.20.1/options.txt",
+          "bytes": 3376,
+          "sha256": "d71d839b1fd0a52d05925dd7a83cd004560b96f0f396204d3cd5c6b5ed61d22d"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-live-server/data/web.port",
+          "bytes": 4,
+          "sha256": "6f744a3f8ec08bfa12ff95c3a35c12a2239eccc60965eeb0f8afabd473fd2f1c"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-live-server/live-client.log",
+          "bytes": 24049,
+          "sha256": "a1760dbeee534db312d009e6ec43016eae382c3cf1eab0731a2710e2c7bf683d"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-live-server/live-join-small.png",
+          "bytes": 296512,
+          "sha256": "b47437b72a71379ad2ef47a2789b265cc3ff5bd99bef77cf319da69dee7a8a1d"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-live-server/live-join.png",
+          "bytes": 246817,
+          "sha256": "bd887a4b93a2553d7f12981484683b5d600ceab1d8c081c5bee0fecf8131bc9d"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-live-server/live-server.log",
+          "bytes": 1895,
+          "sha256": "670ed9e823fb94c813bf8c6a9293d51d861e6215040bbd3e717541653a9dcba9"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-live-server/real-data-baseline.json",
+          "bytes": 741,
+          "sha256": "a8f5f2d7314619f64d0392ddc6455ac2c0fdaba0c299fe27c8edc030c3042253"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-live-server/run-result.json",
+          "bytes": 9837,
+          "sha256": "431041eee1576cf569f24b99d8b41a3f5f229e9e10ede7a60d3312b3f2410282"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-live-server/scripts/kwin-live-activate.js",
+          "bytes": 273,
+          "sha256": "4f1e6f11a20d723255830a903dc5b960cd5bb30576963f6d9fc5ee99fa231c16"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-live-server/scripts/live-run.mjs",
+          "bytes": 11290,
+          "sha256": "2a4668d77c05bb2c0b1533b7a64bdcb38316718487b0ca82beb01421aab23a2d"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-live-server/server/eula.txt",
+          "bytes": 157,
+          "sha256": "cd6a6b67c7510f8de8c6c452649a91b81d7981b0d698d4a31a9b5c7f4dd929ca"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-live-server/server/server.jar",
+          "bytes": 47791053,
+          "sha256": "3af73a9dc5a102e38147946360dd27d4d70bae7055bf91cf2151cd5d121b79e0"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-live-server/server/server.log",
+          "bytes": 1895,
+          "sha256": "670ed9e823fb94c813bf8c6a9293d51d861e6215040bbd3e717541653a9dcba9"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-live-server/server/server.properties",
+          "bytes": 1336,
+          "sha256": "b8871dad232d0fb4b02b5a097227091b81ff583dd2eb9f3ed2cfaef503bb2014"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-live-server/web.log",
+          "bytes": 149,
+          "sha256": "08595d84216ba02618ef75b9ef8572f9a252cb1498b0d449fbd7bb3bd121553e"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-live-server/evidence-manifest.json",
+          "bytes": 4037,
+          "sha256": "66179874ee4a320a8f8f364611ff73129aff180cb8c8531c9418fd01695dc6bf"
+        }
+      ]
+    }
   ]
 }

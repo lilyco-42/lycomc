@@ -48,6 +48,8 @@ lycomc --schema             # 全部命令的 JSON 清单（给脚本 / Agent �
 
 > **一键直连多人服务器**：主页「直连服务器」填 `mc.hypixel.net` 或 `mc.hypixel.net:25565` 再点「启动游戏」即可直接进入该服务器；留空正常进主菜单。设置页「默认直连服务器」会记住常用地址，主页本次填写的值覆盖它（显式清空只影响本次启动，不改写默认值）。CLI 对应 `--server <地址>`。地址只接受域名 / IP / 端口常见字符；仅 MC 1.20+ 且版本元数据带 quickPlay 规则时生效，旧版本不会追加未知参数。
 
+> **实机联机补证**：已用 e45976b 默认二进制在隔离数据目录启动本机 1.20.1 独立服务端（online-mode=false、离线账号 Steve），通过 Web API 的 server=127.0.0.1:25565 让真实客户端直连；服务端日志出现 Steve joined the game，并留存「Minecraft 1.20.1 - 多人游戏（第三方服务器）」进服截图。此项只补验收证据，不改变 API / 命令 / UI，详见 docs/TEST-REPORT.md §11 与 docs/TEST-EVIDENCE.json 第 10 组。
+
 最小开箱验收：`bash scripts/smoke-web.sh`（临时数据目录，不打开浏览器、不碰真实账号与版本）；完整维护检查：`bash scripts/check.sh`（双轨检查后自动恢复默认 Web 二进制）。
 
 环境变量：`LYCOMC_PORT`（Web 端口，默认 8766）、`LYCOMC_NO_OPEN=1`（不自动开浏览器）、`LYCOMC_DATA_DIR`（数据根）、`LILYCO_UI=web|gui|desktop`（入口覆盖；`desktop` 仅在启用 feature 时真正打开窗口）。
