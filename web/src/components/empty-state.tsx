@@ -31,7 +31,7 @@ export function EmptyState({
         className={cn(
           "flex size-12 items-center justify-center rounded-2xl ring-1",
           tone === "brand"
-            ? "brand-gradient text-white ring-transparent shadow-md"
+            ? "brand-solid text-white ring-transparent shadow-md"
             : "bg-background text-muted-foreground ring-border",
         )}
       >

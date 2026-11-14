@@ -190,6 +190,101 @@
           "sha256": "98b3dc5b263f4a84"
         }
       ]
+    },
+    {
+      "label": "Web 优先 CDP / 默认入口回归（2026-11-14）",
+      "files": [
+        {
+          "path": "/home/lilyco/.cache/lycomc-web-first-check.log",
+          "bytes": 8363,
+          "sha256": "9aa95670fa36cf3534460299b6ea3f3d55996a3d8604c5612e7046f104fbf881"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-web-first.log",
+          "bytes": 138,
+          "sha256": "9872163256bc187489dda8b0b0213b656d50ec9e69a9d45ba19384bb56d9c7a4"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-web-first-schema.json",
+          "bytes": 8825,
+          "sha256": "9c3574cc300b29f4c87b0babcda50d8806fdd9467f2aa731892a455864f4d0a2"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-web-first-original-port.txt",
+          "bytes": 4,
+          "sha256": "19f97769ca894113c3650cd77530cad18a5b081a79adec195b0db2eb4ce06c42"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-cdp/web-first-cdp2.mjs",
+          "bytes": 11641,
+          "sha256": "09e90f323f593a1b51cfc4cb193ba673bf827bcef2c1dc9fa61d2d765c784639"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-cdp/web-first-result.json",
+          "bytes": 5009,
+          "sha256": "104705ca35bb51949e8139cc85883ee33c911a0a341db17a10a81d25ca98271a"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-cdp/web-first-onboarding.png",
+          "bytes": 120324,
+          "sha256": "94137e811ab6c43dedb88f9ceb74ad8a3e2f76aefd4e9a842a0df278e27a6cca"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-cdp/web-first-onboarding-step1.png",
+          "bytes": 119892,
+          "sha256": "6d2585c56c6cac7066ced71dc81a15646c33961cad492d3c02902bde0dfface4"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-cdp/web-first-name-input.png",
+          "bytes": 120598,
+          "sha256": "de97f675a464e06b30cbc8f447f956e281533c3a0fd9f4dc1b3a231228ce30d4"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-cdp/web-first-guide.png",
+          "bytes": 158393,
+          "sha256": "bd18811c1c19210cd30764fd3c0a0a7b1aa04a256085e285cd1b1fc7244772c9"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-cdp/web-first-route--.png",
+          "bytes": 154791,
+          "sha256": "6a05453a61f68606848863874f85ca69c5788c1bca17f3e482edd4e5d1eb2e3f"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-cdp/web-first-route--versions.png",
+          "bytes": 123383,
+          "sha256": "2ab01dfeb7f58dcad70277a763343d0cae44d93e32bd6d67520ddead53626983"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-cdp/web-first-route--download.png",
+          "bytes": 141227,
+          "sha256": "00ef24ac0f9867bda65e45f4dc1eabe411f24fb81eb4ceab7da115ebe0f12141"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-cdp/web-first-route--mods.png",
+          "bytes": 152588,
+          "sha256": "c196d11246b262a0f91697759be715d7a72d7547c454e24586e7feef37d459eb"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-cdp/web-first-route--settings.png",
+          "bytes": 128541,
+          "sha256": "257498a2d5014613d71af023d71eeb968ee5da6ce2c30e4980e13f6f52b943ed"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-cdp/web-first-route--guide.png",
+          "bytes": 158393,
+          "sha256": "bd18811c1c19210cd30764fd3c0a0a7b1aa04a256085e285cd1b1fc7244772c9"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-cdp/web-first-route--no-such-page.png",
+          "bytes": 63760,
+          "sha256": "3b6aab3a4af50c4542d6bd3860a799b3a2dfdeee17ea147efd807ab915d32162"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-cdp/web-first-home-chart.png",
+          "bytes": 157933,
+          "sha256": "7344d43afc5cac5ccc5f10154bfcb47660e9e27e73a852d6a80c920452e0cbc6"
+        }
+      ]
     }
   ]
 }

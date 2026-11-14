@@ -50,7 +50,7 @@ export function AppSidebar() {
                   )}
                 >
                   {active ? (
-                    <span className="brand-gradient absolute top-1/2 left-0 h-5 w-[3px] -translate-y-1/2 rounded-full" />
+                    <span className="brand-solid absolute top-1/2 left-0 h-5 w-[3px] -translate-y-1/2 rounded-full" />
                   ) : null}
                   <Icon className={cn("size-4 shrink-0", active ? "text-primary" : "text-muted-foreground")} />
                   <span className="truncate">{item.label}</span>
@@ -78,7 +78,7 @@ export function AppSidebar() {
               )}
             >
               {path === "/guide" ? (
-                <span className="brand-gradient absolute top-1/2 left-0 h-5 w-[3px] -translate-y-1/2 rounded-full" />
+                <span className="brand-solid absolute top-1/2 left-0 h-5 w-[3px] -translate-y-1/2 rounded-full" />
               ) : null}
               <BookOpen className={cn("size-4 shrink-0", path === "/guide" ? "text-primary" : "text-muted-foreground")} />
               使用教程

@@ -38,18 +38,29 @@ crate-type = ["rlib", "cdylib"]
 name = "lycomc"
 path = "src/main.rs"
 
+[[example]]
+name = "wry_min"
+path = "examples/wry_min.rs"
+required-features = ["desktop"]
+
+# Web 优先（m06445）：默认只编译内核与 Web 控制台，不链接 GTK / WebView2 / WKWebView。
+# 原生桌面壳降级为显式 cargo feature，避免它成为常规构建与维护负担。
+[features]
+default = []
+desktop = ["dep:wry", "dep:tao", "dep:tray-icon", "dep:muda"]
+
 # 桌面端：wry + tao + 托盘。Linux 的 GTK / AppIndicator 依赖单独按 target 拆开，
 # 避免 Windows/macOS 交叉编译时被 Linux 专属 feature 拖进 GTK 与 libxdo。
 [target.'cfg(any(target_os = "linux", target_os = "windows", target_os = "macos"))'.dependencies]
-wry = { version = "0.57", default-features = false }
-tao = { version = "0.37", default-features = false, features = ["rwh_06"] }
-tray-icon = { version = "0.25", default-features = false }
-muda = { version = "0.20", default-features = false }
+wry = { version = "0.57", default-features = false, optional = true }
+tao = { version = "0.37", default-features = false, features = ["rwh_06"], optional = true }
+tray-icon = { version = "0.25", default-features = false, optional = true }
+muda = { version = "0.20", default-features = false, optional = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-wry = { version = "0.57", default-features = false, features = ["os-webview", "x11"] }
-tao = { version = "0.37", default-features = false, features = ["rwh_06", "x11"] }
-tray-icon = { version = "0.25", default-features = false, features = ["libappindicator"] }
+wry = { version = "0.57", default-features = false, features = ["os-webview", "x11"], optional = true }
+tao = { version = "0.37", default-features = false, features = ["rwh_06", "x11"], optional = true }
+tray-icon = { version = "0.25", default-features = false, features = ["libappindicator"], optional = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
 jni = { version = "0.21", default-features = false }

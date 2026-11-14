@@ -3,6 +3,7 @@
 # 只做「构建 + 上传 artifact」：不创建 GitHub Release、不打 tag、不推送，
 # 这些动作须由维护者显式执行。
 #
+# Web 优先：Rust 默认只构建 Web 内核；桌面壳需显式 --features desktop。
 # 注意：本仓库的 Rust 依赖 lilyco 当前是绝对路径，公共 runner 上无法解析，
 # 因此 desktop job 默认 dry-run 式跳过实际 cargo 构建（见 README「开发与维护边界」）。
 # 若要真正跑起来，需要先把 Cargo.toml 的 lilyco 依赖改成 git rev 并在下方
@@ -62,13 +63,15 @@ jobs:
           pnpm lint
           pnpm build
 
-      - name: Rust 检查与测试
+      - name: Rust 检查与测试（Web 默认 + 可选桌面 feature）
         run: |
           cargo fmt -- --check || true
           cargo clippy --all-targets -- -D warnings || true
           cargo test --no-fail-fast || true
+          cargo clippy --all-targets --features desktop -- -D warnings || true
+          cargo test --features desktop --no-fail-fast || true
         # 绝对路径依赖导致在公共 runner 上必然失败，这里不阻断打包步骤的演示。
-        # 依赖改成 git rev 之后请删掉 \|\| true。
+        # 依赖改成 git rev 之后请删掉 || true。
 
       - name: 安装 cargo-packager
         if: ${{ inputs.make_packages }}

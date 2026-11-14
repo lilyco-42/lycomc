@@ -1,4 +1,5 @@
-# cargo-packager 配置：把同一个 lycomc 二进制打成四平台安装包。
+# cargo-packager 配置：把启用 desktop feature 的 lycomc 二进制打成四平台安装包。
+# Web 优先下默认构建不带桌面依赖；这份配置由 beforePackagingCommand 显式打开 feature。
 #
 #   cargo install cargo-packager --locked
 #   cargo packager --release -c packaging/Packager.toml
@@ -14,7 +15,7 @@ identifier = "app.lilycraft.launcher"
 description = "小白也能用的 Minecraft 启动器：装一次版本，之后每次只要点一个按钮。"
 longDescription = """LilyCraft 是一款类 PCL 的 Minecraft 启动器。
 内置原版 / Fabric 安装、国内镜像下载、Modrinth Mod 管理、一键汉化、
-微软正版登录与皮肤展示；双击图标即用，界面上不出现端口和 IP。"""
+微软正版登录与皮肤展示；默认打开本地 Web 控制台，原生桌面窗口是可选 feature。"""
 publisher = "LilyCraft"
 copyright = "个人项目，未指定许可证"
 category = "Game"
@@ -22,7 +23,7 @@ homepage = "https://github.com/"
 authors = ["LilyCraft"]
 
 # 前端产物必须先构建：web/dist 会被 include_dir! 编进二进制。
-beforePackagingCommand = "bash scripts/package-front.sh && cargo build --release"
+beforePackagingCommand = "bash scripts/package-front.sh && cargo build --release --features desktop"
 
 binaries = [{ path = "lycomc", main = true }]
 outDir = "packaging/dist"
@@ -33,6 +34,7 @@ icons = ["packaging/icons/icon-256.png", "packaging/icons/icon.ico"]
 
 [linux]
 # 生成 .desktop 由 cargo-packager 负责；运行期另有 desktop.rs 自建快捷方式（幂等）。
+# 该 deb/AppImage 面向 desktop feature；默认 Web 包不需要下面这些 WebKit/GTK 运行库。
 generateDesktopEntry = true
 
 [deb]

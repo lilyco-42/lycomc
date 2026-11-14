@@ -1,21 +1,52 @@
 //! lycomc —— Minecraft 启动器（lilyco 命令面 + shadcn Web 控制台）。
 //!
-//! 四种前端共用一份内核与一份配置：
-//!   lycomc              裸跑 → 打开 LilyCraft 桌面窗口（主入口）
-//!   lycomc --web        浏览器控制台（兼容旧用法）
+//! CLI / TUI / MCP / Web / 桌面壳共用一份内核与一份配置（Web 优先）：
+//!   lycomc              裸跑 → 启动本地 Web 控制台（主入口，自动开浏览器）
+//!   lycomc --web        浏览器控制台（兼容旧用法，等价于裸跑）
+//!   lycomc --desktop    可选 feature（构建时 --features desktop）：LilyCraft 原生桌面窗口
 //!   lycomc <子命令>     CLI 形态，脚本 / AI 友好
 //!   lycomc --tui        TUI 形态
 //!   lycomc --mcp        MCP 服务器形态，交给 Agent 调用
 //!
 //! 内核（下载 / 安装 / 启动）全在 src/mc 里，与前端无关。
 
-use lycomc::{api, commands, desktop, mc, policy};
+#[cfg(all(
+    feature = "desktop",
+    any(target_os = "linux", target_os = "windows", target_os = "macos")
+))]
+use lycomc::desktop;
+use lycomc::{api, commands, mc, policy};
 
 use std::sync::Arc;
 
 use lilyco::prelude::SafetyPolicy;
 
 const BANNER: &str = "lycomc —— Minecraft 启动器（lilyco + shadcn）";
+
+// 桌面壳只在显式 feature 下参与编译；未启用时 --desktop 仍可用，只是清楚提示后回落 Web。
+// 这样裸跑、--web、CLI、TUI、MCP 全都不受桌面依赖影响。
+#[cfg(all(
+    feature = "desktop",
+    any(target_os = "linux", target_os = "windows", target_os = "macos")
+))]
+fn handle_desktop_request() {
+    if desktop::available() {
+        desktop::run(); // 仅在窗口或托盘不可用时返回
+    }
+    println!("{BANNER}");
+    println!("（桌面窗口不可用，已切换到浏览器界面）");
+}
+
+#[cfg(not(all(
+    feature = "desktop",
+    any(target_os = "linux", target_os = "windows", target_os = "macos")
+)))]
+fn handle_desktop_request() {
+    println!("{BANNER}");
+    println!(
+        "（当前构建未启用桌面壳，已切换到浏览器界面；如需桌面壳请用 --features desktop 构建）"
+    );
+}
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -44,26 +75,27 @@ fn main() {
         eprintln!("lycomc: 无法创建数据目录: {e}");
     }
 
-    // --web / --gui / --no-desktop 保留浏览器控制台入口
+    // Web 优先（m06445）：无参数裸跑就起本地 Web 控制台并自动开浏览器；
+    // 原生桌面壳降级为显式 --desktop / LILYCO_UI=desktop 的可选 feature，不再抢占主入口。
+    let wants_desktop = args.iter().any(|a| a == "--desktop")
+        || std::env::var("LILYCO_UI")
+            .map(|v| v == "desktop")
+            .unwrap_or(false);
+    if wants_desktop {
+        handle_desktop_request();
+        api::serve();
+        return;
+    }
+
+    // --web / --gui / --no-desktop 与 LILYCO_UI=web|gui 保留兼容；
+    // 无参数（双击 / 裸跑）现在同样直接进 Web 控制台。
     let wants_web = args
         .iter()
         .any(|a| a == "--web" || a == "--gui" || a == "--no-desktop")
         || std::env::var("LILYCO_UI")
             .map(|v| v == "web" || v == "gui")
             .unwrap_or(false);
-    if wants_web {
-        api::serve();
-        return;
-    }
-
-    // 裸跑 → 双击即用的桌面窗口；只有桌面不可用或窗口创建失败时才回落浏览器。
-    // tao 的事件循环在正常退出时会直接结束进程，所以 run() 成功返回后不能再次启动服务。
-    if args.is_empty() {
-        if desktop::available() {
-            desktop::run(); // 仅在窗口/托盘不可用时返回
-        }
-        println!("{BANNER}");
-        println!("（桌面窗口不可用，已切换到浏览器界面）");
+    if args.is_empty() || wants_web {
         api::serve();
         return;
     }

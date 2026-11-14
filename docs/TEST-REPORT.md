@@ -131,3 +131,52 @@ test result: ok. 17 passed; 0 failed
 ### 7.5 守卫
 
 `cargo fmt -- --check` 0 diff；`cargo clippy --all-targets -D warnings` 0 错；`cargo test --no-fail-fast` **27 passed / 0 failed**；`pnpm lint` 4 warnings / 0 errors（既有告警）；`pnpm build` 通过（`index-DXA7FZTF.js` 595.24 kB / `index-aXCjO_tR.css` 91.93 kB）。
+
+## 8. 2026-11-14 Web 优先回归（追加记录，不改写上面历史矩阵）
+
+> 本节对应 m06445「坚持 web 优先，客户端只作为 features」、m06446/m06447 的 longbridge/nsh 适用性提问、m05932 的图表 / 可商用 UI / 图标要求，以及 m05734 的充分测试与各平台口径。需求澄清、方案矩阵与不迁移 NSH 的理由见 `docs/DECISION.md` 的「Web 优先 · 桌面壳降为 feature · NSH 观察项」；本节只记录可复核的实测结果。新增证据原件路径、字节数与完整 64 位 sha256 见 `docs/TEST-EVIDENCE.json` 的「Web 优先 CDP / 默认入口回归」组；该文件原有历史组继续使用 16 位短哈希，未改写。
+
+### 8.1 默认入口、回落与依赖门控
+
+| 项 | 做法 | 实测结果 |
+|---|---|---|
+| 默认入口 | 默认构建的无参数二进制经 `systemd-run --user --unit=lycomc-web-first --collect` 启动，`LYCOMC_PORT=9390`、`LYCOMC_NO_OPEN=1` | `127.0.0.1:9390` LISTEN，MainPID 910788；`GET /api/health` 返回 `{"dataDir":"/home/lilyco/.local/share/lycomc","name":"lycomc","ok":true,"version":"0.1.0","webMode":"embedded"}` |
+| 启动日志 | `/home/lilyco/.cache/lycomc-web-first.log` | 逐字为 `lycomc Web 控制台: http://127.0.0.1:9390` / `前端已编入二进制（webMode=embedded）` / `数据目录: /home/lilyco/.local/share/lycomc`，与 `api::serve()` 的默认 Web 入口一致；这是 CLI 诊断输出，Web UI 本身不把技术术语塞进页面按钮 |
+| 可选桌面回落 | 未启用 feature 的默认二进制执行 `lycomc --desktop`，`LYCOMC_PORT=9391` | stdout 明确输出「（当前构建未启用桌面壳，已切换到浏览器界面；如需桌面壳请用 --features desktop 构建）」，随后正常打印 Web 控制台地址；stderr 为空 |
+| CLI 不回退 | `lycomc --schema` 输出到 `/home/lilyco/.cache/lycomc-web-first-schema.json` | JSON 数组长度 14，14 个命令面保持完整 |
+| 依赖门控 | `cargo tree --no-default-features -e normal` 搜索桌面依赖名；`ldd` 默认二进制 | 两者均无桌面依赖命中，后者记为 NO_DESKTOP_LIBS；显式 `cargo tree --features desktop -e normal` 才含 muda 0.20.0 / tao 0.37.2 / tray-icon 0.25.1 / wry 0.57.2。完整复跑命令：`cargo tree --no-default-features -e normal \| grep -E "wry\|tao\|tray-icon\|muda"` |
+| 快捷方式 | `src/desktop.rs` 的 `shortcut_body()` 与单测 | Linux `.desktop` 的 Exec 显式带 `--desktop`；单测断言 `Exec="/opt/lycomc/lycomc" --desktop` 且不含 IP / 端口 |
+
+- 验收副作用已清理：`systemctl --user stop lycomc-web-first` 后 unit 为 inactive；`web.port` 从 `9390` 恢复为原值 `8790`（原件备份 `/home/lilyco/.cache/lycomc-web-first-original-port.txt`）；`:9390` / CDP `:9394` 无残留监听；`accounts.json` 仍为 Steve（离线）/ lilyco42（微软）/ lilyco4242（离线），未创建测试账号。
+
+### 8.2 双轨守卫（本机完整跑 `bash scripts/check.sh`）
+
+- 日志原件：`/home/lilyco/.cache/lycomc-web-first-check.log`，末行 `lycomc local checks passed (web default + optional desktop feature)`。
+- 默认 Web 构建：`pnpm install --frozen-lockfile` + `pnpm lint` + `pnpm build` + `cargo fmt -- --check` + `cargo clippy --all-targets -- -D warnings` + `cargo test --no-fail-fast` + `cargo build` 全绿；`cargo test` **25 passed / 0 failed**（默认不编译 5 个桌面单测）。
+- 可选桌面构建：`cargo clippy --all-targets --features desktop -- -D warnings` + `cargo test --features desktop --no-fail-fast` + `cargo build --features desktop` 全绿；`cargo test` **30 passed / 0 failed**，含 `generated_icon_has_rgba_pixels`、`generated_icon_has_discrete_faces`、`focus_bridge_requests_only_for_editable_controls`、`brand_svg_has_no_gradient`、`desktop_shortcut_body_has_no_technical_terms`。
+- 前端：`pnpm lint` 4 warnings / 0 errors（均为既有告警）；`pnpm build` 2600 modules，产物 `index-CFKLJDNN.js` 989.73 kB（gzip 293.09 kB）、`index-CVpxE2X8.css` 87.32 kB（gzip 14.90 kB）、`index.html` 0.85 kB；`git diff --check` CLEAN。
+
+### 8.3 浏览器 CDP 主证据（Web 优先）
+
+- 脚本与结果：`/home/lilyco/.cache/lycomc-cdp/web-first-cdp2.mjs`（Chromium 157.0.8103.38，独立 CDP 端口 9394 / profile，BASE `http://127.0.0.1:9390/#/`）输出 `/home/lilyco/.cache/lycomc-cdp/web-first-result.json`；pass 九项 `health / onboarding / nameInput / onboarded / guide / routes / chartCardFound / charts / all` 全部 true。
+- 首启向导：visible / start / skip / steps 全真；第 2 步输入框 `value=Steve`、`placeholder=例如 Steve`、`focused=true`、`maxLength=16`。真实键盘序列：写入 `WebQA` → 主动 blur 后 `document.activeElement=BODY` → 点击回输入框并把光标移到末尾（`activeElement=INPUT`）→ 再写 `OK`，最终 `WebQAOK`。这是 **Web 浏览器界面**「离开输入框 → 回来 → 再输入」的干净证据，不是已降级的桌面壳输入 P0 结论。跳过引导后 `onboardedFlag=1`、onboarding 关闭，账号文件未污染。
+- 教程：`#/guide` 四步与三条 FAQ 可见，顶栏 / 侧栏入口齐全；点「重看新手引导」后 `reopenWorks=true` 且向导重新出现。
+- 七个 hash 路由（`/`、`/versions`、`/download`、`/mods`、`/settings`、`/guide`、`/no-such-page`）加载后 `skeletons=0`、标题均为「LilyCraft 启动器」；404 页文案「这个页面不存在 | 地址可能敲错了，回主页继续吧。」。`/api/state` 真实快照含 3 个版本、3 个账号、5 个 Java、0 个运行中进程、0 个 Job；CDP 观察到的 API 调用含 `/api/state`、`/api/health`、`/api/events`、皮肤与版本详情等 12 类路径。
+- 12 张截图均为 1440x813，含 `web-first-onboarding.png`、`web-first-name-input.png`、`web-first-guide.png`、`web-first-home-chart.png` 与七路由截图；完整路径、字节数与 sha256 见 `docs/TEST-EVIDENCE.json` 新增组。
+
+### 8.4 图表、可商用 UI 组合与实色图标
+
+- 主页 `LauncherStatsCard` 的两张 recharts 图只聚合 `/api/state` 的真实快照：版本按原版 / Fabric 分饼图，Java 主版本按每个版本声明值分柱状图，不画没有后端数据支撑的「最近 7 天」时序。CDP 实测 `surfaces=2`、`pieSectors=4`、`barRects=4`，标签含「原版 / Fabric / 版本需要的 Java / 账号 / 运行中 / Java」。
+- `web/package.json` 实测依赖许可标注：recharts 3.10.1 MIT、lucide-react 1.70.0 ISC、radix-ui 1.8.1 MIT、shadcn 4.23.0 MIT、react 19.3.1 MIT、tailwindcss 4.3.5 MIT、sonner 2.0.8 MIT、vite 8.3.7 MIT、@fontsource-variable/geist 5.3.0 OFL-1.1；这里记录上游标注，不替代商用前的许可证审阅。
+- 顶栏 `BrandMark` 用六块离散实色（`#2078da` / `#9ec1ee` / `#5291df` / `#1662b6` / `#0b4a92` / `#ffffff`）；CDP 对图表卡与 BrandMark 实测 `linearGradient` / `radialGradient` 定义数均为 0，BrandMark `urlFill=false`、`paths=5`、`rects=1`；不使用纯色渐变图标。
+
+### 8.5 跨平台、Windows 与 wine（按 Web 优先口径重写）
+
+- `rustup target list --installed` 实测含 `aarch64-apple-darwin`、`aarch64-apple-ios`、`aarch64-linux-android`、`aarch64-unknown-linux-ohos`、`x86_64-apple-darwin`、`x86_64-linux-android`、`x86_64-pc-windows-msvc`、`x86_64-unknown-linux-gnu`；但本机 `x86_64-w64-mingw32-gcc`、`xcrun`、`cargo-ndk`、`gradle` 均 MISSING，`wine` 在 `/usr/bin/wine`。
+- 本机 `cargo check --target x86_64-pc-windows-msvc --lib` 仍报 `failed to find tool "lib.exe": No such file or directory (os error 2)`，未产出 `.exe`；macOS 无实机、Android 无 APK、鸿蒙无 Rust wry backend。Web 优先后，Windows / macOS 用户的交付门槛是浏览器能打开同一套 Web 控制台 + 本机服务在运行；wine 可跑 Web UI 或 exe，但都不是主线和验收门槛，也不承诺签名安装包。
+- m03957 的「全平台实机演示 / 服务器游玩」需按 Web / PWA 浏览器优先重新界定；m04829 / m04836 的 Android 形态、Win/mac 是否必须出安装包、下一步优先级三问仍待用户确认。本节不把「源码 + CI」写成「已出安装包」。
+
+### 8.6 明确不宣称的内容
+
+- 桌面壳输入焦点 P0 已由 m06445 降级冻结：`p0bs.png` / `p0input.png` 停在向导 step=0，是无效复验证据；已编译的焦点桥与 30 / 30 单测保留在可选 feature 里，但本节不宣称桌面 GUI「离开 → 回来 → 输入」已干净验收。
+- `docs/DECISION.md` 历史节「桌面双击 / 裸跑优先原生窗口」作为 2026-11-13 决策保留；本节 §7.5 的 27 passed 也是历史值，不与本轮 25 / 30 双轨数值混淆。longbridge/nsh 仅列为未来原生壳观察项，本轮不迁移、不复制代码、不引入 nsh CLI / 运行时。

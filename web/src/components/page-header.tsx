@@ -12,7 +12,7 @@ export function PageHeader({ title, description, action }: PageHeaderProps) {
     <div className="flex flex-wrap items-end justify-between gap-3 pb-5">
       <div>
         <div className="mb-1.5 flex items-center gap-2">
-          <span className="brand-gradient h-4 w-1 rounded-full" />
+          <span className="brand-solid h-4 w-1 rounded-full" />
           <h1 className="text-lg font-semibold tracking-tight text-primary">{title}</h1>
         </div>
         <p className="pl-3 text-[13px] text-muted-foreground">{description}</p>

@@ -263,3 +263,38 @@ cargo test（解析逻辑单测：device code / XBL / XSTS / MC token / textures
 - 用户尚未回答 Android 形态、Win/mac 是否必须给安装包、快捷方式生成方式三问；本轮按上述工作假设推进，并在最终答复再问一次。
 - 不等同于 m03957 的「比 PCL 更好 / 全平台实机演示 / 服务器游玩」已达成；Windows、macOS、Android 未做实机截图，也未产出签名安装包。
 - 不引入 Tauri CLI、不复制 PCL.Proto 源码/资源、不改名以 PCL 开头、不改变 LilyCraft 品牌。
+
+## Web 优先 · 桌面壳降为 feature · NSH 观察项（2026-11-14 下午，m06445 / m06446 / m06447）
+
+> 本节取代上一节「桌面双击 / 裸跑优先原生窗口」的入口优先级；上一节作为 2026-11-13 的历史决策保留，不改写。
+
+### 需求 Requirement / 理解门槛
+- 用户原话（m06445）：「算了 吧 坚持 web 优先 客户端 只作为 features 而且还难维护」。
+- 用户原话（m06446 / m06447，两次）：「https://github.com/longbridge/nsh 这个有帮助么」。
+- 模糊词：web 优先（默认入口、构建依赖、交付口径）、客户端只作为 features（Cargo feature 还是插件包）、有帮助（现在引入 / 借鉴思路 / 仅观察）。
+- 门槛：不能回退已交付的 14 命令、25 路由、SSE、微软设备码、皮肤、六页 shadcn UI；不能把桌面壳历史 P0 伪称已完整 GUI 复验；不能把 Windows/macOS/Android 源码 + CI 说成已签名安装包或实机演示。
+
+### 调研 Research（真实仓库 / 本机，2026-11-14）
+- longbridge/nsh：GitHub API 描述 "Native Shell is a native UI framework for iOS, Android, macOS, Windows, Linux and the web, built in Rust."，homepage https://nsh.dev，language Rust，2722★ / 183 forks，topics [cross-platform, gui, native, nsh]，created_at 2026-10-14T14:59:36Z，pushed_at 2026-11-14T06:50:05Z，open_issues_count 93，GitHub API license NOASSERTION；根 LICENSE-APACHE 是完整 Apache-2.0（HTTP 200 / 10297 B），属 API 元数据未识别，商用前仍应做法务确认。
+- 8 个 release：v0.1.0 2026-10-17 → v0.5.1 2026-11-14T05:22:06Z，另 nightly；项目仅一个月、节奏极快。README 支持 Rust / TSX 混合、运行时加载签名 TSX 模块（plugins / features / AI 生成 UI）、`nsh run --target web` / `nsh package --target web` 静态站点、iOS/Android/macOS/Windows/Linux/Web/Terminal 多后端，并致谢 shadcn/ui design tokens。HN Algolia 命中 3 帖，评论数 0–2；StackOverflow 未见 NSH 生产案例 → 社区验证很薄。
+- 本机 / 现有架构：wry 0.57 / tao 0.37 本就由 Tauri 社区维护，已复用 WebKit2GTK / WebView2 / WKWebView 适配；不迁移 Tauri CLI 也可跨平台。`cargo check --target x86_64-pc-windows-msvc --lib` 实测报 `failed to find tool "lib.exe"`，本机无 mingw / osxcross / xcrun / Android NDK / cargo-ndk / cargo-tauri；鸿蒙无 Rust wry backend。Windows / mac / Android / 鸿蒙是工具链与实机缺口，不是 Web 架构不支持。
+- 桌面壳现状：`src/desktop.rs` 的 `build_as_child` 已修本机 Xwayland 黑屏；焦点桥 IPC 有单测但 `p0bs.png` / `p0input.png` 停在 step=0，不能证明「离开输入框 → 回来 → 再输入」干净复验。用户已把该 P0 降级，不再投入 GUI 深挖。
+
+### 分析 · fit / ROI 矩阵
+- A（adopt）Web 优先 + 桌面壳 Cargo feature：默认 `cargo build` 不编译 wry / tao / tray-icon / muda，不链接系统 WebView；无参数 / `--web` 都 `api::serve()` 并自动开浏览器；`--desktop` / `LILYCO_UI=desktop` 才进可选窗口，未启用 feature 时提示后回落 Web；`scripts/check.sh` 与 CI 双轨守卫；快捷方式 `Exec` 带 `--desktop`。投入低，直接兑现「难维护」诉求，零回退。
+- B 全量迁 longbridge/nsh：需要把 React 19 + shadcn + Tailwind 4 + axum 的六页与 14 命令注册表绑到新 Rust UI 运行时、nsh CLI、签名包 / sandbox；新增一个一个月大、93 open issues、社区验证薄、license 元数据未识别的维护面。与 m06445 相反，否决。
+- C 继续桌面优先、只把 NSH 当托盘皮肤：仍默认链接 GTK / WebView，裸跑抢主入口，维护负担不变；否决。
+- D 直接删掉 `src/desktop.rs`：会丢掉已实机验过的窗口 / 托盘 / 快捷方式与未来可选 feature，且用户说的是「只作为 features」不是「删除」；否决。
+
+### 决策 Decision（本节即记录）
+- 入口：`src/main.rs` 反转优先级；`src/lib.rs` 用 `#[cfg(all(feature = "desktop", any(target_os = "linux", target_os = "windows", target_os = "macos")))]` 门控 `pub mod desktop;`；`Cargo.toml` 新增 `[features] default = [] / desktop = ["dep:wry", "dep:tao", "dep:tray-icon", "dep:muda"]`，target 依赖全部 `optional = true`，`examples/wry_min.rs` 加 `required-features = ["desktop"]`。
+- 分发：`packaging/Packager.toml` 的 `beforePackagingCommand` 显式 `cargo build --release --features desktop`；`.github/workflows/release.yml` 与 `scripts/check.sh` 都跑默认 Web + 可选 desktop 两轮守卫。默认安装包双击仍走 Web；只有带 `--desktop` 的快捷方式进原生窗口。
+- 快捷方式：`install_linux_shortcuts` 生成的 `.desktop` 的 `Exec` 从 `"<exe>"` 改为 `"<exe>" --desktop`，并让单测直接调用生成函数，避免 Web 默认下双击快捷方式误进浏览器。
+- NSH：列为「未来原生壳 / features 观察项」，借鉴 shadcn tokens、`--target web` 静态产物、签名 TSX features 思路；**不复制代码、不引入 nsh CLI / 运行时、不重写 `web/` 与 `src/desktop.rs`、不改名以 PCL 开头**。
+- 证据口径：Web 优先主证据 = 默认无参数二进制的 `/api/health` + 浏览器 CDP 六路由 / `#/guide` / 图表 / 首启向导截图；桌面截图只作历史，不再当主线验收。
+
+### 边界与未决问题
+- Windows / wine：Web 优先下不再把 `.exe` / 签名安装包当交付门槛；Windows / mac 用户只需浏览器 + 本机服务，wine 可跑 Web UI 或 exe 但非主线。
+- m03957「全平台实机演示 / 服务器游玩」需按 Web / PWA 浏览器优先重新界定，待用户确认；不宣称已达成。
+- m04829 / m04836 三问（Android 形态、Win/mac 是否必须安装包、快捷方式生成方式）仍未答；Web 优先下先按「浏览器 PWA + 源码 / CI」推进，不阻塞主线。
+- m06349 桌面输入 P0 已由 m06445 取代 / 降级；焦点桥代码与单测保留，但不宣称完成干净 GUI 复验。

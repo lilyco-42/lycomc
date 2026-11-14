@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowRight,
   Check,
@@ -46,6 +46,7 @@ export function Onboarding({ onFinish }: OnboardingProps) {
   const [installedId, setInstalledId] = useState<string | null>(null);
   const [installError, setInstallError] = useState<string | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const finish = useCallback(() => {
     markOnboarded();
@@ -67,6 +68,15 @@ export function Onboarding({ onFinish }: OnboardingProps) {
   );
 
   const { job, error: jobError } = useJobTracker(jobId, { onFinished: handleInstallFinished });
+
+  // 桌面壳的 WebView 子容器不会自动把 GTK 键盘焦点交给输入框：
+  // 进入第 2 步时再显式 focus + select，保证点一下就能直接改名。
+  useEffect(() => {
+    if (step === 1) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+  }, [step]);
 
   const handleCreateAccount = useCallback(async () => {
     const trimmed = name.trim();
@@ -130,7 +140,7 @@ export function Onboarding({ onFinish }: OnboardingProps) {
       className="fixed inset-0 z-50 flex items-center justify-center bg-background/85 p-4 backdrop-blur-sm"
     >
       <div className="card-soft relative flex max-h-[92vh] w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-2xl">
-        <div className="brand-gradient h-1.5 w-full shrink-0" />
+        <div className="brand-solid h-1.5 w-full shrink-0" />
 
         <div className="flex shrink-0 items-center justify-between px-6 pt-4">
           <div className="flex items-center gap-2">
@@ -142,7 +152,7 @@ export function Onboarding({ onFinish }: OnboardingProps) {
                     index < step
                       ? "bg-pcl-3 text-white"
                       : index === step
-                        ? "brand-gradient text-white"
+                        ? "brand-solid text-white"
                         : "bg-muted text-muted-foreground",
                   )}
                 >
@@ -172,7 +182,7 @@ export function Onboarding({ onFinish }: OnboardingProps) {
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
           {step === 0 ? (
             <div className="text-center">
-              <span className="brand-gradient mx-auto flex size-16 items-center justify-center rounded-3xl text-white shadow-lg">
+              <span className="brand-solid mx-auto flex size-16 items-center justify-center rounded-3xl text-white shadow-lg">
                 <PartyPopper className="size-8" />
               </span>
               <h2 className="mt-4 text-xl font-semibold tracking-tight">欢迎来到 LilyCraft 启动器</h2>
@@ -194,6 +204,7 @@ export function Onboarding({ onFinish }: OnboardingProps) {
               </p>
               <div className="mt-4 flex flex-wrap items-center gap-2">
                 <Input
+                  ref={inputRef}
                   value={name}
                   onChange={(event) => {
                     setName(event.target.value);
@@ -204,6 +215,7 @@ export function Onboarding({ onFinish }: OnboardingProps) {
                       void handleCreateAccount();
                     }
                   }}
+                  onFocus={(event) => event.currentTarget.select()}
                   maxLength={16}
                   placeholder="例如 Steve"
                   className="h-10 min-w-48 flex-1"

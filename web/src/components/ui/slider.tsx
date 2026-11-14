@@ -27,7 +27,7 @@ function Slider({
       >
         <SliderPrimitive.Range
           data-slot="slider-range"
-          className="absolute h-full bg-linear-to-r from-pcl-3 to-pcl-2"
+          className="absolute h-full bg-pcl-3"
         />
       </SliderPrimitive.Track>
       {thumbs.map((_, index) => (

@@ -19,7 +19,12 @@ fi
 )
 
 cargo fmt -- --check
+# 双轨守卫：默认 Web 构建不编译桌面依赖；显式 feature 构建再验桌面壳与 wry 示例。
 cargo clippy --all-targets -- -D warnings
-cargo test
+cargo test --no-fail-fast
+cargo build
+cargo clippy --all-targets --features desktop -- -D warnings
+cargo test --features desktop --no-fail-fast
+cargo build --features desktop
 
-echo "lycomc local checks passed"
+echo "lycomc local checks passed (web default + optional desktop feature)"

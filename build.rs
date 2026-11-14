@@ -5,4 +5,7 @@ fn main() {
     println!("cargo:rerun-if-changed=web/dist/index.html");
     println!("cargo:rerun-if-changed=web/public/steve.png");
     println!("cargo:rerun-if-changed=web/public/alex.png");
+    println!("cargo:rerun-if-changed=web/public/favicon.svg");
+    println!("cargo:rerun-if-changed=web/public/manifest.webmanifest");
+    println!("cargo:rerun-if-changed=packaging/icons/icon.svg");
 }

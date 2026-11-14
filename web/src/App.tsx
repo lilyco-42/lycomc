@@ -22,7 +22,7 @@ function RouteView() {
   const { backendDown } = useAppData();
 
   return (
-    <main className="page-glow min-w-0 flex-1 overflow-y-auto">
+    <main className="page-surface min-w-0 flex-1 overflow-y-auto">
       <div className="mx-auto w-full max-w-[1200px] px-6 py-6 md:px-8 md:py-8">
         {backendDown ? (
           <div className="mb-5">

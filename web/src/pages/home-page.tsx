@@ -1,3 +1,4 @@
+import { LauncherStatsCard } from "@/components/launcher-stats-card";
 import { useCallback, useRef, useState } from "react";
 import { Boxes, CircleAlert, Cpu, FileClock, Globe, Loader2, Play, Power, RotateCw, Settings2, ShieldCheck, Sparkles, Square, UserRound } from "lucide-react";
 import { toast } from "sonner";
@@ -294,6 +295,8 @@ export function HomePage() {
             downloadSource={settings?.downloadSource ?? "mojang"}
           />
 
+          <LauncherStatsCard />
+
           <div className="grid gap-5 lg:grid-cols-2">
             <RemoteLatestCard
               remote={remote}
@@ -443,7 +446,7 @@ function LaunchOverviewCard({
   return (
     <div className="card-soft rounded-xl border border-border bg-card p-5">
       <div className="mb-4 flex items-center gap-2">
-        <span className="brand-gradient h-4 w-1 rounded-full" />
+        <span className="brand-solid h-4 w-1 rounded-full" />
         <h2 className="text-sm font-semibold text-primary">启动选项</h2>
         {runningCount > 0 ? (
           <Badge variant="outline" className="gap-1 border-pcl-4/50 bg-pcl-7 text-pcl-2 dark:text-pcl-5">

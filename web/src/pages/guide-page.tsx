@@ -49,11 +49,12 @@ interface FaqItem {
   actionTo?: string;
 }
 
+/** 每一步的图标底色：纯实色 + 实色文字，不用渐变。 */
 const STEP_TONES: Record<GuideStep["tone"], string> = {
-  blue: "from-sky-500/15 to-blue-500/5 text-pcl-2 dark:text-pcl-5",
-  violet: "from-violet-500/15 to-fuchsia-500/5 text-primary",
-  green: "from-emerald-500/15 to-teal-500/5 text-emerald-700 dark:text-emerald-300",
-  amber: "from-amber-500/15 to-orange-500/5 text-amber-700 dark:text-amber-300",
+  blue: "bg-pcl-7 text-pcl-2 dark:bg-muted dark:text-pcl-5",
+  violet: "bg-violet-100 text-violet-700 dark:bg-violet-950/50 dark:text-violet-300",
+  green: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300",
+  amber: "bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300",
 };
 
 /** 第一步：点开「下载」，找到 1.20.1，再点安装；进度条自己走完就行。 */
@@ -273,7 +274,7 @@ export function GuidePage() {
 
       <div className="card-soft rounded-2xl border border-border bg-card p-5">
         <div className="flex flex-wrap items-start gap-4">
-          <span className="brand-gradient flex size-12 shrink-0 items-center justify-center rounded-2xl text-white shadow-md">
+          <span className="brand-solid flex size-12 shrink-0 items-center justify-center rounded-2xl text-white shadow-md">
             <BookOpen className="size-6" />
           </span>
           <div className="min-w-0 flex-1">
@@ -322,7 +323,7 @@ export function GuidePage() {
               className="group card-soft overflow-hidden rounded-2xl border border-border bg-card"
             >
               <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-3.5 transition-colors hover:bg-pcl-8/60 dark:hover:bg-muted/40 [&::-webkit-details-marker]:hidden">
-                <span className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br", STEP_TONES[step.tone])}>
+                <span className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl ring-1 ring-border", STEP_TONES[step.tone])}>
                   <Icon className="size-5" />
                 </span>
                 <span className="min-w-0 flex-1">
@@ -341,7 +342,7 @@ export function GuidePage() {
                 <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
               </summary>
               <div className="border-t border-border px-4 py-4">
-                <div className={cn("rounded-xl bg-gradient-to-br p-1", STEP_TONES[step.tone].split(" ").slice(0, 2).join(" "))}>
+                <div className="rounded-xl border border-border bg-pcl-8/60 p-1 dark:bg-muted/30">
                   {step.illustration}
                 </div>
                 <ol className="mt-4 space-y-2.5">

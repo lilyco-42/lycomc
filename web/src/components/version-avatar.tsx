@@ -15,7 +15,10 @@ const SIZES = {
   lg: "size-16 text-sm rounded-2xl",
 } as const;
 
-/** 版本方块图标：Fabric 用深蓝，原版用亮蓝，统一在 PCL 蓝色层级内。 */
+/**
+ * 版本方块：三面等距立方体用离散实色区分，不使用纯色渐变或半透明高光。
+ * Fabric 用更深的右侧面，原版用亮蓝；中央放真实 lucide 图标或版本短号。
+ */
 export function VersionAvatar({ kind, label, size = "md", className }: VersionAvatarProps) {
   const short = label.replace(/^fabric-/, "").split("-")[0] ?? label;
   return (
@@ -26,19 +29,16 @@ export function VersionAvatar({ kind, label, size = "md", className }: VersionAv
         className,
       )}
     >
-      <span
-        className={cn(
-          "absolute inset-0",
-          kind === "fabric"
-            ? "bg-linear-to-br from-pcl-2 to-pcl-4"
-            : "bg-linear-to-br from-pcl-3 to-pcl-5",
-        )}
-      />
-      <span className="absolute inset-0 bg-linear-to-b from-white/30 to-transparent opacity-70" />
+      <svg viewBox="0 0 64 64" className="absolute inset-0 size-full" aria-hidden="true">
+        <rect x="0" y="0" width="64" height="64" fill={kind === "fabric" ? "#1662b6" : "#2078da"} />
+        <path d="M32 10 L54 22 L32 34 L10 22 Z" fill="#9ec1ee" />
+        <path d="M10 22 L32 34 L32 54 L10 42 Z" fill="#5291df" />
+        <path d="M54 22 L32 34 L32 54 L54 42 Z" fill={kind === "fabric" ? "#0b4a92" : "#1662b6"} />
+      </svg>
       {kind === "fabric" ? (
-        <Layers className="relative size-4" />
+        <Layers className="relative size-4 drop-shadow-[0_1px_1px_rgb(11_74_146_/_80%)]" />
       ) : (
-        <span className="relative max-w-full truncate px-1 text-center font-mono leading-none">
+        <span className="relative max-w-full truncate px-1 text-center font-mono leading-none drop-shadow-[0_1px_1px_rgb(11_74_146_/_80%)]">
           {short}
         </span>
       )}

@@ -1,3 +1,4 @@
+import { BrandMark } from "@/components/brand-mark";
 import { AccountMenu } from "@/components/account-menu";
 import { Badge } from "@/components/ui/badge";
 import { SkinAvatar } from "@/components/skin-avatar";
@@ -23,11 +24,9 @@ export function AppTopbar() {
   const accountName = currentAccount !== null ? currentAccount.name : "未登录";
 
   return (
-    <header className="topbar-gradient relative z-20 flex h-14 shrink-0 items-center gap-3 px-4 text-white shadow-[0_2px_12px_rgb(22_98_182_/_22%)] md:px-6">
+    <header className="topbar-solid relative z-20 flex h-14 shrink-0 items-center gap-3 px-4 text-white shadow-[0_2px_12px_rgb(22_98_182_/_22%)] md:px-6">
       <div className="flex shrink-0 items-center gap-2.5">
-        <span className="flex size-7 items-center justify-center rounded-lg bg-white/18 text-[11px] font-bold tracking-tight ring-1 ring-white/35">
-          LC
-        </span>
+        <BrandMark className="size-7 shrink-0 rounded-lg ring-1 ring-white/35" />
         <span className="hidden text-[15px] font-semibold tracking-wide sm:inline">LilyCraft</span>
         <span className="rounded-md bg-white/90 px-1.5 py-0.5 text-[10px] font-semibold text-pcl-2">
           Launcher
