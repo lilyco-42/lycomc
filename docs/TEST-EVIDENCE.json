@@ -285,6 +285,156 @@
           "sha256": "7344d43afc5cac5ccc5f10154bfcb47660e9e27e73a852d6a80c920452e0cbc6"
         }
       ]
+    },
+    {
+      "label": "本机 Web 可执行程序优先 / 最终二进制独立验收（2026-11-14，m06729）",
+      "files": [
+        {
+          "path": "/home/lilyco/.cache/lycomc-web-exe-check.log",
+          "bytes": 8523,
+          "sha256": "bae5ccaf6afd6c269954b85a487abaaf14aa79cb43cd7e0a03bced91b83daebc"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-web-final/bin/xdg-open",
+          "bytes": 60,
+          "sha256": "b25cd7786feb7a47efc811e80d324f3c6706ba41d56dbf7f47dc5bc32df7b786"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-web-final/backend-probe.sh",
+          "bytes": 1241,
+          "sha256": "e88dbec4da240a7a69cf40c13afb86890b6f7acd08c3c65f7610ff5a1d0ed56a"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-web-final/original-port.txt",
+          "bytes": 4,
+          "sha256": "19f97769ca894113c3650cd77530cad18a5b081a79adec195b0db2eb4ce06c42"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-web-final/xdg-args.txt",
+          "bytes": 22,
+          "sha256": "c497d4aa68b4d774f8a6396581834973e1faa387c8995262e0d429f3e32a435c"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-web-final/data-stub/web.port",
+          "bytes": 4,
+          "sha256": "0364c0e99a363153542157dddb22ebbbc63d22c6633c6b001a7bf6c98e82f2e9"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-web-final/sse-headers.txt",
+          "bytes": 142,
+          "sha256": "b55471b6b7910b1a8ab8b93db54346da8f6b88bce999b2a3cc4537975b866f68"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-web-final/sse-body.txt",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-web-final/web-final-cdp.mjs",
+          "bytes": 11653,
+          "sha256": "965415600b6ae29da6ab4b2e72f6383c112ca3800b9b14582d4e17427af12958"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-web-final/web-final-cdp.log",
+          "bytes": 5036,
+          "sha256": "4f177a0dd4f45e7b3f9991e4aa2abef5e0292ba1b2e513fe8c47c5a422585aa7"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-web-final/web-final-result.json",
+          "bytes": 5035,
+          "sha256": "a4244a650860c9fc2681836901962fa49da79d08eca113b22f26de0cc815babd"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-web-final/web-final-smoke.log",
+          "bytes": 210,
+          "sha256": "26e0ad0ded63642b066514c79790927b4c28fa8fe2a3d945a9e51fb5f9bffbe1"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-web-final/web-final-summary.json",
+          "bytes": 1608,
+          "sha256": "3a512d51270a37c5cf0a14decc71d04d70f3163893820f723c3b6cabe1e057b0"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-web-final/probe/cfg_probe_windows.rmeta",
+          "bytes": 2564,
+          "sha256": "5cd61e1c2ebe4e734ffea0aeb3e9246d7ada273d487981535cbd499d9cc369f8"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-web-final/probe/cfg_probe_macos.rmeta",
+          "bytes": 2840,
+          "sha256": "9d5925d4d80a935d7b356a64c73f28c4a61b27a0ae8dbb9c17ca0ecab3a51ad5"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-web-final/web-final-guide.png",
+          "bytes": 158393,
+          "sha256": "bd18811c1c19210cd30764fd3c0a0a7b1aa04a256085e285cd1b1fc7244772c9"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-web-final/web-final-home-chart.png",
+          "bytes": 157933,
+          "sha256": "7344d43afc5cac5ccc5f10154bfcb47660e9e27e73a852d6a80c920452e0cbc6"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-web-final/web-final-name-input.png",
+          "bytes": 120598,
+          "sha256": "de97f675a464e06b30cbc8f447f956e281533c3a0fd9f4dc1b3a231228ce30d4"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-web-final/web-final-onboarding-step1.png",
+          "bytes": 119892,
+          "sha256": "6d2585c56c6cac7066ced71dc81a15646c33961cad492d3c02902bde0dfface4"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-web-final/web-final-onboarding.png",
+          "bytes": 120324,
+          "sha256": "94137e811ab6c43dedb88f9ceb74ad8a3e2f76aefd4e9a842a0df278e27a6cca"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-web-final/web-final-route--.png",
+          "bytes": 154732,
+          "sha256": "87866279aead8770494a121c1a0b531e096b78dd4625fd94af342aabdf175092"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-web-final/web-final-route--download.png",
+          "bytes": 141227,
+          "sha256": "00ef24ac0f9867bda65e45f4dc1eabe411f24fb81eb4ceab7da115ebe0f12141"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-web-final/web-final-route--guide.png",
+          "bytes": 158393,
+          "sha256": "bd18811c1c19210cd30764fd3c0a0a7b1aa04a256085e285cd1b1fc7244772c9"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-web-final/web-final-route--mods.png",
+          "bytes": 110457,
+          "sha256": "5858bd9c4bb5920f7498a3e34245cae52bdc75da7ac1ff13945cee0d6bd0166e"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-web-final/web-final-route--no-such-page.png",
+          "bytes": 63760,
+          "sha256": "3b6aab3a4af50c4542d6bd3860a799b3a2dfdeee17ea147efd807ab915d32162"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-web-final/web-final-route--settings.png",
+          "bytes": 128541,
+          "sha256": "257498a2d5014613d71af023d71eeb968ee5da6ce2c30e4980e13f6f52b943ed"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-web-final/web-final-route--versions.png",
+          "bytes": 123379,
+          "sha256": "7d022d69e114fecf13c66fd08656518e3013cad9f07e8dd632cd3029f604746a"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-web-final/final-guard.log",
+          "bytes": 8642,
+          "sha256": "b38b8dae1af43bac6a0ce340a9fd24b97ae562731e6382eac57126e0ec8a1d0d"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-web-final/default-binary-after-check.txt",
+          "bytes": 145,
+          "sha256": "8b27b3d1416c0164c6045c0da1f21b167e4629952c62181c4ecde436deb8ec9a"
+        }
+      ]
     }
   ]
 }

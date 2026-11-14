@@ -1035,6 +1035,56 @@ async fn alive_at(p: u16) -> bool {
     }
 }
 
+// 本机 Web 可执行程序（Windows .exe / macOS 二进制 / Linux ELF）启动后打开默认浏览器。
+// Web 优先下这是主入口体验；可选桌面壳 feature 不参与这里。
+#[cfg(target_os = "windows")]
+fn browser_program() -> &'static str {
+    "rundll32"
+}
+
+#[cfg(target_os = "macos")]
+fn browser_program() -> &'static str {
+    "open"
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "macos")))]
+fn browser_program() -> &'static str {
+    "xdg-open"
+}
+
+#[cfg(target_os = "windows")]
+fn browser_prefix_arg() -> Option<&'static str> {
+    Some("url.dll,FileProtocolHandler")
+}
+
+#[cfg(not(target_os = "windows"))]
+fn browser_prefix_arg() -> Option<&'static str> {
+    None
+}
+
+#[cfg(any(target_os = "windows", target_os = "macos"))]
+fn browser_needs_display() -> bool {
+    false
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "macos")))]
+fn browser_needs_display() -> bool {
+    true
+}
+
+fn open_in_browser(url: &str) {
+    let mut cmd = std::process::Command::new(browser_program());
+    if let Some(prefix) = browser_prefix_arg() {
+        cmd.arg(prefix);
+    }
+    cmd.arg(url);
+    let _ = cmd
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn();
+}
+
 fn maybe_open_browser(url: &str) {
     if std::env::var("LYCOMC_NO_OPEN")
         .map(|v| v == "1")
@@ -1042,15 +1092,13 @@ fn maybe_open_browser(url: &str) {
     {
         return;
     }
-    if std::env::var("DISPLAY").is_err() && std::env::var("WAYLAND_DISPLAY").is_err() {
+    if browser_needs_display()
+        && std::env::var("DISPLAY").is_err()
+        && std::env::var("WAYLAND_DISPLAY").is_err()
+    {
         return;
     }
-    let _ = std::process::Command::new("xdg-open")
-        .arg(url)
-        .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .spawn();
+    open_in_browser(url);
 }
 
 pub fn serve() {
@@ -1157,6 +1205,33 @@ pub fn start_embedded() -> u16 {
     rx.recv()
         .unwrap_or_else(|e| Err(format!("embedded api: {e}")))
         .unwrap_or_else(|e| panic!("lycomc 内嵌服务启动失败: {e}"))
+}
+
+#[cfg(test)]
+mod browser_launch_tests {
+    use super::*;
+
+    #[test]
+    fn default_web_binary_uses_platform_browser() {
+        #[cfg(target_os = "linux")]
+        {
+            assert_eq!(browser_program(), "xdg-open");
+            assert!(browser_needs_display());
+            assert_eq!(browser_prefix_arg(), None);
+        }
+        #[cfg(target_os = "windows")]
+        {
+            assert_eq!(browser_program(), "rundll32");
+            assert!(!browser_needs_display());
+            assert_eq!(browser_prefix_arg(), Some("url.dll,FileProtocolHandler"));
+        }
+        #[cfg(target_os = "macos")]
+        {
+            assert_eq!(browser_program(), "open");
+            assert!(!browser_needs_display());
+            assert_eq!(browser_prefix_arg(), None);
+        }
+    }
 }
 
 #[cfg(test)]

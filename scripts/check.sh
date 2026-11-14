@@ -27,4 +27,7 @@ cargo clippy --all-targets --features desktop -- -D warnings
 cargo test --features desktop --no-fail-fast
 cargo build --features desktop
 
+# 最后恢复默认 Web 二进制：双轨检查不能把 target/debug/lycomc 留在 desktop 形态。
+cargo build
+
 echo "lycomc local checks passed (web default + optional desktop feature)"

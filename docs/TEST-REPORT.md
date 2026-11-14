@@ -180,3 +180,31 @@ test result: ok. 17 passed; 0 failed
 
 - 桌面壳输入焦点 P0 已由 m06445 降级冻结：`p0bs.png` / `p0input.png` 停在向导 step=0，是无效复验证据；已编译的焦点桥与 30 / 30 单测保留在可选 feature 里，但本节不宣称桌面 GUI「离开 → 回来 → 输入」已干净验收。
 - `docs/DECISION.md` 历史节「桌面双击 / 裸跑优先原生窗口」作为 2026-11-13 决策保留；本节 §7.5 的 27 passed 也是历史值，不与本轮 25 / 30 双轨数值混淆。longbridge/nsh 仅列为未来原生壳观察项，本轮不迁移、不复制代码、不引入 nsh CLI / 运行时。
+
+## 9. 2026-11-14 本机 Web 可执行程序优先回归（m06729；§8 历史矩阵不改写）
+
+### 9.1 默认入口与跨平台默认浏览器
+
+- 同一个默认二进制优先形态是「本机 Web 可执行程序」：Linux ELF / Windows `.exe` / macOS 二进制启动本地服务，再由平台默认浏览器打开；不是原生桌面客户端。Windows `.exe` 允许存在，但需 Windows 工具链或 CI 产出，当前 Linux 主机仍缺 MSVC `lib.exe`。
+- `src/api.rs` 的 `maybe_open_browser` 增加平台分支：Linux `xdg-open`、Windows `rundll32 url.dll,FileProtocolHandler`、macOS `open`；Windows / macOS 不依赖 DISPLAY；`LYCOMC_NO_OPEN=1` 可关闭自动打开。Windows / macOS 的 cfg 分支用 `rustc --emit=metadata --target x86_64-pc-windows-msvc|aarch64-apple-darwin` 编译验证（WINDOWS_CFG_OK / MACOS_CFG_OK），仅验证条件编译，不代表出包或实机。
+- Linux 实机 stub 实测：PATH 前置 `xdg-open` 记录脚本，默认二进制以临时数据目录和 `LYCOMC_PORT=9438` 启动后，stub 收到 `http://127.0.0.1:9438`；同端口 `/api/health` 返回 `webMode=embedded`，`web.port=9438`，无原生窗口依赖。
+- `scripts/smoke-web.sh` 增加临时数据目录的最小开箱 smoke，最终二进制复跑 `lycomc Web smoke OK`，不打开浏览器、不碰真实账号与版本。
+
+### 9.2 双轨守卫与已交付能力复核
+
+- `bash scripts/check.sh` 全绿（日志 `/home/lilyco/.cache/lycomc-web-exe-check.log`）：默认 `cargo test` **26 passed / 0 failed**（新增 `api::browser_launch_tests::default_web_binary_uses_platform_browser`），可选 `--features desktop` **31 passed / 0 failed**；`cargo fmt -- --check` PASS、`cargo clippy --all-targets -- -D warnings` 0 错、`git diff --check` CLEAN。
+- `scripts/check.sh` 末尾补一次默认 `cargo build`，避免双轨检查把 `target/debug/lycomc` 留在 desktop 形态；文档收尾后重跑的 `/home/lilyco/.cache/lycomc-web-final/final-guard.log` 仍 `EXIT=0`，紧接着实测默认二进制 `sha256=edbacdee…`、`ldd` NO_DESKTOP_LIBS、`--schema` 14 命令。
+- 前端 `pnpm lint` 4 warnings / 0 errors（既有告警）、`pnpm build` PASS；`touch build.rs && cargo build` 重新嵌入 web/dist；`ldd` 默认二进制 NO_DESKTOP_LIBS；`--schema` 14 命令；`src/api.rs::router` 26 条路由，覆盖 SSE、微软设备码登录、账号皮肤、Modrinth、设置与本地化。目标里的「25 路由」是历史基线口径：dabe2a0 与当前 router 都是 26 条、逐行 diff 为 0，能力只增不减，不构成回退。
+- 单测清单含 `mc::auth::*`（设备码字段、token 不泄漏、oauth 错误分类、皮肤变体、SSRF 白名单、内置 PNG）与 `settings::tests::*`；源码 / 文档保留正版登录与皮肤展示能力，不在本轮重复触发真实微软设备码的人工授权步骤。
+
+### 9.3 最终二进制独立 CDP 与后端探测
+
+- 独立服务 `lycomc-web-final` 用 `127.0.0.1:9440`、`LYCOMC_NO_OPEN=1`；health 返回 `webMode=embedded`。独立 Chromium CDP `127.0.0.1:9444` 与结果目录 `/home/lilyco/.cache/lycomc-web-final`，没有覆盖已提交 `web-first-*` 证据。
+- CDP `web-final-result.json` 九项 `pass` 全 true：首启向导、名字输入真实键盘 `WebQA` → blur BODY → 回 INPUT → 追加 `OK` 得 `WebQAOK`、onboarded 持久化、教程四步与重看引导、七路由（含 404 兜底，skeletons=0）、两张 recharts 图表（surfaces=2 / pieSectors=4 / barRects=4）、BrandMark 离散实色（gradientDefs=0、urlFill=false、paths=5、rects=1）。
+- 浏览器实际调用 13 个 `/api/*` 端点，含 `/api/events`、三个账号的 `/api/accounts/{name}/skin`、`/api/skin/image`、`/api/state`、版本详情、Modrinth 与 Mods；后端只读探测 11/11 返回 200，`/api/events` 响应头 `content-type: text/event-stream`，`/api/state` 为 3 版本 / 3 账号 / 5 Java / 0 运行中 / 0 Job 的真实快照。
+- 12 张 `web-final-*.png`、CDP 脚本、日志、结果、SSE 响应头、cfg probe 元数据、smoke 日志、最终守卫日志与默认二进制快照共 29 项登记到 `docs/TEST-EVIDENCE.json` 第 8 组，全部使用完整 64 位 sha256；既有第 7 组 18 项完整哈希逐项复核仍 ok=18 / bad=0，前 6 组历史短哈希口径不变。
+
+### 9.4 清理与边界
+
+- 验收服务已停止，真实 `web.port` 从 `9440` 恢复为 `8790`；`9440` / `9444` / `9450` 无残留监听；Chromium profile 与临时数据目录都在 `/home/lilyco/.cache/lycomc-web-final`，未写入用户数据；账号仍是 Steve（离线）/ lilyco42（微软）/ lilyco4242（离线），没有新增测试账号、没有打印 token。
+- 不宣称 Windows / macOS / Android / 鸿蒙实机安装包或签名包已产出；不宣称原生桌面壳输入焦点 P0 已完成干净 GUI 复验（m06445 已降级冻结）；m03957 全平台实机演示与 m04829 / m04836 三问仍待用户重新界定。

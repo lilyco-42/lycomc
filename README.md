@@ -45,7 +45,11 @@ lycomc --schema             # 全部命令的 JSON 清单（给脚本 / Agent �
 # Web 控制台：版本管理页点「一键汉化」，设置页选「游戏语言」
 ```
 
+最小开箱验收：`bash scripts/smoke-web.sh`（临时数据目录，不打开浏览器、不碰真实账号与版本）；完整维护检查：`bash scripts/check.sh`（双轨检查后自动恢复默认 Web 二进制）。
+
 环境变量：`LYCOMC_PORT`（Web 端口，默认 8766）、`LYCOMC_NO_OPEN=1`（不自动开浏览器）、`LYCOMC_DATA_DIR`（数据根）、`LILYCO_UI=web|gui|desktop`（入口覆盖；`desktop` 仅在启用 feature 时真正打开窗口）。
+
+> **本机 Web 可执行程序**：默认入口编译成 Linux ELF / Windows `.exe` / macOS 二进制后，双击都会启动本地 Web 控制台并自动打开系统默认浏览器；Linux 用 `xdg-open`，Windows 用 `rundll32 url.dll,FileProtocolHandler`，macOS 用 `open`，`LYCOMC_NO_OPEN=1` 可关闭。Windows `.exe` 需要 Windows 工具链或 CI 产出，本机缺 MSVC `lib.exe`，不在此宣称已出包。
 
 ## 界面
 
@@ -102,6 +106,8 @@ lycomc                                      # 默认仍是 Web 控制台，自�
 | 浏览器 | PWA（`manifest.webmanifest`，可添加到主屏幕） | ✅ 实测 manifest 正常返回 |
 
 > 说明：Web 优先后，Windows / macOS / Android 的交付门槛是「浏览器能打开同一套 Web 控制台」，不再是原生安装包；wine 可跑 Web UI 或 exe，但都不是主线。Android 当前定位仍是**本地管理 / 教程 / 远程控制壳**，不在手机上直接跑 Java 版 MC。已签名安装包与四端实机验收都还没做，不在本文宣称已达成；m03957 的全平台实机演示需按新口径重新确认。
+>
+> m06729 补充：Windows `.exe` 也可以，但优先同一个「本机 Web 可执行程序」形态；它不是原生桌面客户端，双击后起本地服务并自动开浏览器。源码已补 Win32 默认浏览器分支，出包需 Windows 工具链 / CI。
 
 打包与构建：
 

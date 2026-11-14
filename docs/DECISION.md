@@ -298,3 +298,4 @@ cargo test（解析逻辑单测：device code / XBL / XSTS / MC token / textures
 - m03957「全平台实机演示 / 服务器游玩」需按 Web / PWA 浏览器优先重新界定，待用户确认；不宣称已达成。
 - m04829 / m04836 三问（Android 形态、Win/mac 是否必须安装包、快捷方式生成方式）仍未答；Web 优先下先按「浏览器 PWA + 源码 / CI」推进，不阻塞主线。
 - m06349 桌面输入 P0 已由 m06445 取代 / 降级；焦点桥代码与单测保留，但不宣称完成干净 GUI 复验。
+- m06729 补充：「exe 也可以，优先本机 web exe 程序」——Windows / macOS / Linux 默认入口都是同一个本机 Web 可执行程序，启动后由平台默认浏览器打开；`maybe_open_browser` 增加 Windows `rundll32` / macOS `open` / Linux `xdg-open` 分支，并让 Windows 不再依赖 DISPLAY。本机仍缺 MSVC `lib.exe`，不产出 Windows `.exe`；源码与 CI 路径保留。
