@@ -537,3 +537,25 @@ pub fn registry_with_policy(policy: Arc<dyn SafetyPolicy>) -> Registry {
     }
     reg
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // CLI --help 与 --schema 是对外可观测契约；上游 Registry 用 BTreeMap 固定名字顺序后，
+    // 启动器自己的命令组合也不能退化成随机顺序，否则跨进程对比会假失败。
+    #[test]
+    fn registry_command_names_are_deterministic() {
+        let reg = registry_with_policy(Arc::new(lilyco::prelude::DenyElevated));
+        let names = reg.names();
+        let mut sorted = names.clone();
+        sorted.sort();
+        assert_eq!(names, sorted, "命令清单应按名字有序输出");
+        assert_eq!(names.len(), 14, "lycomc 目前注册 14 条命令");
+        assert_eq!(names.first().map(String::as_str), Some("account-add"));
+        assert_eq!(names.last().map(String::as_str), Some("settings-set"));
+        let json = serde_json::to_string(&reg.to_json()).expect("schema 可序列化");
+        let reg2 = registry_with_policy(Arc::new(lilyco::prelude::DenyElevated));
+        assert_eq!(json, serde_json::to_string(&reg2.to_json()).unwrap());
+    }
+}

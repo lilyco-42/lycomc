@@ -10,7 +10,7 @@
 # 没有已签名的 .exe / .dmg；真实产物由 .github/workflows/release.yml 在对应 runner 上生成。
 
 productName = "LilyCraft"
-version = "0.1.0"
+version = "0.1.1"
 identifier = "app.lilycraft.launcher"
 description = "小白也能用的 Minecraft 启动器：装一次版本，之后每次只要点一个按钮。"
 longDescription = """LilyCraft 是一款类 PCL 的 Minecraft 启动器。

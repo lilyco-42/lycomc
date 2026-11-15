@@ -367,3 +367,15 @@ cargo test（解析逻辑单测：device code / XBL / XSTS / MC token / textures
 - 口径：新增的成功证明不删除 43635688234 的失败记录；§13 的下载校验、归档结构、Linux 二进制启动与 §11 实机联机、§12 性能对比是不同层级证据。发布后文档补证提交在 main，tag 仍锁定 f6640ab306c7ca2bdb1380d98f82d46a78fd7556。
 
 - 未决项不变：m03957 的 Android / 鸿蒙 / 签名包 / 公网正版联机 / 全平台实机演示，以及 m04829 / m04836 的 Android 形态、Win/mac 签名包要求、快捷方式口径；桌面输入 P0 继续按 m06445 冻结。
+
+## 发布后加深验证与 v0.1.1 补丁决策（2026-11-15，m07969 / m08285「继续」）
+
+> 纯追加，不修改既有性能 / 稳定性 / Windows 门禁决策，也不改写 v0.1.0 发布事实。
+
+- 触发：v0.1.0 发布后用户「继续」驱动对发布物做加深验证，发现 CLI --help / --schema 顺序随机（lilyco-core Registry 用 HashMap，迭代顺序由随机种子决定）。
+- 方案矩阵：A 在 lycomc 内维护命令顺序白名单（否决：每次上游加命令都要同步，且 MCP / TUI 仍读同一 Registry）；B 用逐字节 schema 黄金文件做 CI 校验（否决：HashMap 顺序随机会让黄金文件假失败，且无法表达顺序无关语义）；C 上游将 Registry 改为 BTreeMap 并按名有序（采纳：命令表是对外可观测契约，排序是正确行为而非巧合）；D 仅本地修顺序不修上游（否决：其他下游如 MCP / TUI 仍有同样问题，且 lycomc 依赖 lilyco 公共 rev）。
+- 决策：走上游 PR #48（fix/deterministic-registry-order → mergeCommit 322fb9ceaee50c3ecf6593b73e0114159422ee90），lycomc 锁 d05626dc414e286c11f0f81b426a1026c9dffc81；同时在 scripts/check.sh 内加 6 次 --help / --schema 确定性门禁（HELP_DISTINCT / SCHEMA_DISTINCT 必须 ==1），因为 CI 每次 push 都跑该脚本，可阻止上游再次退化。
+- 版本与 tag 策略：沿用 §13 既定原则——v0.1.0 已公开且产生 Release，不得 force 重指向；改用递增 tag v0.1.1（annotated），只改 lilyco rev 与自身版本，不重写 v0.1.0 历史。
+- 锁策略：Cargo.lock 仅最小 diff（6 处 lilyco rev + lycomc 版本），撤销 cargo update 连带的 windows-sys 等无关重锁，避免补丁引入与顺序修复无关的依赖面变动。
+- 实证与边界：canonical-schema-equality 证明三份 schema 仅顺序不同、按名排序后逐字节一致（canonicalSha256 7f196335…）；PE / Mach-O 签名边界确认三平台包未 Authenticode / 未 Developer ID 签名 / 未公证；Wine 下 Windows 包实跑覆盖 Web 服务语义但不能替代真机。
+- 未决项不变：m03957 / m04829 / m04836 与桌面输入 P0 冻结状态不变。

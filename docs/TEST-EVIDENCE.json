@@ -1132,6 +1132,261 @@
           "sha256": "00ac6ed49c5cf7c13afb5a7bba59abd1ce545082f92c5cc7a24252024309cbeb"
         }
       ]
+    },
+    {
+      "label": "发布物加深验证、CLI 顺序缺陷定位与上游修复源代码快照（2026-11-15，v0.1.1 准备）",
+      "files": [
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group13/canonical-schema-equality.json",
+          "bytes": 1489,
+          "sha256": "b0c876a30f3dd0f94779e1ce6d549b91196855ca97913f8d64e5f2b299450c2a"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group13/determinism-summary.json",
+          "bytes": 1799,
+          "sha256": "f7034ed6f663a67aedc7b6d2c43dfb18be9f50ed8f5b68a29a2ae22c983eeb00"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group13/file-types.txt",
+          "bytes": 1316,
+          "sha256": "1000e35f0daee2ad6939a706e79ab3f5d18d54cec916f056fddda0f73790b83b"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group13/help-after-lycomc-main.txt",
+          "bytes": 973,
+          "sha256": "f7533dd325e6c39ba97b3033b8a7c9e140ac0860e702dd9152d54fd1e61ef4a2"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group13/help-orders-after.json",
+          "bytes": 1467,
+          "sha256": "d4bf5e1b1eee088db89b0b0e5aa0ff60a1121b867d092bd4a171f1360be898e1"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group13/help-orders-before.json",
+          "bytes": 1452,
+          "sha256": "2425fb39e4bb12495fdd9db7e981eb51ae67838987b228713896536de61b74dc"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group13/lilyco-pr48-commit-message.txt",
+          "bytes": 1537,
+          "sha256": "42b3784635154e779ef921267c25391b96face8c2b70caa161cef084cb05a9af"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group13/lilyco-registry-after.rs",
+          "bytes": 21969,
+          "sha256": "d1290b6ee4e994eb7c1b1561015b98b0d2d7d80cebb064a26f625d29ab16c319"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group13/lilyco-registry-before.rs",
+          "bytes": 18598,
+          "sha256": "b70ccda71a6aa17e2b6197f7b044a2073fa1b988c21a13cc499bd54e11e67274"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group13/mac/README.md",
+          "bytes": 14899,
+          "sha256": "0ba5bd6eaee513427b5198368304fca792a00b287005721935caef195ee7e4af"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group13/mac/lycomc",
+          "bytes": 11215184,
+          "sha256": "55aa4921c2f7f5c83c1d2873190141ef1f165e4abf56f0ed4701f77867b0ac6b"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group13/macho-dyld.txt",
+          "bytes": 375,
+          "sha256": "71b6a2f554f4cab5c291bba498270456d0d500009cad8db46b69f7e207714164"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group13/macho-private-headers.txt",
+          "bytes": 8133,
+          "sha256": "1533bcf053c235b00f7245f34266e61e1198fa6c7e4480318734d958504c59aa"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group13/pe-readobj.txt",
+          "bytes": 10722,
+          "sha256": "7e1d1e15a378c12ec7820573a49193ca311add9465eb7e098224f194aa6ce7a5"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group13/pe-sections.txt",
+          "bytes": 2286,
+          "sha256": "59d0c6af2245c6b276c30ed1bf23073bea111448903416da3e8e9e18f0aebe9f"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group13/pe-strings-taskkill.txt",
+          "bytes": 40,
+          "sha256": "3535f4c87016a654ccce7119a52e1acb756d34098bb15032bf8531d74b35042b"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group13/schema-after-lycomc-main.json",
+          "bytes": 9093,
+          "sha256": "0dcfeb14bdce9f463abb940d5990cd08db765dd50723df0fd1b54cfe10188a07"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group13/schema-linux.json",
+          "bytes": 9093,
+          "sha256": "38f125bbd8ee87a17e347566c4e75170bb33fdd7ef30d72a50f77fd3e4b9d02d"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group13/schema-orders-after.json",
+          "bytes": 1401,
+          "sha256": "960ad474bd3d9540ed6f65ec33091fee7a3d5915391307d8b9b1a5ce857e17cf"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group13/schema-orders-before.json",
+          "bytes": 1386,
+          "sha256": "ff3c9825acfe6c6b8e8f02bfdf2f59e9ff0e25a21c07a8ba9dee063410684727"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group13/schema-win.json",
+          "bytes": 9093,
+          "sha256": "41b913d17e37e5a624df291b962d3df162f01228a8eb6ba293f180899ab10faf"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group13/signature-boundary.json",
+          "bytes": 725,
+          "sha256": "40667fff766cd86590252b0f777edb54ac8ed7917d84b54de3cf724cc56d63fa"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group13/win/README.md",
+          "bytes": 15076,
+          "sha256": "9ce1ea28ffcef8202ff1007163fca611f7824f9060ae269f97630fbeaf52fbfc"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group13/win/lycomc.exe",
+          "bytes": 10628608,
+          "sha256": "9c51fa05c147c78050fa283d3919033dbfa540e491362b3d0825ed5dd1823b92"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group13/wine-data-v2/accounts.json",
+          "bytes": 112,
+          "sha256": "295d75128e2a3ffed8e2553c8de34e06081264e58d800b0bb3c85c7df4aac60b"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group13/wine-data-v2/settings.json",
+          "bytes": 262,
+          "sha256": "25ce3fe98f5129b6e75587dc16e3ed75763df991b77d0a7d34b275acfc956385"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group13/wine-data-v2/web.port",
+          "bytes": 4,
+          "sha256": "ce51bd929fb555d5728e868b47a5a6098c18582907cf20459582b752781b7582"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group13/wine-data/accounts.json",
+          "bytes": 110,
+          "sha256": "83f4d87d0ef70ea844abd4af2112673a787b562db8f3f62e6a82d95fecbac238"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group13/wine-data/settings.json",
+          "bytes": 262,
+          "sha256": "c3f5be7af59bbb6d34889807f8d7dbd2610d3319c7a119b8a7166c2aaf32e8ca"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group13/wine-data/web.port",
+          "bytes": 4,
+          "sha256": "da19ec9481cbcf30da9993db3570aa8442c6684464f26030eb2c045152b376bd"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group13/wine-schema-orders-published-v0.1.0.json",
+          "bytes": 1709,
+          "sha256": "e9c358c98afc322f266ede53488c74b98956078252c8b9e98622597289334b4c"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group13/wine-web-probe.json",
+          "bytes": 6305,
+          "sha256": "15481e769573374d41a33bb4ead2b99c485dd23a06d4746e861a0771008bf409"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group13/wine-web-probe.log",
+          "bytes": 4302,
+          "sha256": "7283e68b410b7477978fc15c549be570a76fcb05998ab577ae506e80e2403049"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group13/wine-web.log",
+          "bytes": 157,
+          "sha256": "a07ee15b47230d28bb041807d81405109854b6927cec1078ae8a1d0bbe4edb29"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group13/wine-web2.log",
+          "bytes": 157,
+          "sha256": "a07ee15b47230d28bb041807d81405109854b6927cec1078ae8a1d0bbe4edb29"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group13/wine-web3.log",
+          "bytes": 157,
+          "sha256": "a07ee15b47230d28bb041807d81405109854b6927cec1078ae8a1d0bbe4edb29"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/evidence-group12-manifest.json",
+          "bytes": 7735,
+          "sha256": "00ac6ed49c5cf7c13afb5a7bba59abd1ce545082f92c5cc7a24252024309cbeb"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/evidence-group13-manifest.json",
+          "bytes": 7471,
+          "sha256": "09dd597aa4cee4812c9a89d4a6801752c5dc1fe2df394b7c4c9633bcf7e2017f"
+        }
+      ]
+    },
+    {
+      "label": "上游 PR 48 合并核验、v0.1.1 本地回归、最小锁差异与发布前凭据扫描（2026-11-15）",
+      "files": [
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group14/check-v0.1.1.log",
+          "bytes": 12791,
+          "sha256": "f044329d549d8e42be907be2f75361c932139442f7e70235d59b08d2d21136e0"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group14/lilyco-pr48-snapshot.json",
+          "bytes": 649,
+          "sha256": "fc931a92c1e0f68171f029fd9f96fbff1378fbb358503f2a4b4e35a633a1b1f3"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group14/local-binary-snapshot.json",
+          "bytes": 707,
+          "sha256": "2cc1df910d9ea875932ccc5bf4397701a2858c933877e60c6920a2fc5ad17db0"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group14/scan_worktree.py",
+          "bytes": 1168,
+          "sha256": "c73717d7caf1e9e4b0263384d6efdce005c06d6c1e7d4339c32fd51143187b38"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group14/secret-scan-worktree.json",
+          "bytes": 332,
+          "sha256": "d904747776be66442571348fb1eedd5fae9d2fb424552a5dbb788bf2fe714a09"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group14/v0.1.1-code.diff",
+          "bytes": 7457,
+          "sha256": "2b7ea3819ea362c5c5c1ad3c90176ab2dc2d885d1d7f9974677342658ebd6c66"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group14/windows-gnu-check-v0.1.1.log",
+          "bytes": 38279,
+          "sha256": "2a50ba5f41ea06befb5bf1f58c769a9bcb6e911afbd35dabe6e6e20463a2b77c"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group14/windows-gnu-check-zig-v0.1.1.log",
+          "bytes": 3735,
+          "sha256": "a58dda15a693dc0208c3f8a99d5c0f5b3f8384539eac226b485ab02fd92cf2af"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/zig-windows-gnu-cc.sh",
+          "bytes": 260,
+          "sha256": "ebf4dbfd57fefc51d11041e51c549ab66136fd435dc5e66a6ce1283b42a0d4b8"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/evidence-group13-manifest.json",
+          "bytes": 7471,
+          "sha256": "09dd597aa4cee4812c9a89d4a6801752c5dc1fe2df394b7c4c9633bcf7e2017f"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/evidence-group14-manifest.json",
+          "bytes": 2199,
+          "sha256": "1f63addae63ca2b62d4a5d0c5a9e3f2bac800e3239c7c07623b59f6e0b558ebe"
+        }
+      ]
     }
   ]
 }

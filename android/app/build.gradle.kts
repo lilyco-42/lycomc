@@ -17,7 +17,7 @@ android {
         minSdk = 24
         targetSdk = 34
         versionCode = 1
-        versionName = "0.1.0"
+        versionName = "0.1.1"
         ndk {
             // 只保留手机主流的 arm64 与模拟器/桌面 x86_64，减小包体。
             abiFilters += listOf("arm64-v8a", "x86_64")

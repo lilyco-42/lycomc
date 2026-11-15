@@ -386,3 +386,48 @@ test result: ok. 17 passed; 0 failed
 - 本节是发布后补证，提交在 main 上；v0.1.0 tag 仍锁定发布时的 f6640ab306c7ca2bdb1380d98f82d46a78fd7556，未为追加文档改动 Release 二进制。
 
 - Android 形态、Win/mac 是否必须签名安装包、快捷方式口径（m04829 / m04836）以及 m03957 的全平台 / 公网正版联机 / 实机演示范围仍待用户重新界定；可选桌面壳输入 P0 按 m06445 保持冻结。
+
+## 14. 发布后加深验证与 v0.1.1 补丁准备（2026-11-15，m07969 / m08285「继续」）
+
+### 14.1 触发与范围
+
+- v0.1.0 发布（§13）后，用户以「继续」驱动对发布物做加深验证，不引入新功能；目标是发现并修复 CLI 命令表顺序非确定性、补回归门禁、准备递增补丁版本。
+- 范围只改变 lilyco 依赖 rev 与 lycomc 自身版本号，不重写 v0.1.0 历史；v0.1.0 tag 继续锁定 f6640ab306c7ca2bdb1380d98f82d46a78fd7556。
+
+### 14.2 缺陷定位：CLI --help / --schema 顺序随机
+
+- 根因在 lilyco-core：Registry.commands 与 aliases 原为 HashMap（lilyco-registry-before.rs:12,152,153,160,161），iter() / to_json() 按迭代顺序输出，顺序由每进程随机种子决定。
+- 实测：同一 Linux Release 二进制（origin/main 1fc383e HashMap）连跑 6 次 --help 得 6 种顺序、--schema 6 种；已发布 Windows v0.1.0 exe 在 Wine 下 6 次 schema 也 6/6 distinct（wine-schema-orders-published-v0.1.0.json）。
+- 这种非确定性会传染到 MCP tools/list、TUI / Web 选择页；任何逐字节 schema 黄金文件都会假失败，因此改为语义排序校验（见 14.4）。
+
+### 14.3 上游修复与本地收口
+
+- 在 lilyco-42/lilyco 开 PR #48（分支 fix/deterministic-registry-order，基于 origin/main 1fc383e），将 commands / aliases 改为 BTreeMap（lilyco-registry-after.rs:12,157,158,165,166，含中文注释说明命令表是对外可观测契约），新增测试 names_are_sorted_regardless_of_registration_order 与 to_json_is_byte_stable_across_registration_orders。
+- 提交 d05626dc414e286c11f0f81b426a1026c9dffc81，lilyco-core 单测 68 passed、框架全量 218 passed、fmt 通过；registry.rs 0 clippy 告警（既有 4 个 clippy 报错均在 error.rs / safety.rs / lib.rs，不在改动文件）。
+- PR #48 合并：mergeCommit 322fb9ceaee50c3ecf6593b73e0114159422ee90，mergedAt 2026-11-15T07:05:46Z；main CI run 43688393453 与 Vision run 43688392821 均 success（跨仓库 gh run view 43688393453 --repo lilyco-42/lilyco 复核）。
+- lycomc 侧：Cargo.toml 将 lilyco 依赖锁到 rev d05626dc414e286c11f0f81b426a1026c9dffc81；src/commands.rs 末尾新增 #[cfg(test)] mod tests，registry_command_names_are_deterministic 断言 14 命令按名有序、len=14、first=account-add、last=settings-set、两次 to_json() 字节相等。
+
+### 14.4 语义等价证明与门禁
+
+- 三份 --schema（v0.1.0 Linux / v0.1.0 Windows(Wine) / 修复后 lycomc）原始各 9093 B，按 name 升序排序后 canonical 5415 B、canonicalSha256 7f196335faeb84de07d45ce73768f7dd55cfe2ac04cf5c725dbb77d841afd329、commandCount=14、allCanonicalEqual=true（canonical-schema-equality.json）。结论：BTreeMap 修复只改顺序不改内容，禁用逐字节 schema 黄金文件。
+- scripts/check.sh 在最终 cargo build 后新增 6 次连跑 --help / --schema，对每次输出 sha256sum 后 sort -u | wc -l，要求 HELP_DISTINCT==1 且 SCHEMA_DISTINCT==1，否则 exit 1。选择放进 check.sh 是因为 CI 每次 push 都跑该脚本，可阻止上游 Registry 再次退化成 HashMap。
+- 最终本地二进制 6 次 --help / --schema 逐字节各 1 种：HELP_SHA=f7533dd325e6c39ba97b3033b8a7c9e140ac0860e702dd9152d54fd1e61ef4a2、SCHEMA_SHA=0dcfeb14bdce9f463abb940d5990cd08db765dd50723df0fd1b54cfe10188a07、schema 9093 B；bash scripts/runtime-smoke.sh EXIT=0 且 version 已是 0.1.1。
+
+### 14.5 发布物结构加深验证（Wine / PE / Mach-O / 签名边界）
+
+- 在 Wine（wine-11.22）下实跑已发布 Windows v0.1.0 exe：隔离数据目录 + LYCOMC_NO_OPEN=1 启动，/api/health 200、webMode=embedded、版本 0.1.0；GET /api/settings 200、PUT /api/settings 200 落盘、POST /api/settings 405（证明 .get/.put 语义）、POST /api/accounts 生成离线 uuid、GET /api/events 为 text/event-stream、未知 / 缺失进程路由 404；数据目录自动建 accounts/settings/web.port/assets/cache/java/libraries/logs/versions。Wine 可证 Windows 包实跑但不能替代真机。
+- PE 证据（pe-readobj / pe-sections / pe-strings-taskkill）：PE32+ console x86-64，IMAGE_FILE_MACHINE_AMD64 0x8664，5 sections，linker 14.51，IMAGE_SUBSYSTEM_WINDOWS_CUI 0x3，DYNAMIC_BASE/HIGH_ENTROPY_VA/NX_COMPAT/TERMINAL_SERVER_AWARE；CertificateTableRVA 0x0 → 未 Authenticode 签名；strings 命中 System32 下的 taskkill.exe 与 /PID /T /F 参数，证明 Windows taskkill 分支已编进包；libc.so 计数 0。
+- Mach-O 证据（macho-private-headers / macho-dyld）：MH_MAGIC_64 ARM64 EXECUTE，PIE，LC_BUILD_VERSION platform macos sdk 15.5 minos 11.0；1 条 LC_CODE_SIGNATURE datasize 87072（链接期 ad-hoc，未 Developer ID 签名、未公证）；dyld 链接 /usr/lib 下的 liblzma.5 / libbz2.1.0 / libiconv.2 / libSystem.B。
+- 签名边界（signature-boundary.json）：三平台 Runner 包可下载且 SHA-256 可核，Linux 包本机与 Wine 下 Windows 包实跑；Windows / macOS 真机运行、签名安装包、公证均未覆盖。
+- 本机缺 x86_64-w64-mingw32-gcc，直接 cargo check --target x86_64-pc-windows-gnu 失败（ToolNotFound）；用 Zig 0.17.1 包装脚本过滤 cc-rs 的 --target= 参数后 zig cc -target x86_64-windows-gnu 可 EXIT=0 0 warnings（windows-gnu-check-zig-v0.1.1.log）。本机交叉检查不替代远端 Runner。
+
+### 14.6 最小锁差异与发布前凭据扫描
+
+- Cargo.lock 从 git show HEAD 还原后仅把 6 处 lilyco 系列 source rev 由 1fc383e 改为 d05626d、lycomc 版本 0.1.0→0.1.1；刻意撤销 cargo update 连带的 windows-sys 0.61.2→0.52.0 等无关重锁，避免补丁引入与顺序修复无关的 Windows 依赖变动。diff 7 insertions / 7 deletions，cargo build --locked --offline EXIT=0。
+- 凭据扫描（scan_worktree.py / secret-scan-worktree.json，覆盖 github_token / openai_key / aws_key / private_key / bearer / json_credential / microsoft_device / xauth_cookie）对 v0.1.1 code diff 命中 0；提交后须重扫 staged 与 history（含新 docs），且不得打印 token。
+
+### 14.7 边界与未决项（延续 §13.5）
+
+- 已证明：GitHub Runner 编译、三平台包、校验和、Linux 包本机、Wine 下 Windows 包实跑、CLI 顺序确定性门禁、上游 PR 合并与 main CI 成功。
+- 未覆盖：Windows / macOS / Android / 鸿蒙真机、签名安装包、公证、公网正版多人服务器联机、全平台实机演示。
+- 未决项不变：m03957 全平台形态 / 公网正版联机 / 实机演示，m04829 / m04836 的 Android 形态 / Win-mac 签名包要求 / 快捷方式口径；桌面输入 P0 仍按 m06445 冻结。
