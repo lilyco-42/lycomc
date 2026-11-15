@@ -4,8 +4,8 @@ import { SkinAvatar } from "@/components/skin-avatar";
 import { useAppData } from "@/context/app-data-context";
 import { type AccountSkin } from "@/lib/api";
 import { loadAccountSkinByKey, skinKeyFor } from "@/lib/account-skin";
-import { NAV_ITEMS, type NavItem } from "@/lib/nav";
-import { normalizeHash, useRoutePath } from "@/lib/router";
+import { HELP_NAV_ITEM, NAV_ITEMS, type NavItem } from "@/lib/nav";
+import { hrefFor, normalizeHash, useRoutePath } from "@/lib/router";
 import { shortUuid } from "@/lib/format";
 import { useKeyedFetch } from "@/lib/use-keyed-fetch";
 import { cn } from "@/lib/utils";
@@ -18,8 +18,11 @@ export function AppSidebar() {
   const skinKey = currentAccount !== null ? skinKeyFor(currentAccount) : "";
   const { data: skin } = useKeyedFetch<AccountSkin>(skinKey, loadAccountSkinByKey);
 
-  /** 备份入口放在「启动器」组，主导航仍由 NAV_ITEMS 统一驱动。 */
-  const gameNavItems: NavItem[] = NAV_ITEMS.filter((item) => item.to !== "/backup");
+  const HelpIcon = HELP_NAV_ITEM.icon;
+  /** 备份与帮助入口放在「启动器」组，主导航仍由 NAV_ITEMS 统一驱动。 */
+  const gameNavItems: NavItem[] = NAV_ITEMS.filter(
+    (item) => item.to !== "/backup" && item.to !== HELP_NAV_ITEM.to,
+  );
   const isMicrosoft = currentAccount?.kind === "microsoft";
   const needsLogin = isMicrosoft && currentAccount !== null && !currentAccount.hasSession;
   const skinUrl = skin?.skinUrl ?? currentAccount?.skinUrl ?? null;
@@ -99,6 +102,23 @@ export function AppSidebar() {
               ) : null}
               <DatabaseBackup className={cn("size-4 shrink-0", path === "/backup" ? "text-primary" : "text-muted-foreground")} />
               备份与清理
+            </a>
+            <a
+              data-help-nav="sidebar"
+              aria-label={HELP_NAV_ITEM.label}
+              href={hrefFor(HELP_NAV_ITEM.to)}
+              className={cn(
+                "group relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors",
+                path === HELP_NAV_ITEM.to
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground/75 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground",
+              )}
+            >
+              {path === HELP_NAV_ITEM.to ? (
+                <span className="brand-solid absolute top-1/2 left-0 h-5 w-[3px] -translate-y-1/2 rounded-full" />
+              ) : null}
+              <HelpIcon className={cn("size-4 shrink-0", path === HELP_NAV_ITEM.to ? "text-primary" : "text-muted-foreground")} />
+              {HELP_NAV_ITEM.label}
             </a>
             <a href="#/settings" className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] text-sidebar-foreground/75 transition-colors hover:bg-sidebar-accent/70 hover:text-sidebar-foreground">
               <Palette className="size-4 shrink-0 text-muted-foreground" />

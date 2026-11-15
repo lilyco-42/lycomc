@@ -578,3 +578,13 @@ v0.1.1 的 L0–L8 结论不变；L9 在 A/B/C 未确认前不得标记为完成
 - 最终 scripts/check.sh EXIT=0：pnpm lint 0 errors、2601 modules、默认 59 passed、--features desktop 64 passed、fmt/clippy -D warnings、双轨构建、runtime smoke、6 次 --help/--schema 各 1 种；日志 check-v0.1.1-c17-final.log 15230 B。
 - 浏览器 CDP 独立端口 9614/9615、独立 profile/data、预置 c17-cdp-1.20.1 与 alpha.jar，加载前注入 lycomc.onboarded=1；真点击信息按钮验证 SHA-1 d0ed5b7760d2ebe2212bb23d48661ce8f8fac67e，真点击 Dialog 禁用使磁盘出现 alpha.jar.disabled 且 API enabled=false，Esc 关闭后真点击 Switch 重新启用并恢复 alpha.jar；c17-browser-result.json route/info/dialogToggle/switchToggle/health/all 全 true，4 张截图落盘，进程与端口清理干净。
 - 边界：本轮只证 .jar/.jar.disabled 两类本地文件与四类本地元数据；不覆盖 .zip/.litemod/.old、云端 Modrinth 依赖解析、F30 44/45 类崩溃归因、公网正版联机、真机/签名/L9。F30 源码清点 27 文件、45 causes 另存第 21 组证据，因自定义许可与面宽继续延后。PCL-CE v2.15.1 全量差距仍须重算，整体 100% 未达成。
+
+## §22 PCL-CE H39 内嵌帮助、关于、许可、反馈与 Wiki（Round 5，2026-11-15）
+
+- 基线：PCL-CE v2.15.1 / commit 1a7653127d578efdb2a9388999a3fdc67d9e49d5；仅观察公开功能语义。Plain Craft Launcher 2/ 子目录为自定义 LICENCE；不复制源码、规则、正则、界面文案、图标或品牌资产，不内嵌第三方许可证全文。语义清点见 h39-pcl-semantic-survey.json。
+- 后端：新增 src/help.rs 与 src/help_data.json，离线 GET /api/about（版本取 CARGO_PKG_VERSION、webMode 取 embedded 状态、licenseStatus=unspecified、上游 v2.15.1、16 个帮助主题、6 个文档与 4 个 Wiki 链接）和 GET /api/help/search（多词 AND、大小写/中文匹配、128 字符上限、不回显 query）；路由 37 条，不新增依赖，不改 Cargo.toml/Cargo.lock。POST /api/about 保持 405。
+- 前端：ui task-5 仅改 7 个 web/src 文件，新增可刷新的 #/help 路由、顶部/侧栏入口、四个 data-help-section（使用帮助/关于 LilyCraft/许可与来源/反馈与 Wiki）、离线兜底、骨架/错误/重试/空态、帮助主题搜索与真实链接；逐文件 SHA-256 与 ui 报告一致，tsc --noEmit 与 oxlint 均 0，pnpm build 产物 index-B6lcfMCB.js 命中全部 7 个 H39 字符串。lead 已 claim rev2 + complete rev3 把 task-5 置为 completed。
+- 分层门禁：scripts/check.sh 全绿（pnpm lint 0 errors、2601 modules、默认 63 passed、--features desktop 68 passed、fmt/clippy -D warnings、双轨构建、runtime smoke、6 次 --help/--schema 各 1 种）；scripts/test-sufficiency.sh 42/42，16 并发全 2xx、30 秒 10 次采样全 2xx、慢 JAVA_HOME 最差 2008.941 ms 有界。
+- 真实浏览器：独立端口 9616/9617 与独立 profile/data，加载前注入 lycomc.onboarded=1；#/help 四块可见，/api/about 显示版本 0.1.1 与未声明许可，真实 Input.insertText 输入“备份”触发 /api/help/search 并显示“创建与恢复备份”，空查询不回显；7/7 CDP 断言全 true，3 张 h39 前缀截图落盘，端口与进程组清理干净。
+- 失败保留：首次充分性 Python heredoc SyntaxError: unmatched ')' 记录于 sufficiency-backend-failed-1.*；CDP 脚本生成器 q 未定义、首版未转义引号导致 node --check SyntaxError、以及一次 TypeScript 生成器语法错误均保留记录；每次以新脚本/精确修复推进，没有用 || true 掩盖。
+- 发布边界：本轮只做 main 上的 H39 逐层交付，不动 v0.1.0/v0.1.1 tag 与 Release；旧 41 项 Meloong-Git/PCL 基线仍只是历史代理，PCL-CE v2.15.1 全量差距待重算。L9 真机/签名/公证、公网正版多人服务器与全平台实机演示未覆盖，整体 100% 未达成。

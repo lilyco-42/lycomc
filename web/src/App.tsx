@@ -15,6 +15,7 @@ import { SettingsPage } from "@/pages/settings-page";
 import { BackupPage } from "@/pages/backup-page";
 import { NotFoundPage } from "@/pages/not-found-page";
 import { GuidePage } from "@/pages/guide-page";
+import { HelpPage } from "@/pages/help-page";
 import { Onboarding } from "@/components/onboarding";
 import { GUIDE_EVENT, hasOnboarded } from "@/lib/onboarding";
 
@@ -71,6 +72,8 @@ function PageSwitch({ path }: { path: string }) {
       return <BackupPage />;
     case "/guide":
       return <GuidePage />;
+    case "/help":
+      return <HelpPage />;
     default:
       return <NotFoundPage />;
   }

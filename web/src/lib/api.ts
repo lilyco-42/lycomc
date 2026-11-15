@@ -275,6 +275,56 @@ export interface LogsResponse {
   lines: string[];
 }
 
+/** H39：/api/about 返回的项目、许可、上游与帮助入口元数据。 */
+export interface HelpLink {
+  title: string;
+  url: string;
+}
+
+/** H39：上游项目信息，仅用于许可边界说明，不代表官方关联。 */
+export interface UpstreamInfo {
+  name: string;
+  version: string;
+  url: string;
+  licenseNote: string;
+}
+
+/** H39：内联帮助条目；route 是站内页面，url 是外部说明或站内 hash。 */
+export interface HelpTopic {
+  id: string;
+  title: string;
+  category: string;
+  summary: string;
+  route?: string | null;
+  url?: string | null;
+}
+
+export interface AboutInfo {
+  name: string;
+  product: string;
+  version: string;
+  webMode: string;
+  license: string;
+  licenseStatus: string;
+  licenseNote: string;
+  repository: string;
+  issues: string;
+  upstream: UpstreamInfo;
+  guideUrl: string;
+  docs: HelpLink[];
+  wiki: HelpLink[];
+  helpTopics: HelpTopic[];
+  helpSearchPath: string;
+}
+
+export interface HelpSearchResponse {
+  items: HelpTopic[];
+  count: number;
+}
+
+/** 默认的内联帮助搜索路径；/api/about 可通过 helpSearchPath 覆盖。 */
+export const DEFAULT_HELP_SEARCH_PATH = "/api/help/search?q=";
+
 /** 设置备份条目：POST /api/backup/create 与 GET /api/backup/list 共用。 */
 export interface BackupEntry {
   id: string;
@@ -415,8 +465,31 @@ function jsonPatchBody(payload: unknown): RequestInit {
   return { method: "PATCH", body: JSON.stringify(payload) };
 }
 
+/** 只接受同源 /api 搜索路径；避免把 about 返回的任意地址直接拿来请求。 */
+function helpSearchUrl(searchPath: string, q: string): string {
+  const candidate = searchPath.trim();
+  const safe = /^\/api\/[A-Za-z0-9_/?=&.-]*$/.test(candidate)
+    ? candidate
+    : DEFAULT_HELP_SEARCH_PATH;
+  const encoded = encodeURIComponent(q);
+  if (/[?&]q=/.test(safe)) {
+    return safe + encoded;
+  }
+  if (/[?&]q$/.test(safe)) {
+    return safe + "=" + encoded;
+  }
+  return safe + (safe.includes("?") ? "&q=" : "?q=") + encoded;
+}
+
 export const api = {
   health: () => request<Health>("/api/health"),
+
+  /** H39：关于、许可、上游与帮助入口元数据。 */
+  about: () => request<AboutInfo>("/api/about"),
+
+  /** H39：内联帮助搜索；searchPath 可由 /api/about 的 helpSearchPath 提供。 */
+  searchHelp: (q: string, searchPath: string = DEFAULT_HELP_SEARCH_PATH) =>
+    request<HelpSearchResponse>(helpSearchUrl(searchPath, q)),
 
   state: () => request<StateResponse>("/api/state"),
 

@@ -477,3 +477,16 @@ cargo test（解析逻辑单测：device code / XBL / XSTS / MC token / textures
 | G | force 已公开 tag 或重发 Release | 否决 | 本轮不动 v0.1.0/v0.1.1 发布物 |
 
 落地：8 个实现/契约/测试文件改动、35 条充分性断言、独立 CDP 真交互、第 21 组证据与 manifest 自登记。整体目标仍 ACTIVE；待按 PCL-CE v2.15.1 重算剩余差距并逐项实现，L9 真机/签名/公网正版联机仍未开始。
+
+## PCL-CE H39 内联帮助与许可边界决策（Round 5，2026-11-15）
+
+| 方案 | 判断 | 理由 |
+| --- | --- | --- |
+| A | 复制 PCL-CE About/Feedback/HelpDetail 的 XAML、文案、贡献者/Issues 抓取或自定义 LICENCE 全文 | 否决 | Plain Craft Launcher 2/ 为自定义 LICENCE；本项目只观察公开语义并独立实现，避免许可与品牌资产风险 |
+| B | 本轮实现 F30 全部 45 类崩溃归因 | 否决 | 27 个自定义许可源码文件、规则面宽且需要逐类证据；先完成可离线证明的 H39 |
+| C | 离线 /api/about + /api/help/search + 自有 #/help 四块 | 采纳 | 无外部凭据或联网依赖；licenseStatus=unspecified 如实声明；16 个独立中文主题可被 L1/L3/L4/L5 与 CDP 证明 |
+| D | 逐字节 golden 比较 PCL-CE 帮助页或复制其 URL 规则 | 否决 | 只做功能语义等价；搜索结果与 about 元数据是本产品自有契约 |
+| E | force 已公开 tag 或在 H39 文档后重发 Release | 否决 | 本轮为 main 上的增量实现，v0.1.0/v0.1.1 发布物保持不变 |
+| F | 抹掉 Python/CDP 脚本首次失败 | 否决 | 保留失败日志与语法失败记录，用精确修复后的 42/42 和 7/7 CDP 推进 |
+
+落地：后端 6 个文件改动/新增、前端 7 个文件、37 条路由、42 条充分性断言、63/68 Rust 测试、独立 CDP 三张截图与第 22 组 manifest 自登记。整体目标仍 ACTIVE；需按 v2.15.1 重算剩余差距并逐项实现，L9 真机/签名/公网正版联机仍未开始。

@@ -115,6 +115,8 @@ impl AppState {
 pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/api/health", get(health))
+        .route("/api/about", get(about_info))
+        .route("/api/help/search", get(help_search))
         .route("/api/state", get(state_all))
         .route("/api/remote/versions", get(remote_versions))
         .route("/api/versions/install", post(install_version))
@@ -162,6 +164,22 @@ pub fn router(state: AppState) -> Router {
 }
 
 // ── 元信息 ─────────────────────────────────────────────────────
+
+async fn about_info() -> Json<Value> {
+    Json(crate::help::about())
+}
+
+#[derive(Deserialize)]
+struct HelpSearchQ {
+    #[serde(default)]
+    q: Option<String>,
+}
+
+async fn help_search(Query(q): Query<HelpSearchQ>) -> Result<Json<Value>, ApiError> {
+    crate::help::search(q.q.as_deref().unwrap_or_default())
+        .map(Json)
+        .ok_or_else(|| ApiError::bad("帮助搜索关键词过长"))
+}
 
 async fn health() -> Json<Value> {
     Json(json!({

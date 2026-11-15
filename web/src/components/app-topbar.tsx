@@ -41,6 +41,8 @@ export function AppTopbar() {
             <a
               key={item.to}
               href={item.to === "/" ? "#/" : "#" + item.to}
+              data-help-nav={item.to === "/help" ? "topbar" : undefined}
+              aria-label={item.to === "/help" ? "帮助与关于" : undefined}
               className={cn(
                 "flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium transition-colors",
                 active

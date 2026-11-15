@@ -5,6 +5,7 @@ pub mod api;
 pub mod assets;
 pub mod backup;
 pub mod commands;
+pub mod help;
 pub mod jobs;
 pub mod mc;
 pub mod policy;

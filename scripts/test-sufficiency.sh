@@ -15,7 +15,7 @@ chmod 0755 "$OUT/slow-java/bin/java"
 export LYCOMC_DATA_DIR="$OUT/data" LYCOMC_NO_OPEN=1 TMPDIR="${TMPDIR:-/tmp}"
 PYTHON=$(command -v python3)
 "$PYTHON" - "$BIN" "$OUT" "$PORT" <<'PY'
-import hashlib, json, os, re, signal, socket, subprocess, sys, time, urllib.error, urllib.request
+import hashlib, json, os, re, signal, socket, subprocess, sys, time, urllib.error, urllib.parse, urllib.request
 bin_path, out, requested_port = sys.argv[1], sys.argv[2], int(sys.argv[3])
 port = requested_port
 if port == 0:
@@ -163,6 +163,42 @@ def mod_toggle_back_case():
     okv = r['status'] == 200 and jget(r).get('enabled') is True and os.path.isfile(os.path.join(mod_dir, 'alpha.jar')) and not os.path.exists(os.path.join(mod_dir, 'alpha.jar.disabled'))
     return r['status'], r['headers'], r['body'], bool(okv), 'enabled=' + str(os.path.isfile(os.path.join(mod_dir, 'alpha.jar')))
 case('POST /api/mods/toggle enable -> .jar', mod_toggle_back_case)
+
+# H39: offline embedded help, about, license boundary, feedback/wiki links.
+check('GET /api/about -> offline metadata without credentials', 'GET', '/api/about', None, lambda r: (
+    r['status'] == 200 and jget(r).get('name') == 'LilyCraft Web' and jget(r).get('version') == '0.1.1'
+    and jget(r).get('licenseStatus') == 'unspecified' and (jget(r).get('upstream') or {}).get('version') == 'v2.15.1'
+    and len(jget(r).get('helpTopics') or []) >= 12 and 'accessToken' not in r['body'].decode('utf8', 'ignore')
+    and 'refreshToken' not in r['body'].decode('utf8', 'ignore'), 'about metadata'))
+check('POST /api/about -> 405 read-only', 'POST', '/api/about', {}, lambda r: (r['status'] == 405, 'read-only'))
+
+def help_all_case():
+    r = raw('GET', '/api/help/search')
+    j = jget(r)
+    items = j.get('items') or []
+    ids = [x.get('id') for x in items]
+    okv = (
+        r['status'] == 200 and j.get('count') == len(items) and len(items) >= 12
+        and len(ids) == len(set(ids)) and 'query' not in j
+    )
+    return r['status'], r['headers'], r['body'], okv, 'count=' + str(j.get('count'))
+case('GET /api/help/search -> stable full index', help_all_case)
+
+def help_query_case(q, minimum, needle):
+    path = '/api/help/search?q=' + urllib.parse.quote(q, safe='')
+    r = raw('GET', path)
+    j = jget(r)
+    items = j.get('items') or []
+    okv = (
+        r['status'] == 200 and j.get('count') == len(items) and len(items) >= minimum
+        and all(needle in (str(x.get('id', '')) + str(x.get('title', '')) + str(x.get('category', '')) + str(x.get('summary', ''))).lower() for x in items)
+        and 'query' not in j
+    )
+    return r['status'], r['headers'], r['body'], okv, 'q=' + q + ' count=' + str(j.get('count'))
+case('GET /api/help/search?q=MOD -> case-insensitive matches', lambda: help_query_case('MOD', 2, 'mod'))
+case('GET /api/help/search?q=备份 -> Chinese matches', lambda: help_query_case('备份', 2, '备份'))
+case('GET /api/help/search unknown -> empty without echoed query', lambda: help_query_case('不存在的关键词xyz', 0, '不存在的关键词xyz'))
+check('GET /api/help/search overlong q -> 400', 'GET', '/api/help/search?q=' + ('x' * 129), None, lambda r: (400 <= r['status'] < 500 and 'error' in jget(r), 'bounded query'))
 
 # E22/E24: instance metadata and instance-scoped settings.
 version_id = 'suff-1.20.1'

@@ -16,6 +16,8 @@
 
 ## HTTP API（axum，前缀 /api，JSON；错误体恒为 {"error":"..."}）
 GET    /api/health                     -> ok,version,webMode,dataDir
+GET    /api/about                      -> AboutInfo（离线元数据；无账号凭据、无联网请求）
+GET    /api/help/search?q=             -> {items:HelpTopic[],count:number}（离线 AND 搜索；空 q 返回全部，超长 q 400）
 GET    /api/state                      -> settings,accounts,versions[],running[],javas[],remote?
 GET    /api/remote/versions?refresh=1  -> latest{release,snapshot}, versions[{id,type,releaseTime}]
 POST   /api/versions/install           body {versionId, fabric?:bool} -> {jobId}
@@ -62,6 +64,8 @@ InstanceMeta = {displayName:string|null,icon:string|null,isolated:boolean}
 ModFile = {file,name,size,enabled:boolean,baseFile?,disabledFile?:string|null,sha1?:string|null,modId?:string|null,version?:string|null,description?:string|null,loader?:string|null}
 VersionInfo 增加 displayName/icon/isolated/hasInstanceSettings 字段；设置页与版本页共用。
 JavaInfo = {path, version:number, source:"system"|"managed"}
+AboutInfo = {name,product,version,webMode,license,licenseStatus,licenseNote,repository,issues,upstream:{name,version,url,licenseNote},guideUrl,docs:[{title,url}],wiki:[{title,url}],helpTopics:HelpTopic[],helpSearchPath}
+HelpTopic = {id,title,category,summary,route?:string|null,url?:string|null}
 Account = {name, uuid, kind:"offline"|"microsoft", hasSession:bool, entitled?:bool,
            skinUrl?, capeUrl?, skinModel?:"classic"|"slim", expiresAt?:number}
 SkinInfo = {name, uuid, skinUrl?, capeUrl?, skinModel:"classic"|"slim",
@@ -90,7 +94,7 @@ Job = {id, kind, title, state:"running"|"done"|"error", progress:0-100, message,
 
 
 ## 前端
-- 路由：/ 主页（PCL 风大启动按钮）、/versions、/download、/mods、/settings、/backup、/guide
+- 路由：/ 主页（PCL 风大启动按钮）、/versions、/download、/mods、/settings、/backup、/guide、/help
 - 左侧固定竖栏 + 主内容区；中文；深色/浅色切换
 
 - 主页启动区「直连服务器」与设置页「默认直连服务器」两个输入框；留空正常进主菜单，主页本次值会异步写回默认设置（2026-11-14 追加）。
@@ -105,6 +109,8 @@ Job = {id, kind, title, state:"running"|"done"|"error", progress:0-100, message,
 - 镜像行为只影响下载路径，不改变任何 API 形状；前端 downloadSource 类型仍为 "mojang"|"bmcl"。
 
 ## 变更记录
+
+- 2026-11-15 H39 内联帮助/关于/许可/反馈/Wiki：新增 /api/about 与 /api/help/search 两条离线只读端点。AboutInfo 如实报告本项目当前未声明独立许可证（licenseStatus=unspecified）、PCL-CE v2.15.1 上游许可边界、仓库/Issues/文档/Wiki 链接；不返回账号凭据、不联网、不复制 PCL 源码/文案/资产。帮助索引 16 条中文主题支持按 id/title/category/summary 大小写不敏感 AND 搜索，空关键词返回稳定全量，超长关键词 400。
 - 2026-11-11 PUT /api/settings 由「整体覆盖」改为「部分更新」。旧实现直接反序列化成 Settings，serde 的 default 属性会把缺省字段填回默认值，于是前端只提交 {selectVersion} 时会静默把 memoryMb 打回 4096、清空 extraJvmArgs。现改为 SettingsPatch（全 Option + apply 合并），与前端 saveSettings(patch) 的增量语义对齐。
 - 2026-11-11 新增 GET /api/versions/:id（版本详情面板用，省掉整份 /api/state）。
 - 2026-11-11 新增「一键汉化」契约：POST /api/localize；GET /api/versions/:id 返回 lang / resourcePacks / localized；Settings 增加 gameLang（默认 zh_cn）。汉化包仅运行时下载到实例 resourcepacks/，绝不内嵌进二进制（CFPA 包为 CC BY-NC-SA 4.0，Sodium 中文包为 MIT）。
