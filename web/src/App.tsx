@@ -12,6 +12,7 @@ import { VersionsPage } from "@/pages/versions-page";
 import { DownloadPage } from "@/pages/download-page";
 import { ModsPage } from "@/pages/mods-page";
 import { SettingsPage } from "@/pages/settings-page";
+import { BackupPage } from "@/pages/backup-page";
 import { NotFoundPage } from "@/pages/not-found-page";
 import { GuidePage } from "@/pages/guide-page";
 import { Onboarding } from "@/components/onboarding";
@@ -66,6 +67,8 @@ function PageSwitch({ path }: { path: string }) {
       return <ModsPage />;
     case "/settings":
       return <SettingsPage />;
+    case "/backup":
+      return <BackupPage />;
     case "/guide":
       return <GuidePage />;
     default:

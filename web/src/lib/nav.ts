@@ -1,4 +1,4 @@
-import { Boxes, Download, House, Puzzle, Settings2, type LucideIcon } from "lucide-react";
+import { Boxes, DatabaseBackup, Download, House, Puzzle, Settings2, type LucideIcon } from "lucide-react";
 
 export interface NavItem {
   to: string;
@@ -15,4 +15,5 @@ export const NAV_ITEMS: NavItem[] = [
   { to: "/download", label: "下载", short: "下载", icon: Download },
   { to: "/mods", label: "Mod 管理", short: "Mod", icon: Puzzle },
   { to: "/settings", label: "设置", short: "设置", icon: Settings2 },
+  { to: "/backup", label: "备份与清理", short: "备份", icon: DatabaseBackup },
 ];

@@ -4,7 +4,7 @@
 
 - 用户目标：「做好测试 和 搞好 对标 pcl -ce 功能100% 实现」。
 - 本轮不宣称 100% 已完成。`docs/PCL-COMPARISON.md` 现有 41 项静态对比：✅9 / 🟡16 / ❌14 / ➖2；这只是历史基线，不是本轮验收结论。
-- PCL-CE 与 PCL 原版分叉，当前源码基线仍为 Meloong-Git/PCL 原版；在拿到明确 PCL-CE 版本/提交号前，不能把原版 41 项等同 PCL-CE 100% 边界。
+- PCL-CE 精确基线已锁定：https://github.com/PCL-Community/PCL-CE 的正式 Release v2.15.1（轻量 tag 指向 commit 1a7653127d578efdb2a9388999a3fdc67d9e49d5，2026-10-20）。旧 Meloong-Git/PCL 2.99.0.1 的 41 项仅作历史代理基线，不等同 CE v2.15.1 的 100% 边界。
 - 许可边界：PCL 原始仓库 LICENCE 为 NOASSERTION 且带重度使用限制；继续采用「看功能清单、不复制代码、不移植商标与视觉资产」的自研路线。
 
 ## 2. 100% 的定义（建议验收口径）
@@ -45,9 +45,10 @@ A1 离线登录、A6 皮肤、B8 版本清单、B9 客户端下载、C19 资源�
 - 完成本计划文档与 group18 证据；保持 v0.1.0/v0.1.1 tag、Release 和既有 CI 门禁不动。
 - 后续每轮至少实现一个真实功能或一组密切相关的功能，并同步补测试；不把计划本身算作「100% 完成」。
 - 前端差距建议由 ui 协作者并行整理；Rust 后端与 API 契约由 lead 统一落地，避免双方同时改一个文件。
+- 前端逐项差距清单已落盘 docs/PCL-CE-GAP-FRONTEND.md（ui task-1），后续实现以它和 CE v2.15.1 tree 为双重索引。
 
 ## 6. 明确阻塞/前提
 
-- PCL-CE 精确版本：需用户给仓库/提交号或允许继续以当前 PCL 原版 41 项为代理基线。
+- PCL-CE 精确版本：已锁定 v2.15.1 / 1a765312；仍缺的是逐项语义重算与外部凭据/服务（CurseForge API key、外置认证协议、房间/EasyTier、自更新签名、平台签名证书）。
 - CurseForge API key、外置认证协议凭据、房间/EasyTier 服务、自更新签名密钥、Windows/macOS 签名证书与 Apple 开发者凭据均非本地可造。
 - 当前默认 Web 优先；桌面壳为可选 feature，所有新功能必须先能在 Web UI 访问。

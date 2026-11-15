@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 /** 已知路由。新增页面只改这里 + 侧栏 NAV_ITEMS + App 的 switch。 */
-export const ROUTES = ["/", "/versions", "/download", "/mods", "/settings", "/guide"] as const;
+export const ROUTES = ["/", "/versions", "/download", "/mods", "/settings", "/backup", "/guide"] as const;
 export type RoutePath = (typeof ROUTES)[number];
 
 /** "#/versions/" -> "/versions"；空 hash 视为首页。 */

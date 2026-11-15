@@ -547,3 +547,11 @@ v0.1.1 的 L0–L8 结论不变；L9 在 A/B/C 未确认前不得标记为完成
 - 新增 `docs/PCL-CE-100-PLAN.md`，给出 100% 验收口径、14 项未覆盖与 16 项部分覆盖清单、P0–P5 依赖分阶段、阻塞前提。本轮不宣称 100% 完成，也不改 tag/Release/旧证据。
 - 测试连续性：L0–L8 门禁保持（scripts/check.sh + scripts/test-sufficiency.sh + CI run 43702223841）；L9 仍待 `docs/L9-READINESS.md` 的 A/B/C 决策。
 - 证据：第 18 组登记计划文档、历史对比文档、门禁脚本与远端 CI 锚点；前 17 组字节与语义不变。
+## 19. PCL-CE 100% 对标首项实现：H35 设置导入导出、备份恢复与缓存清理（Round 2）
+
+- PCL-CE 精确基线已锁定为 `PCL-Community/PCL-CE` Release `v2.15.1` / commit `1a7653127d578efdb2a9388999a3fdc67d9e49d5`；旧 41 项清单继续作为代理基线。本轮实现一个真实缺口 H35，不宣称整体 100%。
+- 后端新增 `src/backup.rs` 与 6 条 API（32 条总计）：设置导出/导入、备份创建/列表/恢复、缓存清理。导入做浅合并与 sanitize；备份含设置与非凭据账号快照，Unix 权限 0600，id 白名单拒绝路径穿越；清理只操作 `cache/`。
+- 前端新增 `#/backup` 页面与导航，提供导出下载/预览、粘贴/文件上传导入、创建/恢复备份、仅清缓存的二次确认流程；含 loading、空态、错误态与成功提示。
+- 分层验证：`scripts/check.sh` EXIT=0（pnpm lint 5 warnings/0 errors、2601 modules、默认 50 passed、desktop 55 passed、fmt/clippy -D warnings、双轨构建、runtime smoke、6 次 --help/--schema 各 1 种）；充分性脚本 24/24，16 并发全 2xx，30s/10 采样全 2xx，慢 JAVA 有界 <2500 ms；desktop feature 二进制同样 24/24。
+- 浏览器 CDP 真交互：`#/backup` 页面可见四块能力，真实键盘导入设置 `memoryMb=4321/downloadSource=bmcl`，创建备份、确认恢复、确认仅清缓存均通过；7/7 pass，截图 3 张。
+- 结论：H35 的 L1/L3/L4/L5/L6 已有本地证据；整体 100% 仍未达成，其余 13 ❌ + 16 🟡 继续按计划推进。第 19 组登记实现文件、门禁日志、充分性结果、浏览器脚本/结果/截图，前 18 组字节与语义不变。

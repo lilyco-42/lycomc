@@ -214,6 +214,33 @@ export interface LogsResponse {
   lines: string[];
 }
 
+/** 设置备份条目：POST /api/backup/create 与 GET /api/backup/list 共用。 */
+export interface BackupEntry {
+  id: string;
+  fileName: string;
+  bytes: number;
+  createdAt: number;
+}
+
+export interface BackupListResponse {
+  items: BackupEntry[];
+  count: number;
+}
+
+/** POST /api/backup/{id}/restore 的返回值：恢复的是设置，不动游戏文件。 */
+export interface RestoreBackupResponse {
+  ok: true;
+  settings: Settings;
+}
+
+/** POST /api/cleanup 的返回值：只统计被清掉的临时缓存。 */
+export interface CleanupResponse {
+  ok: true;
+  freedBytes: number;
+  removedFiles: number;
+  removedDirs: number;
+}
+
 /** 非 2xx 或网络失败时抛出；message 即后端 error 原文。 */
 export class ApiError extends Error {
   readonly status: number;
@@ -416,6 +443,24 @@ export const api = {
 
   saveSettings: (patch: Partial<Settings>) =>
     request<Settings>("/api/settings", { method: "PUT", body: JSON.stringify(patch) }),
+
+  /** ===== 设置备份与缓存清理（H35） ===== */
+  exportSettings: () => request<Settings>("/api/settings/export"),
+
+  importSettings: (patch: Settings | Partial<Settings>) =>
+    request<Settings>("/api/settings/import", jsonBody(patch)),
+
+  createBackup: () => request<BackupEntry>("/api/backup/create", jsonBody({})),
+
+  listBackups: () => request<BackupListResponse>("/api/backup/list"),
+
+  restoreBackup: (id: string) =>
+    request<RestoreBackupResponse>(
+      "/api/backup/" + encodeURIComponent(id) + "/restore",
+      jsonBody({}),
+    ),
+
+  cleanupCache: () => request<CleanupResponse>("/api/cleanup", jsonBody({})),
 
   logs: (versionId: string) =>
     request<LogsResponse>("/api/logs/" + encodeURIComponent(versionId)),

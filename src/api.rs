@@ -17,6 +17,7 @@ use serde::{Deserialize, Deserializer};
 use serde_json::{json, Value};
 use tokio::sync::broadcast;
 
+use crate::backup;
 use crate::jobs::{now_ms, Job, JobStore};
 use crate::mc::{
     self, auth, fabric, install, java, launch, localize, meta, modrinth, options, paths, Progress,
@@ -139,6 +140,12 @@ pub fn router(state: AppState) -> Router {
         .route("/api/mods/install", post(mod_install))
         .route("/api/mods/remove", post(mod_remove))
         .route("/api/settings", get(get_settings).put(put_settings))
+        .route("/api/settings/export", get(export_settings))
+        .route("/api/settings/import", post(import_settings))
+        .route("/api/backup/create", post(create_backup))
+        .route("/api/backup/list", get(list_backups))
+        .route("/api/backup/{id}/restore", post(restore_backup))
+        .route("/api/cleanup", post(cleanup_cache))
         .route("/api/localize", post(localize_version))
         .route("/api/logs/{versionId}", get(get_logs))
         .with_state(state)
@@ -995,6 +1002,63 @@ async fn put_settings(
     let saved = settings::save(&merged).map_err(ApiError::bad)?;
     st.set_settings(saved.clone());
     Ok(Json(saved))
+}
+
+async fn export_settings(State(st): State<AppState>) -> Json<Settings> {
+    Json(st.settings())
+}
+
+/// 导入设置：接受完整 Settings 或部分对象；缺省字段保持原值，显式 null 清空可空字段。
+/// 只写设置，不触碰账号与备份；非法类型与空对象由 backup::merge_settings 拒绝。
+async fn import_settings(
+    State(st): State<AppState>,
+    Json(value): Json<Value>,
+) -> Result<Json<Settings>, ApiError> {
+    let merged = backup::merge_settings(&st.settings(), &value).map_err(ApiError::bad)?;
+    let saved = settings::save(&merged).map_err(ApiError::bad)?;
+    st.set_settings(saved.clone());
+    Ok(Json(saved))
+}
+
+async fn create_backup(State(_st): State<AppState>) -> Result<Json<Value>, ApiError> {
+    let e = backup::create().map_err(ApiError::bad)?;
+    Ok(Json(json!({
+        "id": e.id,
+        "fileName": e.file_name,
+        "bytes": e.bytes,
+        "createdAt": e.created_at,
+    })))
+}
+
+async fn list_backups(State(_st): State<AppState>) -> Result<Json<Value>, ApiError> {
+    let items = backup::list().map_err(ApiError::bad)?;
+    let count = items.len();
+    Ok(Json(json!({ "items": items, "count": count })))
+}
+
+async fn restore_backup(
+    State(st): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<Json<Value>, ApiError> {
+    let restored = backup::restore(&id).map_err(|e| {
+        if e.contains("不存在") {
+            ApiError::not_found(e)
+        } else {
+            ApiError::bad(e)
+        }
+    })?;
+    st.set_settings(restored.clone());
+    Ok(Json(json!({ "ok": true, "settings": restored })))
+}
+
+async fn cleanup_cache(State(_st): State<AppState>) -> Result<Json<Value>, ApiError> {
+    let report = backup::cleanup().map_err(ApiError::bad)?;
+    Ok(Json(json!({
+        "ok": true,
+        "freedBytes": report.freed_bytes,
+        "removedFiles": report.removed_files,
+        "removedDirs": report.removed_dirs,
+    })))
 }
 
 /// 单个实例详情（UI 的版本详情面板用，不必拉整个 /api/state）。

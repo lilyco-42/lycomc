@@ -431,3 +431,14 @@ cargo test（解析逻辑单测：device code / XBL / XSTS / MC token / textures
 | E | 先做 PCL-CE 房间/EasyTier/自更新等高风险项 | 否决 | 需要服务、协议、签名与隐私决策，缺少前提下无法真实验收 |
 
 落地：新增 `docs/PCL-CE-100-PLAN.md`，纯追加 TEST-REPORT §18、本决策章节与 TEST-EVIDENCE group18；不改 v0.1.0/v0.1.1 tag、Release 二进制、既有 CI 门禁与历史证据。
+## PCL-CE 首项功能实现决策：H35 设置备份与清理（Round 2）
+
+| 方案 | 内容 | 判定 | 理由 |
+| --- | --- | --- | --- |
+| A | 直接宣布 PCL-CE 100% 完成 | 否决 | 只实现 H35 一项，13 ❌ + 16 🟡 仍未覆盖 |
+| B | 复制 PCL-CE 源码/资产或在 UI 仿冒品牌 | 否决 | 许可边界与自研 Web-first 路线不允许 |
+| C | 只写计划继续等待 | 否决 | Round 1 决策要求后续每轮至少实现一个真实功能并补测试 |
+| D | 选 H35：自包含数据模型 + 6 API + Web 页面 + 逐层验证 | 采纳 | 无外部凭据/服务依赖，能完整走通 L1/L3/L4/L5/L6，且为后续实例/设置类功能打基础 |
+| E | 先做房间/EasyTier/公网正版多人联机 | 否决 | 服务端协议、账号凭据与隐私决策未定，不能在本轮证明 |
+
+落地：新增 `src/backup.rs`、`web/src/pages/backup-page.tsx`，改 `src/api.rs`、`src/lib.rs`、`docs/CONTRACT.md`、`scripts/test-sufficiency.sh` 与前端路由/导航；CLI `--schema` 内容保持 14 命令确定性不变。证据写入第 19 组；不移动 v0.1.0/v0.1.1 tag 与 Release。

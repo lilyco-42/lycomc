@@ -3,6 +3,7 @@
 
 pub mod api;
 pub mod assets;
+pub mod backup;
 pub mod commands;
 pub mod jobs;
 pub mod mc;

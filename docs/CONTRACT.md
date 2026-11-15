@@ -4,6 +4,7 @@
 ~/.local/share/lycomc/
   settings.json
   accounts.json
+  backups/                        # H35 设置/账号快照（含凭据，Unix 0600；HTTP 永不返回正文）
   versions/<versionId>/          # 客户端实例（原版或 fabric-<ver>-<loader>）
     <versionId>.json             # 最终 version json（原版或已合并 fabric）
     <versionId>.jar              # 仅原版有；fabric 复用父版本 jar
@@ -42,6 +43,12 @@ GET    /api/settings                   -> Settings
 PUT    /api/settings                   -> Settings（部分更新：只改请求体里出现的键，缺省字段保持原值；显式传 null 才清空 javaPath / selectVersion / defaultAccount / quickPlayServer）
 POST   /api/localize                   body {versionId} -> {jobId}（异步汉化：写 lang + 下载并启用汉化资源包，进度走 /api/events）
 GET    /api/logs/:versionId            -> {lines:string[]}
+GET    /api/settings/export            -> Settings（公开字段，无凭据）
+POST   /api/settings/import            body Settings|Partial<Settings> -> Settings（浅合并 + sanitize；空对象/非法类型 400）
+POST   /api/backup/create              -> {id,fileName,bytes,createdAt}（含凭据的快照只落盘，Unix 0600）
+GET    /api/backup/list                -> {items:BackupEntry[],count:number}（无正文/无凭据）
+POST   /api/backup/:id/restore         -> {ok:true,settings:Settings}（非法 id 400，缺失 404）
+POST   /api/cleanup                    -> {ok:true,freedBytes,removedFiles,removedDirs}（只清 dataDir/cache）
 
 ## 类型
 VersionInfo = {id, kind:"vanilla"|"fabric", baseVersion, installedAt, javaMajor, lang?, resourcePacks:string[], localized:bool}
@@ -65,11 +72,13 @@ Settings = {memoryMb, javaPath?, extraJvmArgs[], selectVersion?, downloadSource:
 // Settings.quickPlayServer 是默认直连地址；None / 空串 = 正常进主菜单，保存时由 clean_server_address 白名单净化。
 // 仅当版本元数据的 arguments.game 含 is_quick_play_multiplayer 规则时才注入 --quickPlayMultiplayer <addr>；
 // 旧版本不追加未知选项，任务日志写「当前版本元数据不支持 quickPlay，已正常进主菜单」。
+BackupEntry = {id,fileName,bytes,createdAt}
+CleanupReport = {freedBytes,removedFiles,removedDirs}
 Job = {id, kind, title, state:"running"|"done"|"error", progress:0-100, message, logs[], result?, createdAt}
 
 
 ## 前端
-- 路由：/ 主页（PCL 风大启动按钮）、/versions、/download、/mods、/settings
+- 路由：/ 主页（PCL 风大启动按钮）、/versions、/download、/mods、/settings、/backup、/guide
 - 左侧固定竖栏 + 主内容区；中文；深色/浅色切换
 
 - 主页启动区「直连服务器」与设置页「默认直连服务器」两个输入框；留空正常进主菜单，主页本次值会异步写回默认设置（2026-11-14 追加）。
@@ -98,3 +107,4 @@ Job = {id, kind, title, state:"running"|"done"|"error", progress:0-100, message,
 - 2026-11-13 新增默认账号：Settings 增加 `defaultAccount?:string|null`（旧 settings.json 缺省按 null 兼容）；新增 `POST /api/accounts/:name/default`，launch 与 CLI 缺省账号按 defaultAccount → 账号列表第一项 → Steve 解析；当前账号快速切换只保留在前端会话，不落盘。
 - 2026-11-13 P0 契约修复：`PUT /api/settings` 的 javaPath / selectVersion / defaultAccount 三个可空字段改用 serde `double_option`，区分字段缺失（保持原值）与显式 JSON null（清空）。CDP 与可逆 HTTP 探针复验 13/13、9 次 PUT 语义通过；详见 docs/UI-MIGRATION.md §7 与 docs/DECISION.md「交互验收发现的 P0」。
 - 2026-11-14 一键直连多人服务器（quickPlay）：POST /api/launch 增 `server?:string|null` 本次覆盖值（缺省才回落 `settings.quickPlayServer`，显式 null / 空串 / 非法值清空本次直连但不改写默认值）；Settings 增 `quickPlayServer?:string|null`，沿用 double_option 区分缺失 / 显式 null；CLI `lycomc launch` 增 `--server <地址>`。不新增端点、不新增依赖、不改 14 命令与 26 条 HTTP 路由；仅当版本元数据含 `is_quick_play_multiplayer` 规则时注入 `--quickPlayMultiplayer <addr>`。前端主页与设置页各增一个输入框，教程 / 图表 / 正版登录 / 皮肤 / SSE 均不回退。详见 DECISION.md「一键直连多人服务器」与 TEST-REPORT.md §10。
+- 2026-11-15 H35 设置导入导出/备份/清理：新增 6 个端点（settings/export|import、backup/create|list|{id}/restore、cleanup）。导入浅合并后 sanitize，显式 null 仍清空可空字段；备份快照含 accounts.json 但响应只给条目元数据，Unix 0600，id 白名单拒绝路径穿越；restore 原子写回 settings/accounts 并同步内存；cleanup 只删 dataDir/cache 子项。充分性脚本新增 9 个 H35 断言。

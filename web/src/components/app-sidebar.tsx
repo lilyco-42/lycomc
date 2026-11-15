@@ -4,12 +4,12 @@ import { SkinAvatar } from "@/components/skin-avatar";
 import { useAppData } from "@/context/app-data-context";
 import { type AccountSkin } from "@/lib/api";
 import { loadAccountSkinByKey, skinKeyFor } from "@/lib/account-skin";
-import { NAV_ITEMS } from "@/lib/nav";
+import { NAV_ITEMS, type NavItem } from "@/lib/nav";
 import { normalizeHash, useRoutePath } from "@/lib/router";
 import { shortUuid } from "@/lib/format";
 import { useKeyedFetch } from "@/lib/use-keyed-fetch";
 import { cn } from "@/lib/utils";
-import { BookOpen, ChevronsUpDown, Languages, Package, Palette, SquareStack } from "lucide-react";
+import { BookOpen, ChevronsUpDown, DatabaseBackup, Languages, Package, Palette, SquareStack } from "lucide-react";
 
 /** 浅蓝分组侧栏：分组标题 + 蓝色竖条激活项 + 底部账号卡。 */
 export function AppSidebar() {
@@ -18,6 +18,8 @@ export function AppSidebar() {
   const skinKey = currentAccount !== null ? skinKeyFor(currentAccount) : "";
   const { data: skin } = useKeyedFetch<AccountSkin>(skinKey, loadAccountSkinByKey);
 
+  /** 备份入口放在「启动器」组，主导航仍由 NAV_ITEMS 统一驱动。 */
+  const gameNavItems: NavItem[] = NAV_ITEMS.filter((item) => item.to !== "/backup");
   const isMicrosoft = currentAccount?.kind === "microsoft";
   const needsLogin = isMicrosoft && currentAccount !== null && !currentAccount.hasSession;
   const skinUrl = skin?.skinUrl ?? currentAccount?.skinUrl ?? null;
@@ -35,7 +37,7 @@ export function AppSidebar() {
         <div>
           <p className="px-3 pb-2 text-[11px] font-medium tracking-wide text-muted-foreground">游戏</p>
           <nav className="flex flex-col gap-0.5">
-            {NAV_ITEMS.map((item) => {
+            {gameNavItems.map((item) => {
               const Icon = item.icon;
               const active = path === normalizeHash(item.to);
               return (
@@ -82,6 +84,21 @@ export function AppSidebar() {
               ) : null}
               <BookOpen className={cn("size-4 shrink-0", path === "/guide" ? "text-primary" : "text-muted-foreground")} />
               使用教程
+            </a>
+            <a
+              href="#/backup"
+              className={cn(
+                "group relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors",
+                path === "/backup"
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground/75 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground",
+              )}
+            >
+              {path === "/backup" ? (
+                <span className="brand-solid absolute top-1/2 left-0 h-5 w-[3px] -translate-y-1/2 rounded-full" />
+              ) : null}
+              <DatabaseBackup className={cn("size-4 shrink-0", path === "/backup" ? "text-primary" : "text-muted-foreground")} />
+              备份与清理
             </a>
             <a href="#/settings" className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] text-sidebar-foreground/75 transition-colors hover:bg-sidebar-accent/70 hover:text-sidebar-foreground">
               <Palette className="size-4 shrink-0 text-muted-foreground" />

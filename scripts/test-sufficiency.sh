@@ -120,6 +120,76 @@ check('POST /api/launch/999999/kill -> 404', 'POST', '/api/launch/999999/kill', 
 check('GET unknown API -> 404 JSON', 'GET', '/api/does-not-exist', None, lambda r: (r['status'] == 404 and b'error' in r['body'], 'unknown API'))
 check('static traversal -> no leak', 'GET', '/assets/../../../../etc/passwd', None, lambda r: (r['status'] != 200 and b'root:' not in r['body'], 'traversal'))
 check('GET /api/state 200', 'GET', '/api/state', None, lambda r: (r['status'] == 200, 'state'))
+
+# H35: settings export/import, backup/restore, cleanup boundary.
+def export_no_secret(r):
+    j = jget(r)
+    text = r['body'].decode('utf8', 'replace').lower()
+    keys = set(j.keys())
+    expected = {'memoryMb','javaPath','extraJvmArgs','selectVersion','downloadSource','maxConcurrent','closeOnLaunch','gameLang','defaultAccount','quickPlayServer'}
+    return r['status'] == 200 and expected.issubset(keys) and 'refreshtoken' not in text and 'accesstoken' not in text, 'export keys=' + str(len(keys))
+check('GET /api/settings/export -> 200 no credentials', 'GET', '/api/settings/export', None, export_no_secret)
+
+def import_valid_case():
+    body = {'memoryMb': 10, 'downloadSource': 'weird', 'gameLang': 'ZH_CN'}
+    r = raw('POST', '/api/settings/import', body)
+    j = jget(r)
+    text = open(os.path.join(out, 'data', 'settings.json'), 'r', encoding='utf8').read()
+    persisted = json.loads(text)
+    okv = (r['status'] == 200 and j.get('memoryMb') == 512 and j.get('downloadSource') == 'mojang' and j.get('gameLang') == 'zh_cn' and persisted.get('memoryMb') == 512 and persisted.get('quickPlayServer') == 'mc.example.net:25565')
+    return r['status'], r['headers'], r['body'], okv, 'sanitized memoryMb=' + str(j.get('memoryMb')) + ' persisted=' + str(persisted.get('memoryMb'))
+case('POST /api/settings/import sanitize + persist', import_valid_case)
+
+check('POST /api/settings/import invalid -> 4xx', 'POST', '/api/settings/import', {'memoryMb': 'many'}, lambda r: (400 <= r['status'] < 500 and 'error' in jget(r), 'rejected invalid import'))
+
+backup_id = None
+def create_backup_case():
+    global backup_id
+    r = raw('POST', '/api/backup/create', None)
+    j = jget(r)
+    backup_id = j.get('id')
+    okv = (r['status'] == 200 and isinstance(backup_id, str) and backup_id.startswith('backup-') and isinstance(j.get('fileName'), str) and j.get('bytes', 0) > 0 and isinstance(j.get('createdAt'), int) and 'token' not in r['body'].decode('utf8', 'replace').lower())
+    if okv and os.name == 'posix':
+        p = os.path.join(out, 'data', 'backups', j['fileName'])
+        okv = os.path.isfile(p) and (os.stat(p).st_mode & 0o777) == 0o600
+    return r['status'], r['headers'], r['body'], bool(okv), 'id=' + str(backup_id)[:40]
+case('POST /api/backup/create -> 200 entry 0600', create_backup_case)
+
+def list_backups_case():
+    r = raw('GET', '/api/backup/list', None)
+    j = jget(r)
+    items = j.get('items') or []
+    okv = r['status'] == 200 and j.get('count') == len(items) and len(items) >= 1 and any(x.get('id') == backup_id for x in items) and 'token' not in r['body'].decode('utf8', 'replace').lower()
+    return r['status'], r['headers'], r['body'], bool(okv), 'count=' + str(j.get('count'))
+case('GET /api/backup/list -> 200 no secrets', list_backups_case)
+
+def restore_changed_case():
+    raw('PUT', '/api/settings', {'memoryMb': 8192})
+    before = raw('GET', '/api/settings')['body']
+    r = raw('POST', '/api/backup/' + str(backup_id) + '/restore', None)
+    j = jget(r)
+    after = raw('GET', '/api/settings')['body']
+    okv = r['status'] == 200 and j.get('ok') is True and j.get('settings', {}).get('memoryMb') == 512 and json.loads(after).get('memoryMb') == 512 and before != after
+    return r['status'], r['headers'], r['body'], bool(okv), 'restored memoryMb=' + str(j.get('settings', {}).get('memoryMb'))
+case('POST /api/backup/{id}/restore -> 200 state rollback', restore_changed_case)
+
+check('POST /api/backup/{bad id}/restore -> 4xx', 'POST', '/api/backup/a.b/restore', None, lambda r: (400 <= r['status'] < 500 and 'error' in jget(r), 'invalid id rejected'))
+check('POST /api/backup/{missing}/restore -> 404', 'POST', '/api/backup/missing-id/restore', None, lambda r: (r['status'] == 404 and 'error' in jget(r), 'missing backup'))
+
+def cleanup_case():
+    cache = os.path.join(out, 'data', 'cache', 'nested')
+    os.makedirs(cache, exist_ok=True)
+    with open(os.path.join(cache, 'blob.bin'), 'wb') as f:
+        f.write(b'x' * 256)
+    with open(os.path.join(out, 'data', 'cache', 'top.bin'), 'wb') as f:
+        f.write(b'y' * 128)
+    r = raw('POST', '/api/cleanup', None)
+    j = jget(r)
+    persist_ok = os.path.isfile(os.path.join(out, 'data', 'settings.json')) and os.path.isfile(os.path.join(out, 'data', 'accounts.json'))
+    okv = r['status'] == 200 and j.get('ok') is True and j.get('freedBytes', 0) >= 384 and j.get('removedFiles', 0) >= 1 and j.get('removedDirs', 0) >= 1 and persist_ok and not os.path.exists(cache)
+    return r['status'], r['headers'], r['body'], bool(okv), 'freed=' + str(j.get('freedBytes')) + ' persist=' + str(persist_ok)
+case('POST /api/cleanup -> 200 cache only', cleanup_case)
+
 from concurrent.futures import ThreadPoolExecutor
 def parallel(n, fn):
     t = time.monotonic()
