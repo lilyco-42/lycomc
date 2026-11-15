@@ -1387,6 +1387,136 @@
           "sha256": "1f63addae63ca2b62d4a5d0c5a9e3f2bac800e3239c7c07623b59f6e0b558ebe"
         }
       ]
+    },
+    {
+      "label": "v0.1.1 远端 Release、三平台资产校验、发布包确定性与 Wine 复证（2026-11-15）",
+      "files": [
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group15-v0.1.1-release/argv0-help-diff.json",
+          "bytes": 888,
+          "sha256": "ed94c50b540a3de3baf7f299cdbaa43b223357ff1bb183d997e5adbd4f8c8eec"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group15-v0.1.1-release/asset-checksums.json",
+          "bytes": 1691,
+          "sha256": "f06e668be09d6a0e31f73c5341b4f6c8eb550e91bf4436f3cb5b22898e230365"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group15-v0.1.1-release/checksum-validation.txt",
+          "bytes": 148,
+          "sha256": "6d92b1239559324ffb291f5079e9598b78402f4564eb33bb4c328bc9bc0bb5dd"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group15-v0.1.1-release/determinism.json",
+          "bytes": 3272,
+          "sha256": "c0670453ecc45d84dc8607d9a5ddc60ef8ad64c37070a00b0e8159ffc377a876"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group15-v0.1.1-release/lin/README.md",
+          "bytes": 14899,
+          "sha256": "0ba5bd6eaee513427b5198368304fca792a00b287005721935caef195ee7e4af"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group15-v0.1.1-release/lin/lycomc",
+          "bytes": 13416280,
+          "sha256": "292908678d340ba15eecdf8bbf513f8899af342fb7e7786be63c9b2ce03bce06"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group15-v0.1.1-release/linux-help.txt",
+          "bytes": 973,
+          "sha256": "f7533dd325e6c39ba97b3033b8a7c9e140ac0860e702dd9152d54fd1e61ef4a2"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group15-v0.1.1-release/linux-schema.json",
+          "bytes": 9093,
+          "sha256": "0dcfeb14bdce9f463abb940d5990cd08db765dd50723df0fd1b54cfe10188a07"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group15-v0.1.1-release/lycomc-v0.1.1-aarch64-apple-darwin.tar.gz",
+          "bytes": 4259285,
+          "sha256": "fe23ed1091758a62e9c1d12bcf665893c7b4c31c7a4994368e038c7a6bb1c73d"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group15-v0.1.1-release/lycomc-v0.1.1-aarch64-apple-darwin.tar.gz.sha256",
+          "bytes": 108,
+          "sha256": "9bd654140dd4d0532e24c293e0ffb62650cdd39d8396f4079d7d31856e38c401"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group15-v0.1.1-release/lycomc-v0.1.1-x86_64-pc-windows-msvc.zip",
+          "bytes": 4148858,
+          "sha256": "c269ad14836d32665362476c4edefebc76de8d498e4eb22e3690783139af924e"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group15-v0.1.1-release/lycomc-v0.1.1-x86_64-pc-windows-msvc.zip.sha256",
+          "bytes": 107,
+          "sha256": "85c0baec03152ba2202216ece34bc2647f2710f030091bbf31f11ceb8df99c2d"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group15-v0.1.1-release/lycomc-v0.1.1-x86_64-unknown-linux-gnu.tar.gz",
+          "bytes": 4839968,
+          "sha256": "4fc277b2fb2fd7c4f9afda4216fd01eecc2e67928bf0de25f9f80f0ff4a9aa96"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group15-v0.1.1-release/lycomc-v0.1.1-x86_64-unknown-linux-gnu.tar.gz.sha256",
+          "bytes": 112,
+          "sha256": "094af0dd8fb6c62226aa5fdb010a7c70aa418816e867341830e54aa17563032e"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group15-v0.1.1-release/release-validation.json",
+          "bytes": 1879,
+          "sha256": "32aca0e1d9806e79a260bb30af8abd6c72985f96725d8cf994c4935aeee358ac"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group15-v0.1.1-release/release-view.json",
+          "bytes": 4207,
+          "sha256": "668bbbaf5ab179ccedcd448a67f2743f1f8137d1fff342e49f3fd9f23a2865a3"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group15-v0.1.1-release/runtime-smoke-linux.txt",
+          "bytes": 161,
+          "sha256": "744fc214f645e196dd0938f83bcaca4403c45bd0b42aee55dd65c903543a2d31"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group15-v0.1.1-release/tag-object.json",
+          "bytes": 1203,
+          "sha256": "f9ac498eb98029b35969f04d136eae625363653b8746c2811f9da7825b759c8a"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group15-v0.1.1-release/win/README.md",
+          "bytes": 15076,
+          "sha256": "9ce1ea28ffcef8202ff1007163fca611f7824f9060ae269f97630fbeaf52fbfc"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group15-v0.1.1-release/win/lycomc.exe",
+          "bytes": 10662400,
+          "sha256": "308bb76e32be1a4ab76033d7bdfc907a9ac60e3b15e957229b192259e96638e7"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group15-v0.1.1-release/windows-help-wine.txt",
+          "bytes": 977,
+          "sha256": "7f09594c161812fb053c3db026f3612914883a5cf90a46adcee1f5a70327a402"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group15-v0.1.1-release/windows-schema-wine.json",
+          "bytes": 9093,
+          "sha256": "0dcfeb14bdce9f463abb940d5990cd08db765dd50723df0fd1b54cfe10188a07"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/group15-v0.1.1-release/workflow-runs.json",
+          "bytes": 4120,
+          "sha256": "af6d5b55551476f7bc1b5dcf031efbf623513fa297b016dd28ee350c29395f68"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/evidence-group14-manifest.json",
+          "bytes": 2199,
+          "sha256": "1f63addae63ca2b62d4a5d0c5a9e3f2bac800e3239c7c07623b59f6e0b558ebe"
+        },
+        {
+          "path": "/home/lilyco/.cache/lycomc-perf/evidence-group15-manifest.json",
+          "bytes": 5344,
+          "sha256": "a4082257902a7505126bfd3c7f5d229914b64ab5a3b5aae986ca0bfdd50ec51b"
+        }
+      ]
     }
   ]
 }

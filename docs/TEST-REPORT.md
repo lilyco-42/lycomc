@@ -431,3 +431,37 @@ test result: ok. 17 passed; 0 failed
 - 已证明：GitHub Runner 编译、三平台包、校验和、Linux 包本机、Wine 下 Windows 包实跑、CLI 顺序确定性门禁、上游 PR 合并与 main CI 成功。
 - 未覆盖：Windows / macOS / Android / 鸿蒙真机、签名安装包、公证、公网正版多人服务器联机、全平台实机演示。
 - 未决项不变：m03957 全平台形态 / 公网正版联机 / 实机演示，m04829 / m04836 的 Android 形态 / Win-mac 签名包要求 / 快捷方式口径；桌面输入 P0 仍按 m06445 冻结。
+
+## 15. v0.1.1 远端发布完成、资产校验与发布包确定性复证（2026-11-15，m07969 / m08285「继续」收口）
+
+本节在已发布的 v0.1.1 之后纯追加；v0.1.1 tag 与 Release 二进制不因本节改动，不重写 v0.1.0，也不增发 v0.1.2。全部远端结论以 live GitHub Actions / Release API 为准，证据见第 15 组。
+
+### 15.1 提交、tag 与远端 workflow
+
+- main 提交 5070cc106df15fe5cafe00a5d36d7fd8d2f86f79（`fix(release): 锁定 lilyco BTreeMap 顺序修复并准备 v0.1.1 补丁发布`）已 push，push CI 43693010304 3/3 success；tag push CI 43693353015 3/3 success；Release workflow 43693353082 7/7 success（3 个 compile guard、3 个平台 build/runtime-smoke/打包、1 个 publish）。三次已完成运行的 `--log-failed` 均为空。
+- v0.1.1 是 annotated tag：远端 tag object 1aa2543bfd7232895f8288098dca89385951fc8b，peeled commit 5070cc106df15fe5cafe00a5d36d7fd8d2f86f79；v0.1.0 仍指 f6640ab306c7ca2bdb1380d98f82d46a78fd7556，未 force。
+- Release https://github.com/lilyco-42/lycomc/releases/tag/v0.1.1 于 2026-11-15T08:17:29Z 发布，name=LilyCraft Web v0.1.1，isDraft=false、isPrerelease=false；6 项资产（3 个平台包 + 3 个 .sha256）全部 state=uploaded。
+
+### 15.2 三平台资产下载与校验
+
+- Linux lycomc-v0.1.1-x86_64-unknown-linux-gnu.tar.gz 4,839,968 B，SHA-256 4fc277b2fb2fd7c4f9afda4216fd01eecc2e67928bf0de25f9f80f0ff4a9aa96。
+- Windows lycomc-v0.1.1-x86_64-pc-windows-msvc.zip 4,148,858 B，SHA-256 c269ad14836d32665362476c4edefebc76de8d498e4eb22e3690783139af924e。
+- macOS lycomc-v0.1.1-aarch64-apple-darwin.tar.gz 4,259,285 B，SHA-256 fe23ed1091758a62e9c1d12bcf665893c7b4c31c7a4994368e038c7a6bb1c73d。
+- `gh release download` 取回 6 项资产；3 份 `.sha256` 经 `sha256sum -c` 全部 OK，且本地文件 SHA-256 与 GitHub asset digest、asset size 三项逐项一致（3/3）。
+
+### 15.3 Linux 发布包与 Wine 下 Windows 发布包复证
+
+- Linux Release 二进制连续 6 次 `--schema` 只有 1 种原始输出，SHA-256 0dcfeb14bdce9f463abb940d5990cd08db765dd50723df0fd1b54cfe10188a07，9,093 B；连续 6 次 `--help` 只有 1 种输出，SHA-256 f7533dd325e6c39ba97b3033b8a7c9e140ac0860e702dd9152d54fd1e61ef4a2；`scripts/runtime-smoke.sh` EXIT=0，/api/health version=0.1.1、webMode=embedded。
+- Windows Release 包在本机 Wine 11.22 下连续 6 次 `--schema` 只有 1 种原始输出，且与 Linux Release 的原始 `--schema` 逐字节相同；连续 6 次 `--help` 也只有 1 种输出。Wine 仅用于证明该 Windows 可执行文件可运行与输出确定性，不等同 Windows 真机。
+- 两份发布包 schema 均含 14 条命令，按 name 排序后的紧凑 JSON canonical SHA-256 7f196335faeb84de07d45ce73768f7dd55cfe2ac04cf5c725dbb77d841afd329，与修复后本地二进制及 v0.1.0 Linux/Wine schema 的语义内容一致；固定顺序 account-add, accounts, info, install, javas, launch, list, mod-add, mod-remove, mod-search, mods, remove, settings, settings-set。
+
+### 15.4 跨平台 --help 的 argv[0] 差异
+
+- Linux `--help` SHA-256 f7533dd…；Wine 下 Windows `--help` SHA-256 7f09594c161812fb053c3db026f3612914883a5cf90a46adcee1f5a70327a402；原始字节不同仅因 clap Usage 行使用 argv[0]：`Usage: lycomc ...` 对比 `Usage: lycomc.exe ...`。
+- 两者 CRLF 计数均为 0、行数均 23；除第 0 行 Usage 外其余 22 行（含完整命令列表与顺序）逐行一致。结论：跨平台可要求各自输出稳定、命令列表一致、schema 原始字节一致，不应要求 `--help` 原始字节跨平台一致。证据 argv0-help-diff.json。
+
+### 15.5 边界与未决项
+
+- 已证明：GitHub Runner 三平台编译/打包与 Release 发布、CI 3/3 与 Release 7/7、三平台包及校验和 3/3、Linux 发布包本机启动、Wine 下 Windows 发布包命令与 schema 确定性、tag 未 force。
+- 未覆盖：Windows / macOS / Android / 鸿蒙真机运行、Authenticode / Developer ID 签名安装包、公证、公网正版多人服务器联机、全平台实机演示。第 13 组 PE / Mach-O 签名边界结论仍适用于未签名发布形态。
+- 未决项不变：m03957 全平台形态 / 公网正版联机 / 实机演示，m04829 / m04836 的 Android 形态 / Win-mac 签名包要求 / 快捷方式口径；桌面输入 P0 按 m06445 冻结。

@@ -379,3 +379,13 @@ cargo test（解析逻辑单测：device code / XBL / XSTS / MC token / textures
 - 锁策略：Cargo.lock 仅最小 diff（6 处 lilyco rev + lycomc 版本），撤销 cargo update 连带的 windows-sys 等无关重锁，避免补丁引入与顺序修复无关的依赖面变动。
 - 实证与边界：canonical-schema-equality 证明三份 schema 仅顺序不同、按名排序后逐字节一致（canonicalSha256 7f196335…）；PE / Mach-O 签名边界确认三平台包未 Authenticode / 未 Developer ID 签名 / 未公证；Wine 下 Windows 包实跑覆盖 Web 服务语义但不能替代真机。
 - 未决项不变：m03957 / m04829 / m04836 与桌面输入 P0 冻结状态不变。
+
+## v0.1.1 发布完成后的文档追加与跨平台输出判据（2026-11-15，m07969 / m08285「继续」收口）
+
+- 方案矩阵 A：为把发布后报告写进 v0.1.1 tag，force 重指向 v0.1.1 或 v0.1.0 —— 否决。已公开 Release 的 tag 只能递增，不能改写；沿用 §13 的不重写历史约束。
+- 方案矩阵 B：仅为 docs 增发 v0.1.2 —— 否决。没有运行时代码变化，不应让用户把文档提交误解为另一个二进制版本。
+- 方案矩阵 C：只把发布核验报告与第 15 组证据纯追加到 main，保留 v0.1.1 tag/Release 二进制与已验证提交一一对应 —— 采纳。该 docs-only 提交不在 v0.1.1 源码树内，必须在报告中明确，避免把 main HEAD 与 tag target 混为一谈。
+- 方案矩阵 D：把 `--help` 原始 SHA-256 作为跨平台黄金值 —— 否决。clap Usage 行含 argv[0]，lycomc 与 lycomc.exe 必然不同；应判据为「各自连续 6 次稳定 + 除 Usage 行外逐行一致 + 命令顺序一致」。
+- 方案矩阵 E：把 `--schema` 按 name 排序的 canonical SHA-256 作为语义等价、并用原始 SHA-256 作为同版本跨平台确定性证据 —— 采纳。v0.1.1 Linux/Wine Windows 两份发布包原始 schema SHA-256 相同，且按名排序后与本地修复、v0.1.0 两份 schema 一致，证明 BTreeMap 修复只改顺序不改内容。
+- 证据链：group15 manifest 登记 23 个本次发布物/验证文件与第 14 组根 manifest，TEST-EVIDENCE.json 的第 15 组再登记该 manifest 自身；所有 SHA-256 完整 64 位，前 14 组字节保持不动。
+- 远端结论只采信 live `gh run view` / `gh release view` / GitHub API 与下载后 `sha256sum -c`，不把本地 YAML 校验或本机 Wine 实跑等同于远端成功或真机覆盖。
