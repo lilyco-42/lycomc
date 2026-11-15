@@ -389,3 +389,16 @@ cargo test（解析逻辑单测：device code / XBL / XSTS / MC token / textures
 - 方案矩阵 E：把 `--schema` 按 name 排序的 canonical SHA-256 作为语义等价、并用原始 SHA-256 作为同版本跨平台确定性证据 —— 采纳。v0.1.1 Linux/Wine Windows 两份发布包原始 schema SHA-256 相同，且按名排序后与本地修复、v0.1.0 两份 schema 一致，证明 BTreeMap 修复只改顺序不改内容。
 - 证据链：group15 manifest 登记 23 个本次发布物/验证文件与第 14 组根 manifest，TEST-EVIDENCE.json 的第 15 组再登记该 manifest 自身；所有 SHA-256 完整 64 位，前 14 组字节保持不动。
 - 远端结论只采信 live `gh run view` / `gh release view` / GitHub API 与下载后 `sha256sum -c`，不把本地 YAML 校验或本机 Wine 实跑等同于远端成功或真机覆盖。
+
+## 充分测试收口：分层判据矩阵、可复用 runner 与 CI 门禁（2026-11-15，m08499 / m08502 / m08504）
+
+- 方案矩阵 A：继续堆一次性手工脚本 —— 否决。一次性结论无法防回归，也不能作为每次改动的准入判据。
+- 方案矩阵 B：把 L3–L6 固化进 `scripts/test-sufficiency.sh` 并由 `.github/workflows/ci.yml` 每次 push/PR 强制执行 —— 采纳。脚本使用动态端口、隔离数据、15 条正向/负向契约、16 并发、30s 长稳、慢 JAVA 有界探针；失败即非 0 退出，无 `|| true`。
+- 方案矩阵 C：仅把发布包级结果写进 docs，不纳入 CI —— 否决。v0.1.1 发布包证据只证明该二进制，不保证后续改动不退化。
+- 方案矩阵 D：把 runner 早期两轮 400/MIME 假失败记为发布包回归 —— 否决。诊断证明是 header 大小写、复用账号名、以及 `valid_name` 3–16 字符约束导致的测试脚本缺陷；保留失败诊断，修正脚本并新增非法用户名负向 case，不改写已发布 Release。
+- 方案矩阵 E：为文档/测试脚本/CI 门禁增发 v0.1.2 或 force v0.1.1 tag —— 否决。发布二进制未变，docs-only + 测试门禁提交只推 main，不重发 Release，v0.1.1 peeled 仍为 5070cc1。
+- 方案矩阵 F：把 `--help` 原始 SHA-256 作为跨平台黄金值 —— 保持否决（§15 决策）：clap Usage 含 argv[0]；改为同平台稳定 + 除 Usage 外逐行一致 + schema 原始字节一致 + canonical 语义一致。
+- 充分性定义：先固定验收范围，再给每层写「通过条件 + 证据路径 + 不覆盖边界」；v0.1.1 的 L0–L8 已证，全平台真机/签名/公网正版联机/设备演示属于 L9 未开始。这个分层避免把 Wine、交叉编译、Runner 编译、本机 Linux 实跑混同为全平台真机验收。
+- 准入规则：代码至少 L0–L5；Java 扫描补 L6；命令注册补 L7；发版补 L8；docs 改动过 L0+CI；新平台独立 L2+L8；断言必须有落盘证据；失败保留、新提交递增、不 force 已公开 tag。
+- 证据：第 16 组登记 runner、矩阵、CI 配置、check/runtime-smoke/CI 等价日志、发布包输出、失败诊断与第 15 组 manifest；`docs/SUFFICIENCY-MATRIX.md` 为可复用判据基线。
+- 未决项不变：m03957 全平台形态 / 公网正版联机 / 实机演示，m04829 / m04836 的 Android 形态 / Win-mac 签名包要求 / 快捷方式口径；桌面输入 P0 按 m06445 冻结。

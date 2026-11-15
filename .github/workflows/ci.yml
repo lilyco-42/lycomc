@@ -54,6 +54,14 @@ jobs:
           TARGET_DIR="$(cargo metadata --format-version 1 --no-deps | python3 -c 'import json,sys; print(json.load(sys.stdin)["target_directory"])')"
           bash scripts/runtime-smoke.sh "$TARGET_DIR/debug/lycomc"
 
+      - name: 发布包级充分性契约 / 并发 / 长稳 / 慢 JAVA 回归
+        timeout-minutes: 5
+        env:
+          LYCOMC_NO_OPEN: "1"
+        run: |
+          TARGET_DIR="$(cargo metadata --format-version 1 --no-deps | python3 -c 'import json,sys; print(json.load(sys.stdin)["target_directory"])')"
+          LYCOMC_BIN="$TARGET_DIR/debug/lycomc" LYCOMC_SUFFICIENCY_PORT=0 bash scripts/test-sufficiency.sh
+
       - uses: actions/upload-artifact@v4
         with:
           name: web-dist

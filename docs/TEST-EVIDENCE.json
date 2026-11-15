@@ -1517,6 +1517,171 @@
           "sha256": "a4082257902a7505126bfd3c7f5d229914b64ab5a3b5aae986ca0bfdd50ec51b"
         }
       ]
-    }
+    },
+  {
+    "label": "v0.1.1 发布包充分性测试矩阵、可复用 runner、CI 门禁与故障注入补证（2026-11-15）",
+    "files": [
+      {
+        "path": "/home/lilyco/.cache/lycomc-perf/group16-sufficiency/account-name-probe.json",
+        "bytes": 1883,
+        "sha256": "b72ca95bdc7e9e1023f8a6777fa5e46f6047ad130e6c4848c633d175e57fe54d"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-perf/group16-sufficiency/api-contract-cases.json",
+        "bytes": 3353,
+        "sha256": "357bdf678ef8aaf21fa7b04ae203dd295f0ca69bd55dca14860f5f165a01f331"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-perf/group16-sufficiency/check-sufficiency.log",
+        "bytes": 11696,
+        "sha256": "7ef5bb8004aa249eb1a195918a8549ee8b0715b584de47304ef8beeae6eb0975"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-perf/group16-sufficiency/ci-parity-exit.txt",
+        "bytes": 7,
+        "sha256": "418a5c17f33c70e99b0cc0a07fce69191489cfedc94164bfa903785777c5bd4b"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-perf/group16-sufficiency/ci-parity-output.json",
+        "bytes": 3225,
+        "sha256": "391c17c6a26bf33917f058e8eb581214439b79781c06becc7680bed8d12f71d8"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-perf/group16-sufficiency/data-bad/settings.json",
+        "bytes": 19,
+        "sha256": "f04e9aa236dea68121162926e0e726aa43a70bac08c1a77cc5058f9b316ca405"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-perf/group16-sufficiency/data-bad/web.port",
+        "bytes": 4,
+        "sha256": "3081bc7f2caf4077048e799aa1d6b1c3f04bc2a8c463340ce48054920c8ec4c4"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-perf/group16-sufficiency/data-main/accounts.json",
+        "bytes": 117,
+        "sha256": "b170125b5b098d0b6d4ea58bf4073a011545e5a9d4c2bf2ad55f6b0ece948a6f"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-perf/group16-sufficiency/data-main/settings.json",
+        "bytes": 260,
+        "sha256": "149f7259e44b04e5c4e482b13957f11dfc8001a8b97822a5501e6b3211bb36ca"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-perf/group16-sufficiency/data-main/web.port",
+        "bytes": 4,
+        "sha256": "66e2b63c38c52adffda4aff9a1722665fa664cd38315f001d29392c489e4d1fd"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-perf/group16-sufficiency/data-slow/web.port",
+        "bytes": 4,
+        "sha256": "12854f00c38af6550c53971b9411e17a4acc5d0fd9539d4467c50a8a913fc25b"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-perf/group16-sufficiency/docs-append-check.json",
+        "bytes": 1247,
+        "sha256": "92edf15301ec9c371b4b841005430f5500716bfb08d312a8e097b304ad7c8584"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-perf/group16-sufficiency/runner-exit.txt",
+        "bytes": 7,
+        "sha256": "418a5c17f33c70e99b0cc0a07fce69191489cfedc94164bfa903785777c5bd4b"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-perf/group16-sufficiency/runner-failure-diagnosis.json",
+        "bytes": 1838,
+        "sha256": "980fdb55a311bdba9b63db6f39ccfa0501e5713d7b55a47056ea436c8bb162f4"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-perf/group16-sufficiency/runner-first-failure.json",
+        "bytes": 2732,
+        "sha256": "b6ad26b715e1099138a042088d4e18811cbf3338fa9521e18970d61fe478a6f3"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-perf/group16-sufficiency/runner-output.json",
+        "bytes": 3223,
+        "sha256": "63b763141ac293bb7b273c1a706ad531e98c779f6e993a0dbcfa1a5a7f84a6c6"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-perf/group16-sufficiency/runner-second-failure-summary.json",
+        "bytes": 1066,
+        "sha256": "099aaad67706226e307f16854a314e9068ebc2cf42e79f08fc57b65075bbf48e"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-perf/group16-sufficiency/runtime-smoke-sufficiency.log",
+        "bytes": 154,
+        "sha256": "56fb914dd69399528ec40fe207893cbd17d2747ea5b079b257fe95145ae32cd9"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-perf/group16-sufficiency/service-bad.log",
+        "bytes": 166,
+        "sha256": "f533a2a447125d30c4d9a0383759691e0605cbb46e56784249271b06a4179f1b"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-perf/group16-sufficiency/service-main.log",
+        "bytes": 167,
+        "sha256": "ab17cb723bdcfa5a8d859f2806fe2018b992cdc86434aa6e07de3bc409d9cbfe"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-perf/group16-sufficiency/service-slow.log",
+        "bytes": 167,
+        "sha256": "c75f3ff7f36e990c47a10f3ed4e76a39986ebef97204543a070467ac3eb287c1"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-perf/group16-sufficiency/slow-java/bin/java",
+        "bytes": 23,
+        "sha256": "3f44d78b41bdd2849a66a49f048289002bb030b2790f78d00614c493a99480d6"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-perf/group16-sufficiency/SUFFICIENCY-MATRIX.md",
+        "bytes": 5592,
+        "sha256": "68a6d949b54c424fc0090c3909a80e8f9878b59068ca9a141cb0f5108a1994ef"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-perf/group16-sufficiency/sufficiency-results.json",
+        "bytes": 6745,
+        "sha256": "f3ecc0f07116f8165078146a2b741a4a26f57796eea154cf27e4fc45f4e3195a"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-perf/group16-sufficiency/test-sufficiency.sh",
+        "bytes": 11719,
+        "sha256": "ca7dc47dddc83f5288e4b9b4c70a4ec032474a7a16d9a804ddfeb4da554589d1"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-perf/evidence-group15-manifest.json",
+        "bytes": 5344,
+        "sha256": "a4082257902a7505126bfd3c7f5d229914b64ab5a3b5aae986ca0bfdd50ec51b"
+      },
+      {
+        "path": "/home/lilyco/code/lycomc/scripts/test-sufficiency.sh",
+        "bytes": 11719,
+        "sha256": "ca7dc47dddc83f5288e4b9b4c70a4ec032474a7a16d9a804ddfeb4da554589d1"
+      },
+      {
+        "path": "/home/lilyco/code/lycomc/docs/SUFFICIENCY-MATRIX.md",
+        "bytes": 5592,
+        "sha256": "68a6d949b54c424fc0090c3909a80e8f9878b59068ca9a141cb0f5108a1994ef"
+      },
+      {
+        "path": "/home/lilyco/code/lycomc/.github/workflows/ci.yml",
+        "bytes": 3104,
+        "sha256": "a6361d5610148a6a2c5fe8e6377f7a95837e0b143ae5b33bbb7083a5036bfa9f"
+      },
+      {
+        "path": "/home/lilyco/code/lycomc/docs/TEST-REPORT.md",
+        "bytes": 72631,
+        "sha256": "be898fb892ecd24f9e91ca01fee40c33947d614c64a90c96ddeb8762316ec6ce"
+      },
+      {
+        "path": "/home/lilyco/code/lycomc/docs/DECISION.md",
+        "bytes": 65099,
+        "sha256": "a63c3b0d91150e01236176b3ce827e122e9d5ee8239d325e10dd6142a8e303dd"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-perf/evidence-group16-manifest.json",
+        "bytes": 6727,
+        "sha256": "2dfe6d0eb20d3bd5b2f4637c574c6a5c35d9591fb2503336705fe78dea9e64f8"
+      }
+    ]
+  }
   ]
 }

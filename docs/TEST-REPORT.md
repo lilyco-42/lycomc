@@ -465,3 +465,45 @@ test result: ok. 17 passed; 0 failed
 - 已证明：GitHub Runner 三平台编译/打包与 Release 发布、CI 3/3 与 Release 7/7、三平台包及校验和 3/3、Linux 发布包本机启动、Wine 下 Windows 发布包命令与 schema 确定性、tag 未 force。
 - 未覆盖：Windows / macOS / Android / 鸿蒙真机运行、Authenticode / Developer ID 签名安装包、公证、公网正版多人服务器联机、全平台实机演示。第 13 组 PE / Mach-O 签名边界结论仍适用于未签名发布形态。
 - 未决项不变：m03957 全平台形态 / 公网正版联机 / 实机演示，m04829 / m04836 的 Android 形态 / Win-mac 签名包要求 / 快捷方式口径；桌面输入 P0 按 m06445 冻结。
+
+## 16. 发布包充分性测试矩阵、可复用回归 runner 与 CI 门禁（2026-11-15，m08499 / m08502 / m08504「继续」）
+
+> 本节是 v0.1.1 发布之后的测试充分性收口：不重写历史、不新增 tag、不改动已发布的 Release 二进制。新增的是判据矩阵、可复用脚本、CI 门禁与第 16 组证据；main HEAD 将晚于 v0.1.1 tag target，二者不可混为一谈。
+
+### 16.1 分层判据矩阵
+
+| 层级 | 通过条件 | 当前实证 | 证据 | 边界 |
+|---|---|---|---|---|
+| L0 源码静态 | fmt / clippy `-D warnings` / 前端 lint+build / YAML、bash、JSON 语法 | scripts/check.sh EXIT=0；pnpm build 2600 modules；YAML_OK、bash -n、JSON_OK | check-sufficiency.log、ci.yml | 本地静态检查不替代 gh run |
+| L1 单元测试 | 默认 + `--features desktop` 全绿，关键不变量有回归测试 | 44 passed / 49 passed；Registry 确定性单测 | check-sufficiency.log | 单测不等价真实浏览器或真机 |
+| L2 本地运行时 | 默认 Web 二进制启动、`/api/health`、runtime smoke、清理 | EXIT=0，version=0.1.1、webMode=embedded | runtime-smoke-sufficiency.log | 不替代发布包运行 |
+| L3 Web API 契约 | 正向 200、405、坏 JSON 4xx、非法用户名 4xx、未知接口 404、SSE/静态 MIME、路径穿越不泄露 | 发布包 runner 15/15；debug CI 等价 runner 15/15 | runner-output.json、ci-parity-output.json、api-contract-cases.json | 账号 token 永不入证据 |
+| L4 并发与长稳 | 16 并发全 2xx；30s 周期 health/state 全 2xx；RSS 有记录、无残留进程 | 发布包 16/16、7.966ms，10 采样全 2xx，RSS -36,864 B；debug CI 等价 16/16、5.987ms，RSS +8,192 B | runner-output.json、ci-parity-output.json | 30s 不是 soak test |
+| L5 状态恢复 | 重启后设置从数据目录恢复 | quickPlayServer 重启后仍在 | sufficiency-results.json | 不覆盖跨版本迁移/凭据恢复 |
+| L6 故障注入 | 慢 JAVA 探针由 2s 超时有界；损坏配置不崩溃 | 发布包 worst 2,006.859ms < 2,500ms；debug worst 2,012.6ms；损坏 settings.json 回落默认 | runner-output.json、ci-parity-output.json、service-slow.log、service-bad.log | 不覆盖磁盘满/网络分区/权限损坏 |
+| L7 发布包确定性 | Linux/Wine 各 6 次 `--help`/`--schema` 稳定、schema canonical 语义一致 | 各 1/6；canonical SHA 一致 | group13/group15 证据 | Wine 不等于 Windows 真机 |
+| L8 远端交付 | CI 3/3、Release 7/7、三平台包 SHA-256 3/3 | v0.1.1 已验证 | group15 证据 | 本次 CI 变更不重发 Release |
+| L9 真机与分发 | 各 OS 实机、签名/公证、公网正版联机、Android/鸿蒙形态 | none | 需设备录屏/系统日志/签名回执 | 需用户确认形态与口径 |
+
+### 16.2 可复用 runner 与测试脚本自身缺陷
+
+- `scripts/test-sufficiency.sh` 从 `LYCOMC_BIN` 启动发布包或本地默认二进制，自动分配动态端口，隔离 `OUT/data` 与 `OUT/data-slow`，生成合法唯一离线账号名，覆盖 15 条 API 契约（含非法用户名负向 case）、16 并发、30s 周期采样、RSS、慢 JAVA_HOME 探针与进程组清理；任一断言失败即非 0 退出。
+- 发布包实测（Linux v0.1.1 lycomc sha256 292908678d340ba15eecdf8bbf513f8899af342fb7e7786be63c9b2ce03bce06）：EXIT=0、15/15、startup 16.346ms、并发 7.966ms、长稳 10/10、慢 JAVA worst 2,006.859ms、failed=[]。
+- debug 二进制 CI 等价实测（sha256 54cd4fdc111d8b6d9d5658b7a496a76642d2b676f54521712b06c3403fee9db6）：EXIT=0、15/15、并发 5.987ms、长稳 10/10、慢 JAVA worst 2,012.6ms、failed=[]。
+- 两轮 runner 失败均归类为测试脚本缺陷，不是 v0.1.1 发布包回归：第一轮 header map 大小写不一致与复用旧账号名；第二轮 `SufficiencyMatrix-` + `time_ns()` 账号名超过 `src/settings.rs:218-224 valid_name` 的 3–16 字符限制且含连字符，实际返回 `400 用户名需 3–16 个字符`。修复后统一小写 header、清空隔离数据、使用 `S`+14 位 ASCII 字母数字/下划线随机名，并新增非法用户名负向断言。失败证据 runner-first-failure.json / runner-second-failure-summary.json / runner-failure-diagnosis.json 保留。
+
+### 16.3 CI 与准入规则
+
+- `.github/workflows/ci.yml` 的 `checks` job 在 runtime smoke 后新增「发布包级充分性契约 / 并发 / 长稳 / 慢 JAVA 回归」step，5 分钟超时、`LYCOMC_NO_OPEN=1`，使用 `cargo metadata` 给出的 `TARGET_DIR/debug/lycomc` 执行 `scripts/test-sufficiency.sh`；不使用 `|| true`。`cross-compile` 仍只做 Windows/macOS `cargo check`。
+- 代码改动至少 L0–L5；涉及 Java 扫描/超时补 L6；涉及命令注册补 L7；发版补 L8；只改 docs 仍需 L0 + CI；新增平台独立做到 L2 + L8，再按用户口径决定是否进入 L9。Wine 与交叉编译不得替代真机。
+- 任何断言必须写通过条件与证据路径；只有 console 结论、无落盘证据的不算完成；失败运行保留，修复以新提交递增，不 force 已公开 tag。
+
+### 16.4 充分性结论与边界
+
+- 对 v0.1.1 的「本机 Web 可执行程序 + 三平台 Runner 交付」范围，L0–L8 已有证据且通过，可以称为该范围内充分测试；本次把 L3–L6 从一次性脚本固化为每次 push/PR 的可复用门禁。
+- 若把 m03957 的「全平台 LilyCraft / Android / 鸿蒙 / 签名包 / 公网正版联机 / 全平台实机演示」算入范围，则 L9 未开始，不能称为全平台充分测试。Windows/macOS/Android/鸿蒙真机、Authenticode/Developer ID 签名与公证、公网正版多人服务器、设备录屏仍未覆盖；Wine 11.22 只证明 Windows 包实跑与输出确定性。
+- 残留 PID 11125（14:32 启动、父进程 systemd、DISPLAY=:0、监听 127.0.0.1:8767）是用户自己的 lycomc Web 服务，非本轮测试产物，未清理；本轮 detached server 均已进程组清理。
+
+### 16.5 证据 JSON 的纯追加字节验证
+
+- `docs/TEST-EVIDENCE.json` 采用尾部 marker 前插入：保留 HEAD 版本 marker 前的全部字节与尾部 `\n  ]\n}\n` 字节；前 15 组逐组 JSON 语义相等，且每组序列化字节未改。`docs-append-check.json` 记录 marker 位置、前后缀 SHA-256、前组语义与第 16 组文件哈希验证结果。git diff 显示 1 行删除仅为闭合数组行的逗号重排，不是删改历史组内容。
