@@ -402,3 +402,20 @@ cargo test（解析逻辑单测：device code / XBL / XSTS / MC token / textures
 - 准入规则：代码至少 L0–L5；Java 扫描补 L6；命令注册补 L7；发版补 L8；docs 改动过 L0+CI；新平台独立 L2+L8；断言必须有落盘证据；失败保留、新提交递增、不 force 已公开 tag。
 - 证据：第 16 组登记 runner、矩阵、CI 配置、check/runtime-smoke/CI 等价日志、发布包输出、失败诊断与第 15 组 manifest；`docs/SUFFICIENCY-MATRIX.md` 为可复用判据基线。
 - 未决项不变：m03957 全平台形态 / 公网正版联机 / 实机演示，m04829 / m04836 的 Android 形态 / Win-mac 签名包要求 / 快捷方式口径；桌面输入 P0 按 m06445 冻结。
+
+## L9 真机与分发准入准备决策（2026-11-15）
+
+背景：m08499「如何做好充分测试」已在 §16 / group16 收口，用户后续只说「继续」，未回答 Android 形态、Win/mac 签名包要求、快捷方式范围三问。目标是把「继续」落成可交付的 L9 准入准备，而不是伪造未具备条件的真机结论。
+
+| 方案 | 内容 | 判定 | 理由 |
+| --- | --- | --- | --- |
+| A | 直接宣称 L9 已完成、补几张 Runner 截图 | 否决 | 本地无 Windows/macOS/Android/鸿蒙真机、无签名证书与 Apple 开发者凭据，Wine/交叉编译不能替代真机 |
+| B | 擅自采用建议默认并立即实现 WebView 壳 / 签名流水线 | 否决 | 三项均由用户业务决定；签名需外部凭据与 secrets，未经确认即落地会返工并引入权限风险 |
+| C | 什么都不做，仅回答「等你确认」 | 否决 | 「继续」要求有可交付推进，且准入判据此前只在对话里、未进仓库 |
+| D | 固化 `docs/L9-READINESS.md`（三问 + 建议默认 + 判据矩阵）+ 纯追加 §17 / 新章节 / group17，明确 L9 未开始 | 采纳 | 可追溯、不改写历史、不碰 tag/Release，且把决策请求写进仓库便于后续按同一矩阵补证 |
+| E | 发 v0.1.2 或 force 已公开 tag 来承载本轮 | 否决 | 本轮无发布物变更，递增 tag 无意义，force tag 破坏已公开历史 |
+| F | 把建议默认写成「已确认需求」 | 否决 | 必须保留待确认状态，避免后续用未确认前提做验收 |
+
+落地：新增 `docs/L9-READINESS.md`；纯追加 `docs/TEST-REPORT.md` §17、本决策章节、`docs/TEST-EVIDENCE.json` group17；新增 `evidence-group17-manifest.json`，以 group16 manifest 为链根。CI 门禁不变，仍由 `scripts/test-sufficiency.sh` 在每次 push/PR 守护 L0–L8。
+
+待用户确认 A/B/C 后：按 `docs/L9-READINESS.md` 第 4 节补 L9 证据，新建 group18+ 证据组，必要时新增签名/安装器 workflow 与 secrets，不改本轮及更早结论。

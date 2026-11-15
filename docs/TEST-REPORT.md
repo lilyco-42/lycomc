@@ -507,3 +507,36 @@ test result: ok. 17 passed; 0 failed
 ### 16.5 证据 JSON 的纯追加字节验证
 
 - `docs/TEST-EVIDENCE.json` 采用尾部 marker 前插入：保留 HEAD 版本 marker 前的全部字节与尾部 `\n  ]\n}\n` 字节；前 15 组逐组 JSON 语义相等，且每组序列化字节未改。`docs-append-check.json` 记录 marker 位置、前后缀 SHA-256、前组语义与第 16 组文件哈希验证结果。git diff 显示 1 行删除仅为闭合数组行的逗号重排，不是删改历史组内容。
+
+## 17. L9 真机与分发准入准备（待决策确认）
+
+### 17.1 本轮范围
+
+- 延续 m08499「如何做好充分测试」的收口：v0.1.1 的 L0–L8 已在 §16 与 group16 证据中通过，本轮不重跑、不发 tag、不改 Release。
+- 新增 `docs/L9-READINESS.md`，把尚未开始的 L9 拆成三个必须先确认的决策项和一张可执行判据矩阵；在用户确认前，L9 状态保持「未开始 / 待决策」。
+- 本轮只新增准备文档与第 17 组证据，不擅自假定 Android 形态、签名要求或快捷方式范围。
+
+### 17.2 已证基线（引用，不重述为新增证据）
+
+- 提交 `11a5eaef0d76c87cc64ad8cb065a9574d3d96017`，CI run `43700439030` 3/3 success，充分性 step success，`--log-failed` 为空。
+- `scripts/test-sufficiency.sh` 15/15、16/16 并发、30s 长稳、慢 JAVA 最差 2006.859 ms 小于 2500 ms。
+- v0.1.1 Release 6 资产 SHA-256 已核对，v0.1.0 / v0.1.1 tag 未动。
+
+### 17.3 待确认的三项与建议默认
+
+- A Android 形态：建议 Phase 1 WebView 壳复用 embedded Web，完整原生 UI 暂不推荐。
+- B Windows / macOS 签名与公证：建议把 Authenticode + Developer ID/公证 列为 L9 可分发的必要条件；本地无证书，须配好 CI secrets 后由 Runner 产出。
+- C 快捷方式 / 安装器范围：建议最小集合（Windows 快捷方式、macOS .app、Linux .desktop），不自动自启、不改默认浏览器、不捆绑 JRE。
+
+### 17.4 L9 判据（确认后启用）
+
+真机冷启动与 API/设置/长稳、签名与公证验证、安装/升级/卸载不残留、公网正版多人联机、连续无剪辑实机录屏；每项都必须有设备型号/OS 版本、原始日志或截图、资产 SHA-256 与通过条件，证据写入 group17 之后的新组，不改写历史组。
+
+### 17.5 证据纯追加
+
+- `docs/TEST-EVIDENCE.json` 从 HEAD 版本 16 组纯追加到 17 组：保留尾部 marker 前全部历史字节与尾部 marker，前 16 组 JSON 语义与逐组序列化字节不变。
+- `evidence-group17-manifest.json` 登记新文档、L0–L8 门禁锚点与 group16 manifest 作为证据链根；group17 末项登记 manifest 自身避免循环哈希。
+
+### 17.6 结论
+
+v0.1.1 的 L0–L8 结论不变；L9 在 A/B/C 未确认前不得标记为完成。Wine、交叉编译、Runner 打包均不能替代真机与分发准入证据。

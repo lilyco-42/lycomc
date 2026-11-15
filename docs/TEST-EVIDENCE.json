@@ -1682,6 +1682,51 @@
         "sha256": "2dfe6d0eb20d3bd5b2f4637c574c6a5c35d9591fb2503336705fe78dea9e64f8"
       }
     ]
+  },
+  {
+    "label": "L9 真机与分发准入准备：三个待决策项、建议默认与判据矩阵（2026-11-15）",
+    "files": [
+      {
+        "path": "/home/lilyco/.cache/lycomc-perf/evidence-group16-manifest.json",
+        "bytes": 6727,
+        "sha256": "2dfe6d0eb20d3bd5b2f4637c574c6a5c35d9591fb2503336705fe78dea9e64f8"
+      },
+      {
+        "path": "/home/lilyco/code/lycomc/.github/workflows/ci.yml",
+        "bytes": 3104,
+        "sha256": "a6361d5610148a6a2c5fe8e6377f7a95837e0b143ae5b33bbb7083a5036bfa9f"
+      },
+      {
+        "path": "/home/lilyco/code/lycomc/docs/DECISION.md",
+        "bytes": 67129,
+        "sha256": "01ecc24b50007b40f22d860bdcadd148ec292681ba904347069cce66a8c539fb"
+      },
+      {
+        "path": "/home/lilyco/code/lycomc/docs/L9-READINESS.md",
+        "bytes": 3831,
+        "sha256": "c702c284218c08260be8427f3b43ba8a39a706e3071a190cc3c31206c67167cd"
+      },
+      {
+        "path": "/home/lilyco/code/lycomc/docs/SUFFICIENCY-MATRIX.md",
+        "bytes": 5592,
+        "sha256": "68a6d949b54c424fc0090c3909a80e8f9878b59068ca9a141cb0f5108a1994ef"
+      },
+      {
+        "path": "/home/lilyco/code/lycomc/docs/TEST-REPORT.md",
+        "bytes": 75017,
+        "sha256": "7c4027fb4efba39fedef8ba36152dca15c1ebbfe5900739fd04b1321e0e3ca68"
+      },
+      {
+        "path": "/home/lilyco/code/lycomc/scripts/test-sufficiency.sh",
+        "bytes": 11719,
+        "sha256": "ca7dc47dddc83f5288e4b9b4c70a4ec032474a7a16d9a804ddfeb4da554589d1"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-perf/evidence-group17-manifest.json",
+        "bytes": 1732,
+        "sha256": "c6563bb2272256a0cf138259a1d79f1fd1fd94614c11f725dcd20d9500c0574e"
+      }
+    ]
   }
   ]
 }
