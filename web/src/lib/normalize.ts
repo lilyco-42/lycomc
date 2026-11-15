@@ -61,6 +61,13 @@ export function normalizeVersion(raw: unknown): VersionInfo | null {
       ? packsRaw.filter((item): item is string => typeof item === "string")
       : [],
     localized: raw["localized"] === true,
+    displayName: str(raw["displayName"]),
+    icon: str(raw["icon"]),
+    isolated: raw["isolated"] === true,
+    hasInstanceSettings:
+      raw["hasInstanceSettings"] === true ||
+      (isRecord(raw["instanceSettings"]) &&
+        Object.keys(raw["instanceSettings"] as Record<string, unknown>).length > 0),
   };
 }
 

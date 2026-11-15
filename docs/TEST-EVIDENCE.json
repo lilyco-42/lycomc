@@ -1887,6 +1887,176 @@
         "sha256": "aae10cd1b61c6def425f42dc56402c966e86bc4280a4f87c84977c36864139b5"
       }
     ]
+  },
+  {
+    "label": "PCL-CE E22/E24 实例资料与实例级设置实现与验证（Round 3，2026-11-15）",
+    "files": [
+      {
+        "path": "/home/lilyco/code/lycomc/docs/CONTRACT.md",
+        "bytes": 14342,
+        "sha256": "930168f09cb258cde67b5b2f80ed9939bde5e27141604ff35da5e25f1be9580c"
+      },
+      {
+        "path": "/home/lilyco/code/lycomc/docs/PCL-CE-100-PLAN.md",
+        "bytes": 5347,
+        "sha256": "99bb8d16e884deb91c7ab628732eace61024ff007035ab73438eceade5479ef1"
+      },
+      {
+        "path": "/home/lilyco/code/lycomc/docs/PCL-CE-GAP-FRONTEND.md",
+        "bytes": 30094,
+        "sha256": "274f3a045b863030835f63327138226436fe1da28fb2173152b1c8d956157b17"
+      },
+      {
+        "path": "/home/lilyco/code/lycomc/scripts/check.sh",
+        "bytes": 2014,
+        "sha256": "3771c76539965f2658ca82f7e02bd85a6fb2ce15c55567fa3184d1d3e1fabd8f"
+      },
+      {
+        "path": "/home/lilyco/code/lycomc/scripts/test-sufficiency.sh",
+        "bytes": 20298,
+        "sha256": "dc97a699a44445705e8403014d7b81d4bde573cd021839d577a9d7b28a1cce19"
+      },
+      {
+        "path": "/home/lilyco/code/lycomc/.github/workflows/ci.yml",
+        "bytes": 3104,
+        "sha256": "a6361d5610148a6a2c5fe8e6377f7a95837e0b143ae5b33bbb7083a5036bfa9f"
+      },
+      {
+        "path": "/home/lilyco/code/lycomc/src/api.rs",
+        "bytes": 58784,
+        "sha256": "1128d2b1db3214cf2a32adcc3db58ec839df310bec97f762b746488277d5f149"
+      },
+      {
+        "path": "/home/lilyco/code/lycomc/src/commands.rs",
+        "bytes": 19052,
+        "sha256": "9af4151d61a8e0f269e4445265203527ed91adde25ad2709699f27c80acd4f42"
+      },
+      {
+        "path": "/home/lilyco/code/lycomc/src/mc/instances.rs",
+        "bytes": 17947,
+        "sha256": "c2d2a29589faf7ced7558118790bddc2ecd6d3d2dc393facce479d755369dee4"
+      },
+      {
+        "path": "/home/lilyco/code/lycomc/src/mc/launch.rs",
+        "bytes": 21359,
+        "sha256": "ea7e73c56f1492fa69c07bae2cebb8829aed1c42579d05fb02f2512f19ae9037"
+      },
+      {
+        "path": "/home/lilyco/code/lycomc/src/mc/localize.rs",
+        "bytes": 11054,
+        "sha256": "bc2c7beda92887e52e6a82a3b0a2607c4cca7db7b3f3afb2ca6fda6d72865161"
+      },
+      {
+        "path": "/home/lilyco/code/lycomc/src/mc/mod.rs",
+        "bytes": 4870,
+        "sha256": "258cd4ea150549af51c5b4ca6d24a689609ce0cfe947c932a4e0c9b8c8875241"
+      },
+      {
+        "path": "/home/lilyco/code/lycomc/src/mc/options.rs",
+        "bytes": 4414,
+        "sha256": "4bf1f86d7f38821f35a96984a659e5c412131d50d692e57fd70bb7071fdf78a7"
+      },
+      {
+        "path": "/home/lilyco/code/lycomc/web/src/components/version-avatar.tsx",
+        "bytes": 2472,
+        "sha256": "9696c306f9d32ed3a79861da33bfb917cac938ae36906de6eff510b124709dc8"
+      },
+      {
+        "path": "/home/lilyco/code/lycomc/web/src/lib/api.ts",
+        "bytes": 16367,
+        "sha256": "cb5967b1d89d7a132c05810d4cc1589025e2c4d6d3d1142b90f3787555ce39d2"
+      },
+      {
+        "path": "/home/lilyco/code/lycomc/web/src/lib/normalize.ts",
+        "bytes": 8232,
+        "sha256": "ebc4528f35d3da53887b01ffb17f5f467a255c2d2ecb6383fe857b985742913a"
+      },
+      {
+        "path": "/home/lilyco/code/lycomc/web/src/pages/versions-page.tsx",
+        "bytes": 44557,
+        "sha256": "1baab68dacefd9a73d81f84a5ba3b77384691b8acb7a352506a2064707a53383"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-perf/group20-e22/e22-implementation-files.json",
+        "bytes": 7457,
+        "sha256": "8f7fcf9a1afbd82f6e4754c107d1cb4855b700a50e6f25f506d2ec8d1366f6ab"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-perf/group20-e22/check-v0.1.1-e22.log",
+        "bytes": 15926,
+        "sha256": "e6747426393e1dcef605a9fc53d92ac6f0162afbc38f8d148a78e2d841ce3332"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-perf/group20-e22/check-v0.1.1-e22-final.log",
+        "bytes": 16130,
+        "sha256": "1641165b234fcfd26a858f8c626f4441b65723dad9facdf1d948797d144d46b8"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-perf/group20-e22/sufficiency-failed-stale-binary.json",
+        "bytes": 6989,
+        "sha256": "b9d7e40af74e7ce5cc4971989b7902cf2929fb38016ebad0a77350b29372b003"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-perf/group20-e22/sufficiency-failed-null-gameLang.json",
+        "bytes": 6345,
+        "sha256": "09eb7151e738f6f80a60bfb99212880b356109190bd610370001ea93797abc40"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-perf/group20-e22/sufficiency.json",
+        "bytes": 6142,
+        "sha256": "a43a1ee4f86c1ddf8d5c5cae734fc4d883f84db29b2daa771b23f8e25a14dde0"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-perf/group20-e22/cdp/e22-browser.mjs",
+        "bytes": 9506,
+        "sha256": "28ba9cb3b5bdf2a55f3ca026daa32506bcdfb9110afe2d4c25e88adbed684b7a"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-perf/group20-e22/cdp/e22-browser-result.json",
+        "bytes": 3127,
+        "sha256": "9eb0dd6efe0ecc54071134f599f99f6891b6b591e08637ab8851a028fe7154da"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-perf/group20-e22/cdp/e22-versions-page.png",
+        "bytes": 95471,
+        "sha256": "a5d3b15b7cb2300c22db95180dc0873358e60a5511a7062208c8eff4d47c8afd"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-perf/group20-e22/cdp/e22-metadata-saved.png",
+        "bytes": 92714,
+        "sha256": "463ccf2d3b8bc5db063c0e6f02f918b1345358372cc49b1d237d8f1a50d4f49c"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-perf/group20-e22/cdp/e22-instance-settings.png",
+        "bytes": 206225,
+        "sha256": "6a148cb1060e6de0aeffb538ce315868a9e51b213689b4b2bf71c52afe8b89e0"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-perf/group20-e22/cdp/e22-reset-done.png",
+        "bytes": 204834,
+        "sha256": "180cfb98fd0d71456ec2713247c6ca31dad7ec5be55f141870727fc9abe44669"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-perf/evidence-group19-manifest.json",
+        "bytes": 4500,
+        "sha256": "aae10cd1b61c6def425f42dc56402c966e86bc4280a4f87c84977c36864139b5"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-perf/group20-e22/credential-scan.json",
+        "bytes": 512,
+        "sha256": "b357d056c005dc7e463e31e4acc2ff9219936b8fc0b94cee1a17e23709588fbd"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-perf/evidence-group19-manifest.json",
+        "bytes": 4500,
+        "sha256": "aae10cd1b61c6def425f42dc56402c966e86bc4280a4f87c84977c36864139b5"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-perf/evidence-group20-manifest.json",
+        "bytes": 6268,
+        "sha256": "0475518435a27079b14fee6d7e4d7d479ad8cfa90ed4ff8dc857de0a56791925"
+      }
+    ]
   }
   ]
 }

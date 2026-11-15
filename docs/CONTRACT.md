@@ -43,6 +43,10 @@ GET    /api/settings                   -> Settings
 PUT    /api/settings                   -> Settings（部分更新：只改请求体里出现的键，缺省字段保持原值；显式传 null 才清空 javaPath / selectVersion / defaultAccount / quickPlayServer）
 POST   /api/localize                   body {versionId} -> {jobId}（异步汉化：写 lang + 下载并启用汉化资源包，进度走 /api/events）
 GET    /api/logs/:versionId            -> {lines:string[]}
+PATCH  /api/versions/:id               body {displayName?:string|null,icon?:string|null,isolated?:boolean} -> {ok:true,metadata:InstanceMeta}（非法 id 400，未安装 404）
+GET    /api/versions/:id/settings      -> {settings:Settings(生效值),override:Partial<Settings>}
+PUT    /api/versions/:id/settings      body Partial<Settings> -> {settings:Settings,override:Partial<Settings>}（只改出现的键；显式 null 删除该覆盖并跟随全局；空对象/未知键/非法类型 400）
+DELETE /api/versions/:id/settings      -> {ok:true,settings:Settings,override:{}}（清空实例覆盖）
 GET    /api/settings/export            -> Settings（公开字段，无凭据）
 POST   /api/settings/import            body Settings|Partial<Settings> -> Settings（浅合并 + sanitize；空对象/非法类型 400）
 POST   /api/backup/create              -> {id,fileName,bytes,createdAt}（含凭据的快照只落盘，Unix 0600）
@@ -52,6 +56,8 @@ POST   /api/cleanup                    -> {ok:true,freedBytes,removedFiles,remov
 
 ## 类型
 VersionInfo = {id, kind:"vanilla"|"fabric", baseVersion, installedAt, javaMajor, lang?, resourcePacks:string[], localized:bool}
+InstanceMeta = {displayName:string|null,icon:string|null,isolated:boolean}
+VersionInfo 增加 displayName/icon/isolated/hasInstanceSettings 字段；设置页与版本页共用。
 JavaInfo = {path, version:number, source:"system"|"managed"}
 Account = {name, uuid, kind:"offline"|"microsoft", hasSession:bool, entitled?:bool,
            skinUrl?, capeUrl?, skinModel?:"classic"|"slim", expiresAt?:number}
@@ -72,6 +78,9 @@ Settings = {memoryMb, javaPath?, extraJvmArgs[], selectVersion?, downloadSource:
 // Settings.quickPlayServer 是默认直连地址；None / 空串 = 正常进主菜单，保存时由 clean_server_address 白名单净化。
 // 仅当版本元数据的 arguments.game 含 is_quick_play_multiplayer 规则时才注入 --quickPlayMultiplayer <addr>；
 // 旧版本不追加未知选项，任务日志写「当前版本元数据不支持 quickPlay，已正常进主菜单」。
+// E22/E24 实例元数据在 versions/<id>/instance-meta.json（tmp→rename、Unix 0600；不混入 Mojang version json）。
+// 实例设置只覆盖 memoryMb/javaPath/extraJvmArgs/downloadSource/maxConcurrent/gameLang/quickPlayServer，合并后统一 sanitize；PUT 是部分更新，未提交键保留，显式 null 删除该覆盖并跟随全局（不会把 null 写入非可空字段），空覆盖表 400。
+// isolated=true（默认）沿用 versions/<id> 作为游戏目录；isolated=false 改成 dataDir()/shared-game，mods/options/resourcepacks 一起跟随，切换不迁移旧文件。
 BackupEntry = {id,fileName,bytes,createdAt}
 CleanupReport = {freedBytes,removedFiles,removedDirs}
 Job = {id, kind, title, state:"running"|"done"|"error", progress:0-100, message, logs[], result?, createdAt}
@@ -108,3 +117,4 @@ Job = {id, kind, title, state:"running"|"done"|"error", progress:0-100, message,
 - 2026-11-13 P0 契约修复：`PUT /api/settings` 的 javaPath / selectVersion / defaultAccount 三个可空字段改用 serde `double_option`，区分字段缺失（保持原值）与显式 JSON null（清空）。CDP 与可逆 HTTP 探针复验 13/13、9 次 PUT 语义通过；详见 docs/UI-MIGRATION.md §7 与 docs/DECISION.md「交互验收发现的 P0」。
 - 2026-11-14 一键直连多人服务器（quickPlay）：POST /api/launch 增 `server?:string|null` 本次覆盖值（缺省才回落 `settings.quickPlayServer`，显式 null / 空串 / 非法值清空本次直连但不改写默认值）；Settings 增 `quickPlayServer?:string|null`，沿用 double_option 区分缺失 / 显式 null；CLI `lycomc launch` 增 `--server <地址>`。不新增端点、不新增依赖、不改 14 命令与 26 条 HTTP 路由；仅当版本元数据含 `is_quick_play_multiplayer` 规则时注入 `--quickPlayMultiplayer <addr>`。前端主页与设置页各增一个输入框，教程 / 图表 / 正版登录 / 皮肤 / SSE 均不回退。详见 DECISION.md「一键直连多人服务器」与 TEST-REPORT.md §10。
 - 2026-11-15 H35 设置导入导出/备份/清理：新增 6 个端点（settings/export|import、backup/create|list|{id}/restore、cleanup）。导入浅合并后 sanitize，显式 null 仍清空可空字段；备份快照含 accounts.json 但响应只给条目元数据，Unix 0600，id 白名单拒绝路径穿越；restore 原子写回 settings/accounts 并同步内存；cleanup 只删 dataDir/cache 子项。充分性脚本新增 9 个 H35 断言。
+- 2026-11-15 E22/E24 实例资料与实例级设置：新增 PATCH /api/versions/:id 与 GET|PUT|DELETE /api/versions/:id/settings；displayName/icon/isolated 持久化到 versions/<id>/instance-meta.json（0600，显式 null 清空）；设置覆盖仅白名单 7 个启动字段，合并后 sanitize，null 删覆盖、空对象 400；isolated=false 让游戏目录与 mods/options/resourcepacks 落到 shared-game，默认 isolated=true 零迁移。充分性脚本新增 6 个 E22/E24 断言；补充修复：PUT 按 Partial 语义保留未提交覆盖键，null 仅删除对应键，避免把 null 误写入 gameLang 等非可空 Settings 字段。

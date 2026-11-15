@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Boxes,
   ChevronDown,
@@ -7,16 +7,25 @@ import {
   FileClock,
   Languages,
   Loader2,
+  Pencil,
   Play,
   RotateCw,
+  Save,
+  Settings2,
+  ShieldCheck,
   Star,
   Trash2,
+  Undo2,
   TriangleAlert,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Slider } from "@/components/ui/slider";
 import {
   Dialog,
   DialogContent,
@@ -27,15 +36,34 @@ import {
 } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
+import { SectionHeader } from "@/components/section-header";
 import { BackendNotice } from "@/components/backend-notice";
 import { ErrorAlert } from "@/components/error-alert";
 import { JobProgressCard } from "@/components/job-progress-card";
 import { VersionAvatar } from "@/components/version-avatar";
 import { VersionKindBadge } from "@/components/version-badge";
 import { useAppData } from "@/context/app-data-context";
-import { api, errorMessage, isBackendDown, type Job, type VersionInfo } from "@/lib/api";
-import { formatDateTime, formatSince, gameLangLabel, shortenMiddle } from "@/lib/format";
+import {
+  api,
+  errorMessage,
+  isBackendDown,
+  isRecord,
+  type InstanceMeta,
+  type Job,
+  type Settings,
+  type VersionInfo,
+  type VersionSettingsResponse,
+} from "@/lib/api";
+import {
+  GAME_LANGS,
+  formatDateTime,
+  formatMemory,
+  formatSince,
+  gameLangLabel,
+  shortenMiddle,
+} from "@/lib/format";
 import { navigate } from "@/lib/router";
+import { normalizeSettings } from "@/lib/normalize";
 import { useJobTracker } from "@/lib/use-job";
 import { useVersionDetails, type VersionDetail } from "@/lib/use-version-details";
 import { cn } from "@/lib/utils";
@@ -50,15 +78,77 @@ export function VersionsPage() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<VersionInfo | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [busyAction, setBusyAction] = useState<"delete" | "select" | null>(null);
+  const [busyAction, setBusyAction] = useState<"delete" | "select" | "metadata" | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [sort, setSort] = useState<SortKey>("installed");
   // 汉化任务：任务号走实时进度，target 只用于标题与按钮等待态
   const [localizeTarget, setLocalizeTarget] = useState<string | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
   const [detailNonce, setDetailNonce] = useState(0);
+  const [editTarget, setEditTarget] = useState<VersionInfo | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editIcon, setEditIcon] = useState("");
+  const [editIsolated, setEditIsolated] = useState(false);
+  const [settingsTarget, setSettingsTarget] = useState<VersionInfo | null>(null);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const [settingsKey, setSettingsKey] = useState(0);
 
   const selectedId = settings?.selectVersion ?? versions[0]?.id ?? null;
+
+  const openEdit = useCallback((target: VersionInfo) => {
+    setActionError(null);
+    setEditTarget(target);
+    setEditName(target.displayName ?? "");
+    setEditIcon(target.icon ?? "");
+    setEditIsolated(target.isolated === true);
+  }, []);
+
+  const handleSaveEdit = useCallback(async () => {
+    if (editTarget === null) {
+      return;
+    }
+    setBusyId(editTarget.id);
+    setBusyAction("metadata");
+    setActionError(null);
+    try {
+      const result = await api.patchVersion(editTarget.id, {
+        displayName: editName.trim() === "" ? null : editName.trim(),
+        icon: editIcon.trim() === "" ? null : editIcon.trim(),
+        isolated: editIsolated,
+      });
+      const metadata: InstanceMeta = result.metadata;
+      patchVersions((list) =>
+        list.map((item) =>
+          item.id === editTarget.id
+            ? {
+                ...item,
+                displayName: metadata.displayName,
+                icon: metadata.icon,
+                isolated: metadata.isolated,
+              }
+            : item,
+        ),
+      );
+      setEditTarget(null);
+      toast.success("实例资料已保存", { description: editTarget.id });
+      reload();
+    } catch (cause: unknown) {
+      const message = errorMessage(cause);
+      setActionError(message);
+      toast.error("保存实例资料失败", { description: message });
+    } finally {
+      setBusyId(null);
+      setBusyAction(null);
+    }
+  }, [editTarget, editName, editIcon, editIsolated, patchVersions, reload]);
+
+  const openSettings = useCallback((target: VersionInfo) => {
+    setActionError(null);
+    setSettingsError(null);
+    setSettingsKey((value) => value + 1);
+    setSettingsTarget(target);
+  }, []);
 
   const sorted = useMemo(() => {
     const list = versions.slice();
@@ -288,6 +378,8 @@ export function VersionsPage() {
                   setExpanded((previous) => (previous === version.id ? null : version.id));
                 }}
                 onSelect={() => { void handleSelect(version); }}
+                onEdit={() => { openEdit(version); }}
+                onInstanceSettings={() => { openSettings(version); }}
                 onDelete={() => {
                   setActionError(null);
                   setDeleting(version);
@@ -339,6 +431,123 @@ export function VersionsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog
+        open={editTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditTarget(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="size-4" />
+              编辑实例资料
+            </DialogTitle>
+            <DialogDescription>
+              「{editTarget?.id ?? ""}」的显示名和图标只用于启动器内识别；隔离存储会让这个实例使用独立的存档、选项和 Mod 目录。
+            </DialogDescription>
+          </DialogHeader>
+          {actionError !== null ? <ErrorAlert title="保存失败" message={actionError} /> : null}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="instance-display-name">显示名</Label>
+              <Input
+                id="instance-display-name"
+                value={editName}
+                onChange={(event) => { setEditName(event.target.value); }}
+                placeholder={editTarget?.id ?? "留空则显示版本 id"}
+                maxLength={40}
+              />
+              <p className="text-[11px] text-muted-foreground">留空会恢复显示原始版本 id。</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="instance-icon">实例图标</Label>
+              <Input
+                id="instance-icon"
+                value={editIcon}
+                onChange={(event) => { setEditIcon(event.target.value); }}
+                placeholder="例如 🧊 或 ⛏"
+                maxLength={4}
+              />
+              <p className="text-[11px] text-muted-foreground">可填一个 emoji 或最多四个字符；留空用版本方块。</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3 rounded-xl border border-border bg-pcl-8/50 px-3 py-2.5 dark:bg-muted/30">
+            <ShieldCheck className="mt-0.5 size-4 shrink-0 text-primary" />
+            <div className="min-w-0 flex-1">
+              <Label htmlFor="instance-isolated">独立存储（隔离实例）</Label>
+              <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
+                开启后存档、options.txt 与 Mod 互不共用；关闭则恢复与其它实例共享。切换时不会删除已有文件。
+              </p>
+            </div>
+            <Switch
+              id="instance-isolated"
+              checked={editIsolated}
+              onCheckedChange={setEditIsolated}
+              aria-label="独立存储"
+            />
+          </div>
+          <DialogFooter showCloseButton>
+            <Button onClick={() => { void handleSaveEdit(); }} disabled={busyAction === "metadata"}>
+              {busyAction === "metadata" ? <Loader2 className="animate-spin" /> : <Save />}
+              保存资料
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={settingsTarget !== null}
+        onOpenChange={(open) => {
+          if (!open && !settingsSaving) {
+            setSettingsTarget(null);
+          }
+        }}
+      >
+        <DialogContent className="max-h-[88vh] max-w-2xl overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Settings2 className="size-4" />
+              实例专属设置
+            </DialogTitle>
+            <DialogDescription>
+              「{settingsTarget?.id ?? ""}」可以只覆盖下面几项启动设置，其他设置继续跟随全局。清空覆盖后完全恢复跟随全局。
+            </DialogDescription>
+          </DialogHeader>
+          {settingsTarget !== null ? (
+            <InstanceSettingsPanel
+              versionId={settingsTarget.id}
+              versionKey={settingsKey}
+              globalSettings={settings}
+              busy={settingsSaving}
+              onBusyChange={setSettingsSaving}
+              onError={setSettingsError}
+              onSaved={() => {
+                setSettingsKey((value) => value + 1);
+                patchVersions((list) =>
+                  list.map((item) =>
+                    item.id === settingsTarget.id ? { ...item, hasInstanceSettings: true } : item,
+                  ),
+                );
+              }}
+              onReset={() => {
+                setSettingsKey((value) => value + 1);
+                patchVersions((list) =>
+                  list.map((item) =>
+                    item.id === settingsTarget.id ? { ...item, hasInstanceSettings: false } : item,
+                  ),
+                );
+                reload();
+              }}
+              onClose={() => { setSettingsTarget(null); }}
+            />
+          ) : null}
+          {settingsError !== null ? <ErrorAlert title="实例设置未完成" message={settingsError} /> : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -352,7 +561,9 @@ interface VersionRowProps {
   detail: VersionDetail | undefined;
   localizing: boolean;
   busy: boolean;
-  busyAction: "delete" | "select" | null;
+  busyAction: "delete" | "select" | "metadata" | null;
+  onEdit: () => void;
+  onInstanceSettings: () => void;
   onToggle: () => void;
   onSelect: () => void;
   onDelete: () => void;
@@ -370,6 +581,8 @@ function VersionRow({
   localizing,
   busy,
   busyAction,
+  onEdit,
+  onInstanceSettings,
   onToggle,
   onSelect,
   onDelete,
@@ -386,7 +599,7 @@ function VersionRow({
       )}
     >
       <div className="flex flex-wrap items-center gap-3 p-3.5">
-        <VersionAvatar kind={version.kind} label={version.id} size="md" />
+        <VersionAvatar kind={version.kind} label={version.id} icon={version.icon} size="md" />
 
         <button
           type="button"
@@ -395,8 +608,25 @@ function VersionRow({
           aria-expanded={expanded}
         >
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="truncate text-sm font-semibold">{version.id}</span>
+            <span className="truncate text-sm font-semibold">{version.displayName ?? version.id}</span>
+            {version.displayName !== null && version.displayName !== undefined && version.displayName !== "" ? (
+              <span className="truncate text-[11px] text-muted-foreground" title={version.id}>
+                {version.id}
+              </span>
+            ) : null}
             <VersionKindBadge kind={version.kind} />
+            {version.hasInstanceSettings === true ? (
+              <Badge variant="outline" className="gap-1 border-primary/35 bg-primary/10 text-primary">
+                <Settings2 />
+                专属设置
+              </Badge>
+            ) : null}
+            {version.isolated === true ? (
+              <Badge variant="outline" className="gap-1 border-pcl-4/40 bg-pcl-8 text-pcl-3 dark:text-pcl-5">
+                <ShieldCheck />
+                独立存储
+              </Badge>
+            ) : null}
             {selected ? (
               <Badge variant="outline" className="gap-1 border-primary/40 bg-primary/10 text-primary">
                 <Star />
@@ -430,6 +660,26 @@ function VersionRow({
         </button>
 
         <div className="flex items-center gap-1.5">
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            onClick={onEdit}
+            disabled={busy}
+            title="编辑显示名、图标与独立存储"
+            aria-label={"编辑 " + version.id + " 资料"}
+          >
+            <Pencil />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            onClick={onInstanceSettings}
+            disabled={busy}
+            title="这个实例单独的启动设置"
+            aria-label={"编辑 " + version.id + " 专属设置"}
+          >
+            <Settings2 />
+          </Button>
           <Button
             variant="outline"
             size="xs"
@@ -493,6 +743,16 @@ function VersionRow({
               }
             />
             <DetailRow
+              icon={ShieldCheck}
+              label="存储方式"
+              value={version.isolated === true ? "独立存档 / 选项 / Mod" : "与其它实例共享"}
+            />
+            <DetailRow
+              icon={Settings2}
+              label="专属设置"
+              value={version.hasInstanceSettings === true ? "已有实例级覆盖" : "跟随全局设置"}
+            />
+            <DetailRow
               icon={Boxes}
               label="已启用资源包"
               value={
@@ -512,6 +772,14 @@ function VersionRow({
             <Button variant="outline" size="xs" onClick={onMods}>
               管理 Mod
             </Button>
+            <Button variant="outline" size="xs" onClick={onEdit} disabled={busy}>
+              <Pencil />
+              编辑资料
+            </Button>
+            <Button variant="outline" size="xs" onClick={onInstanceSettings} disabled={busy}>
+              <Settings2 />
+              专属设置
+            </Button>
             <Button variant="outline" size="xs" onClick={onLocalize} disabled={busy || localizing}>
               {localizing ? <Loader2 className="animate-spin" /> : <Languages />}
               {localized ? "重新汉化" : "一键汉化"}
@@ -523,6 +791,405 @@ function VersionRow({
         </div>
       ) : null}
     </li>
+  );
+}
+
+
+/** 实例级设置草稿：只覆盖玩家常用、且契约允许的四项。 */
+interface InstanceSettingsDraft {
+  memoryMb: number;
+  javaPath: string | null;
+  gameLang: string;
+  extraJvmArgs: string[];
+}
+
+const INSTANCE_MEMORY_MIN = 512;
+const INSTANCE_MEMORY_MAX = 16384;
+const INSTANCE_MEMORY_STEP = 256;
+const INSTANCE_SETTING_KEYS: ReadonlyArray<keyof InstanceSettingsDraft> = [
+  "memoryMb",
+  "javaPath",
+  "gameLang",
+  "extraJvmArgs",
+];
+
+function parseInstanceResponse(raw: unknown): VersionSettingsResponse | null {
+  if (!isRecord(raw) || !isRecord(raw["settings"])) {
+    return null;
+  }
+  const overrideRaw: unknown = raw["override"];
+  const override: Partial<Settings> = {};
+  if (isRecord(overrideRaw)) {
+    for (const key of INSTANCE_SETTING_KEYS) {
+      const value = overrideRaw[key];
+      if (value === undefined) {
+        continue;
+      }
+      (override as Record<string, unknown>)[key] = value;
+    }
+  }
+  return { settings: normalizeSettings(raw["settings"]), override };
+}
+
+function toDraft(effective: Settings, override: Partial<Settings>): InstanceSettingsDraft {
+  return {
+    memoryMb: typeof override.memoryMb === "number" ? override.memoryMb : effective.memoryMb,
+    javaPath:
+      override.javaPath !== undefined ? override.javaPath : effective.javaPath,
+    gameLang: override.gameLang ?? effective.gameLang ?? "zh_cn",
+    extraJvmArgs: override.extraJvmArgs ?? effective.extraJvmArgs,
+  };
+}
+
+function jvmArgsLines(args: string[]): string {
+  return args.join("\n");
+}
+
+function splitJvmArgs(text: string): string[] {
+  return text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line !== "");
+}
+
+interface InstanceSettingsPanelProps {
+  versionId: string;
+  versionKey: number;
+  globalSettings: Settings | null;
+  busy: boolean;
+  onBusyChange: (busy: boolean) => void;
+  onError: (message: string | null) => void;
+  onSaved: () => void;
+  onReset: () => void;
+  onClose: () => void;
+}
+
+/**
+ * E24：展示后端解析后的生效设置，并针对当前实例提交非空覆盖。
+ * 不使用 effect 同步草稿：远端数据返回后以「数据代数」作为 key 重挂表单。
+ */
+function InstanceSettingsPanel({
+  versionId,
+  versionKey,
+  globalSettings,
+  busy,
+  onBusyChange,
+  onError,
+  onSaved,
+  onReset,
+  onClose,
+}: InstanceSettingsPanelProps) {
+  const [response, setResponse] = useState<VersionSettingsResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [nonce, setNonce] = useState(0);
+  const [edits, setEdits] = useState<Partial<InstanceSettingsDraft>>({});
+  const [jvmArgsEdit, setJvmArgsEdit] = useState<string | null>(null);
+  const [resetOpen, setResetOpen] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setLoadError(null);
+    api
+      .getVersionSettings(versionId)
+      .then((data) => {
+        if (!cancelled) {
+          const parsed = parseInstanceResponse(data as unknown);
+          setResponse(parsed);
+          setLoading(false);
+          if (parsed === null) {
+            setLoadError("启动器返回的数据格式不完整，请稍后重试");
+          }
+        }
+      })
+      .catch((cause: unknown) => {
+        if (!cancelled) {
+          setLoadError(errorMessage(cause));
+          setLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [versionId, versionKey, nonce]);
+
+  const responseSettings = response?.settings ?? null;
+  const override = response?.override ?? {};
+  const draft = useMemo<InstanceSettingsDraft | null>(() => {
+    if (responseSettings === null) {
+      return null;
+    }
+    const base = toDraft(responseSettings, override);
+    return { ...base, ...edits };
+  }, [responseSettings, override, edits]);
+  const jvmArgsText =
+    jvmArgsEdit ?? (draft === null ? "" : jvmArgsLines(draft.extraJvmArgs));
+  const dirty =
+    draft !== null &&
+    (draft.memoryMb !== responseSettings?.memoryMb ||
+      (draft.javaPath ?? "") !== (responseSettings?.javaPath ?? "") ||
+      draft.gameLang !== (responseSettings?.gameLang ?? "zh_cn") ||
+      splitJvmArgs(jvmArgsText).join("\n") !== (responseSettings?.extraJvmArgs ?? []).join("\n"));
+
+  const handleSave = useCallback(async () => {
+    if (draft === null || responseSettings === null) {
+      return;
+    }
+    const args = splitJvmArgs(jvmArgsText);
+    const patch: Partial<Settings> = {
+      memoryMb: draft.memoryMb,
+      javaPath: draft.javaPath === null || draft.javaPath.trim() === "" ? null : draft.javaPath.trim(),
+      gameLang: draft.gameLang,
+      extraJvmArgs: args,
+    };
+    if (Object.keys(patch).length === 0) {
+      onError("没有可保存的设置，请先修改一项");
+      return;
+    }
+    onBusyChange(true);
+    onError(null);
+    try {
+      const saved = await api.saveVersionSettings(versionId, patch);
+      const parsed = parseInstanceResponse(saved as unknown);
+      if (parsed !== null) {
+        setResponse(parsed);
+      }
+      setEdits({});
+      setJvmArgsEdit(null);
+      toast.success("实例设置已保存", { description: versionId + " 的专属覆盖已生效" });
+      onSaved();
+      setNonce((value) => value + 1);
+    } catch (cause: unknown) {
+      const message = errorMessage(cause);
+      onError(message);
+      toast.error("保存实例设置失败", { description: message });
+    } finally {
+      onBusyChange(false);
+    }
+  }, [draft, jvmArgsText, responseSettings, versionId, onBusyChange, onError, onSaved]);
+
+  const handleReset = useCallback(async () => {
+    onBusyChange(true);
+    onError(null);
+    try {
+      const reset = await api.resetVersionSettings(versionId);
+      const parsed = parseInstanceResponse(reset as unknown);
+      if (parsed !== null) {
+        setResponse(parsed);
+      }
+      setEdits({});
+      setJvmArgsEdit(null);
+      setResetOpen(false);
+      toast.success("已恢复跟随全局设置", { description: "这个实例的专属覆盖已全部清除" });
+      onReset();
+      setNonce((value) => value + 1);
+    } catch (cause: unknown) {
+      const message = errorMessage(cause);
+      onError(message);
+      toast.error("恢复全局设置失败", { description: message });
+    } finally {
+      onBusyChange(false);
+    }
+  }, [versionId, onBusyChange, onError, onReset]);
+
+  if (loading && response === null) {
+    return (
+      <div className="space-y-3 py-2">
+        <Skeleton className="h-10 w-full rounded-xl" />
+        <Skeleton className="h-28 w-full rounded-xl" />
+        <Skeleton className="h-20 w-full rounded-xl" />
+        <p className="text-xs text-muted-foreground">正在读取这个实例的设置…</p>
+      </div>
+    );
+  }
+
+  if (loadError !== null || response === null || responseSettings === null || draft === null) {
+    return (
+      <div className="space-y-3 py-2">
+        <ErrorAlert
+          title="读取实例设置失败"
+          message={loadError ?? "启动器还没准备好这个功能，或返回的数据不完整"}
+          onRetry={() => { setNonce((value) => value + 1); }}
+        />
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          可以先继续使用全局设置；启动器服务恢复或功能上线后再点「重试」。
+        </p>
+      </div>
+    );
+  }
+
+  const overrideKeys = INSTANCE_SETTING_KEYS.filter((key) => override[key] !== undefined);
+  const active = responseSettings;
+
+  return (
+    <div data-motion-root className="space-y-3 py-1" key={versionKey}>
+      <div className="rounded-xl border border-border bg-pcl-8/60 px-3 py-2.5 dark:bg-muted/30">
+        <SectionHeader
+          icon={ShieldCheck}
+          title="生效设置"
+          description="由全局设置与实例覆盖合并后得到，启动这个版本时实际使用"
+          action={
+            <Badge variant="outline" className="font-mono">
+              {overrideKeys.length === 0 ? "跟随全局" : overrideKeys.length + " 项专属"}
+            </Badge>
+          }
+        />
+        <div className="mt-2 grid gap-x-4 gap-y-1.5 text-[11px] sm:grid-cols-2">
+          <EffectiveSetting label="内存" value={formatMemory(active.memoryMb)} overridden={override.memoryMb !== undefined} />
+          <EffectiveSetting label="Java" value={active.javaPath ?? "自动寻找"} overridden={override.javaPath !== undefined} />
+          <EffectiveSetting label="游戏语言" value={gameLangLabel(active.gameLang)} overridden={override.gameLang !== undefined} />
+          <EffectiveSetting
+            label="额外 JVM 参数"
+            value={active.extraJvmArgs.length === 0 ? "无" : active.extraJvmArgs.length + " 行"}
+            overridden={override.extraJvmArgs !== undefined}
+          />
+        </div>
+        {globalSettings !== null ? (
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            全局当前内存 {formatMemory(globalSettings.memoryMb)}、语言 {gameLangLabel(globalSettings.gameLang)}；保存后只有这个实例使用新值。
+          </p>
+        ) : null}
+      </div>
+
+      <div className="card-soft space-y-3 border border-border">
+        <SectionHeader
+          icon={Settings2}
+          title="实例覆盖"
+          description="留空或清空后点「恢复跟随全局」，即不再单独设置"
+          action={
+            <Button
+              variant="outline"
+              size="xs"
+              disabled={busy}
+              onClick={() => {
+                setEdits({});
+                setJvmArgsEdit(null);
+                onError(null);
+              }}
+            >
+              <Undo2 />
+              还原草稿
+            </Button>
+          }
+        />
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <Label htmlFor="instance-memory">内存分配</Label>
+            <Badge variant="outline" className="font-mono">{formatMemory(draft.memoryMb)}</Badge>
+          </div>
+          <Slider
+            id="instance-memory"
+            value={[draft.memoryMb]}
+            min={INSTANCE_MEMORY_MIN}
+            max={INSTANCE_MEMORY_MAX}
+            step={INSTANCE_MEMORY_STEP}
+            disabled={busy}
+            onValueChange={(values) => {
+              const value = values[0];
+              if (value !== undefined) {
+                setEdits((previous) => ({ ...previous, memoryMb: value }));
+              }
+            }}
+          />
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="instance-java-path">Java 路径</Label>
+            <Input
+              id="instance-java-path"
+              value={draft.javaPath ?? ""}
+              disabled={busy}
+              onChange={(event) => { setEdits((previous) => ({ ...previous, javaPath: event.target.value })); }}
+              placeholder="留空则自动寻找"
+            />
+            <p className="text-[11px] text-muted-foreground">只对这个实例生效；留空表示自动寻找。</p>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="instance-game-lang">游戏语言</Label>
+            <select
+              id="instance-game-lang"
+              value={draft.gameLang}
+              disabled={busy}
+              onChange={(event) => { setEdits((previous) => ({ ...previous, gameLang: event.target.value })); }}
+              className="h-9 w-full rounded-lg border border-input bg-card px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 dark:bg-input/30"
+            >
+              {GAME_LANGS.map((item) => (
+                <option key={item.value} value={item.value}>{item.label}</option>
+              ))}
+            </select>
+            <p className="text-[11px] text-muted-foreground">启动时写入这个实例的 options.txt。</p>
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="instance-jvm-args">额外 JVM 参数（一行一个）</Label>
+          <textarea
+            id="instance-jvm-args"
+            value={jvmArgsText}
+            disabled={busy}
+            rows={4}
+            spellCheck={false}
+            placeholder={"-Dfile.encoding=UTF-8\n-XX:+UseG1GC"}
+            onChange={(event) => { setJvmArgsEdit(event.target.value); }}
+            className="w-full resize-y rounded-xl border border-input bg-card px-3 py-2 font-mono text-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 dark:bg-input/30"
+          />
+          <p className="text-[11px] text-muted-foreground">每行一条；空白行会被忽略。没有需要时全部删空即可。</p>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Button size="sm" disabled={!dirty || busy} onClick={() => { void handleSave(); }}>
+          {busy ? <Loader2 className="animate-spin" /> : <Save />}
+          保存专属设置
+        </Button>
+        <Button variant="outline" size="sm" disabled={busy || overrideKeys.length === 0} onClick={() => { setResetOpen(true); }}>
+          <Undo2 />
+          恢复跟随全局
+        </Button>
+        <Button variant="ghost" size="sm" disabled={busy} onClick={onClose} className="ml-auto">
+          关闭
+        </Button>
+      </div>
+
+      <Dialog open={resetOpen} onOpenChange={setResetOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>清除这个实例的专属设置？</DialogTitle>
+            <DialogDescription>
+              「{versionId}」的内存、Java 路径、游戏语言与额外 JVM 参数会全部恢复为跟随全局设置。不会删除游戏文件或存档。
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter showCloseButton>
+            <Button variant="destructive" disabled={busy} onClick={() => { void handleReset(); }}>
+              {busy ? <Loader2 className="animate-spin" /> : <Undo2 />}
+              确认恢复
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+interface EffectiveSettingProps {
+  label: string;
+  value: string;
+  overridden: boolean;
+}
+
+function EffectiveSetting({ label, value, overridden }: EffectiveSettingProps) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="flex min-w-0 items-center gap-1.5">
+        <span className="truncate font-medium text-foreground" title={value}>{value}</span>
+        {overridden ? (
+          <Badge variant="outline" className="border-primary/35 bg-primary/10 px-1 py-0 text-[9px] text-primary">
+            专属
+          </Badge>
+        ) : null}
+      </span>
+    </div>
   );
 }
 

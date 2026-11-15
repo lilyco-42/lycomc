@@ -5,6 +5,8 @@ import type { VersionKind } from "@/lib/api";
 interface VersionAvatarProps {
   kind: VersionKind;
   label: string;
+  /** 实例自定义图标（emoji 或短文字）；未提供时按版本类型绘制方块 */
+  icon?: string | null;
   size?: "sm" | "md" | "lg";
   className?: string;
 }
@@ -19,8 +21,24 @@ const SIZES = {
  * 版本方块：三面等距立方体用离散实色区分，不使用纯色渐变或半透明高光。
  * Fabric 用更深的右侧面，原版用亮蓝；中央放真实 lucide 图标或版本短号。
  */
-export function VersionAvatar({ kind, label, size = "md", className }: VersionAvatarProps) {
+export function VersionAvatar({ kind, label, icon, size = "md", className }: VersionAvatarProps) {
   const short = label.replace(/^fabric-/, "").split("-")[0] ?? label;
+  const customIcon = typeof icon === "string" ? icon.trim() : "";
+  const useCustomIcon = customIcon !== "" && Array.from(customIcon).length <= 4;
+  if (useCustomIcon) {
+    return (
+      <span
+        className={cn(
+          "relative flex shrink-0 items-center justify-center overflow-hidden rounded-xl border border-primary/35 bg-pcl-7 font-semibold text-primary shadow-sm dark:bg-muted",
+          SIZES[size],
+          className,
+        )}
+        title={label}
+      >
+        <span className="max-w-full truncate px-0.5 text-center leading-none">{customIcon}</span>
+      </span>
+    );
+  }
   return (
     <span
       className={cn(

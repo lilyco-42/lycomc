@@ -442,3 +442,22 @@ cargo test（解析逻辑单测：device code / XBL / XSTS / MC token / textures
 | E | 先做房间/EasyTier/公网正版多人联机 | 否决 | 服务端协议、账号凭据与隐私决策未定，不能在本轮证明 |
 
 落地：新增 `src/backup.rs`、`web/src/pages/backup-page.tsx`，改 `src/api.rs`、`src/lib.rs`、`docs/CONTRACT.md`、`scripts/test-sufficiency.sh` 与前端路由/导航；CLI `--schema` 内容保持 14 命令确定性不变。证据写入第 19 组；不移动 v0.1.0/v0.1.1 tag 与 Release。
+
+## PCL-CE E22/E24 实例资料与实例级设置决策（Round 3）
+
+背景：H35 已在 Round 2 完成设置导入导出/备份恢复/缓存清理；本轮继续选择自包含、无需外部凭据/服务且能完整走 L1/L3/L4/L5 的 E22+E24，作为 P0 数据模型与 P4 Web 入口的下一批真实功能。
+
+| 方案 | 内容 | 判定 | 理由 |
+| --- | --- | --- | --- |
+| A | 直接宣布 PCL-CE 100% 完成 | 否决 | 本轮只实现 E22 与 E24 启动设置子集，其余差距未逐项实现与验收 |
+| B | 复制 PCL-CE 源码、界面或品牌资产 | 否决 | 许可边界与自研 Web-first 路线不允许 |
+| C | 只补 Rust/API，不补可见 Web 交互 | 否决 | 100% 验收口径要求每个功能有可见 Web 入口与真实浏览器证据 |
+| D | 新增 instances.rs + 4 端点 + /versions 页面交互 + 单测/充分性/CDP | 采纳 | 能证明元数据、隔离目录、实例覆盖、恢复全局的完整闭环 |
+| E | isolated=false 时自动迁移旧 mods/options 文件 | 否决 | 默认 isolated=true 零迁移；切换只改变后续游戏目录，避免意外搬动用户数据 |
+| F | PUT 实例设置整表替换，或把 null 写进非可空字段 | 否决 | 契约要求 Partial 语义；null 只删除对应覆盖并跟随全局，修复后新增单测 |
+| G | 删除失败运行或用 || true 掩盖 | 否决 | 24/30 与 29/30 两份失败证据保留，按根因修复并以新提交递增 |
+| H | force 已公开 tag 或重发 Release | 否决 | 本轮无发布物变更，v0.1.0/v0.1.1 保持原对象 |
+
+落地：docs/CONTRACT.md 直接更新为活契约；scripts/test-sufficiency.sh 扩到 30 条断言并由 CI 强制；纯追加 TEST-REPORT §20、本决策章节与 TEST-EVIDENCE group20；evidence-group20-manifest.json sha256=0475518435a27079b14fee6d7e4d7d479ad8cfa90ed4ff8dc857de0a56791925 作为末项登记自身。
+
+结论：E22 与 E24 的 7 字段启动设置子集已完成本轮验收；整体 PCL-CE 100% 仍 ACTIVE，剩余差距必须按 v2.15.1 重算并逐项补实现、测试与证据，L9 真机/签名/公网联机仍未开始。

@@ -20,7 +20,8 @@ use tokio::sync::broadcast;
 use crate::backup;
 use crate::jobs::{now_ms, Job, JobStore};
 use crate::mc::{
-    self, auth, fabric, install, java, launch, localize, meta, modrinth, options, paths, Progress,
+    self, auth, fabric, install, instances, java, launch, localize, meta, modrinth, options, paths,
+    Progress,
 };
 use crate::settings::{self, Account, Settings};
 
@@ -119,7 +120,13 @@ pub fn router(state: AppState) -> Router {
         .route("/api/versions/install", post(install_version))
         .route(
             "/api/versions/{id}",
-            get(get_version).delete(delete_version),
+            get(get_version).patch(patch_version).delete(delete_version),
+        )
+        .route(
+            "/api/versions/{id}/settings",
+            get(get_version_settings)
+                .put(put_version_settings)
+                .delete(delete_version_settings),
         )
         .route("/api/launch", post(do_launch))
         .route("/api/launch/{pid}/kill", post(kill_launch))
@@ -186,6 +193,18 @@ fn version_info(id: &str) -> Option<Value> {
         "resourcePacks": packs,
         "localized": localized,
     }))
+    .map(|mut v| {
+        if let Some(obj) = v.as_object_mut() {
+            for (k, val) in instances::version_fields(id)
+                .as_object()
+                .cloned()
+                .unwrap_or_default()
+            {
+                obj.insert(k, val);
+            }
+        }
+        v
+    })
 }
 
 fn installed_versions() -> Vec<Value> {
@@ -435,7 +454,12 @@ async fn do_launch(
     if !install::is_installed(&id) {
         return Err(ApiError::bad(format!("版本 {id} 尚未安装")));
     }
-    let s = st.settings();
+    let global = st.settings();
+    let id_for_instance = id.clone();
+    let instance = instances::load(&id_for_instance).unwrap_or_default();
+    let s = instance
+        .effective_settings(&global)
+        .map_err(ApiError::bad)?;
     let name = req
         .account_name
         .clone()
@@ -456,6 +480,7 @@ async fn do_launch(
         concurrency: s.max_concurrent,
         game_lang: s.game_lang.clone(),
         quick_play: resolve_quick_play(&req, &s),
+        game_dir: Some(instances::game_dir(&id_for_instance, &instance)),
     };
     let job = st.jobs.create("launch", format!("启动 {id}"));
     let st2 = st.clone();
@@ -1090,6 +1115,82 @@ async fn get_version(
         obj.insert("running".into(), json!(running));
     }
     Ok(Json(info))
+}
+
+/// PATCH /api/versions/{id}：显示名、图标、独立存储；缺失字段保留，null 清空。
+async fn patch_version(
+    Path(id): Path<String>,
+    Json(patch): Json<instances::MetaPatch>,
+) -> Result<Json<Value>, ApiError> {
+    if !instances::valid_id(&id) {
+        return Err(ApiError::bad("非法版本 id"));
+    }
+    if !install::is_installed(&id) {
+        return Err(ApiError::not_found(format!("版本 {id} 未安装")));
+    }
+    let m = instances::patch(&id, patch).map_err(ApiError::bad)?;
+    Ok(Json(json!({ "ok": true, "metadata": m })))
+}
+
+fn settings_response(
+    global: &Settings,
+    effective: &Settings,
+    override_map: &serde_json::Map<String, Value>,
+) -> Value {
+    let _ = global;
+    json!({ "settings": effective, "override": override_map })
+}
+
+/// GET /api/versions/{id}/settings：生效设置 + 当前实例覆盖表。
+async fn get_version_settings(
+    State(st): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<Json<Value>, ApiError> {
+    if !instances::valid_id(&id) {
+        return Err(ApiError::bad("非法版本 id"));
+    }
+    if !install::is_installed(&id) {
+        return Err(ApiError::not_found(format!("版本 {id} 未安装")));
+    }
+    let global = st.settings();
+    let (effective, override_map) = instances::settings_of(&id, &global).map_err(ApiError::bad)?;
+    Ok(Json(settings_response(&global, &effective, &override_map)))
+}
+
+/// PUT /api/versions/{id}/settings：Partial<Settings>；null 表示删除该覆盖。
+async fn put_version_settings(
+    State(st): State<AppState>,
+    Path(id): Path<String>,
+    Json(value): Json<Value>,
+) -> Result<Json<Value>, ApiError> {
+    if !instances::valid_id(&id) {
+        return Err(ApiError::bad("非法版本 id"));
+    }
+    if !install::is_installed(&id) {
+        return Err(ApiError::not_found(format!("版本 {id} 未安装")));
+    }
+    let global = st.settings();
+    let (effective, override_map) =
+        instances::set_override(&id, &value, &global).map_err(ApiError::bad)?;
+    Ok(Json(settings_response(&global, &effective, &override_map)))
+}
+
+/// DELETE /api/versions/{id}/settings：清空覆盖，完全跟随全局。
+async fn delete_version_settings(
+    State(st): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<Json<Value>, ApiError> {
+    if !instances::valid_id(&id) {
+        return Err(ApiError::bad("非法版本 id"));
+    }
+    if !install::is_installed(&id) {
+        return Err(ApiError::not_found(format!("版本 {id} 未安装")));
+    }
+    let global = st.settings();
+    let effective = instances::reset_settings(&id, &global).map_err(ApiError::bad)?;
+    Ok(Json(
+        json!({ "ok": true, "settings": effective, "override": {} }),
+    ))
 }
 
 async fn get_logs(State(st): State<AppState>, Path(id): Path<String>) -> Json<Value> {

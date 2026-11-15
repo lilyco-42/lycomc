@@ -58,6 +58,8 @@ pub struct LaunchOpts {
     pub game_lang: String,
     /// 可选的 quickPlay 直连；None = 正常进主菜单
     pub quick_play: Option<QuickPlay>,
+    /// E22：isolated=false 时游戏目录改到共享目录；默认 true 保持原有实例目录。
+    pub game_dir: Option<PathBuf>,
 }
 
 /// 组装好的启动计划（不含进程，便于先展示「将执行什么」再真跑）
@@ -293,7 +295,8 @@ pub async fn prepare(opts: &LaunchOpts, progress: ProgressFn<'_>) -> Result<Prep
         .or_else(|| v.asset_index.as_ref().map(|a| a.id.clone()))
         .unwrap_or_else(|| "legacy".to_string());
     let kind = v.kind.clone().unwrap_or_else(|| "release".to_string());
-    let game_dir = dir.clone();
+    let game_dir = opts.game_dir.clone().unwrap_or_else(|| dir.clone());
+    std::fs::create_dir_all(&game_dir).map_err(|e| format!("创建游戏目录失败: {e}"))?;
     // 每次启动都把设置里的语言写回 options.txt：游戏与 Mod 界面默认中文。
     // 写失败只警告，不阻断启动（实例目录可能是只读的）。
     if let Err(e) = super::options::set_lang(&opts.id, &opts.game_lang) {
@@ -487,9 +490,15 @@ pub fn tail(path: &Path, max: usize) -> Vec<String> {
     lines[start..].to_vec()
 }
 
-/// 实例目录里的 mods/
+/// 当前实例的实际游戏目录：isolated=true 为 versions/<id>，false 为共享目录。
+pub fn game_dir(id: &str) -> PathBuf {
+    let m = super::instances::load(id).unwrap_or_default();
+    super::instances::game_dir(id, &m)
+}
+
+/// 当前游戏目录里的 mods/（随 isolated 设置变化）
 pub fn mods_dir(id: &str) -> PathBuf {
-    paths::version_dir(id).join("mods")
+    game_dir(id).join("mods")
 }
 // ── 进程 ───────────────────────────────────────────────────────
 

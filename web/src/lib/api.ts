@@ -67,6 +67,40 @@ export interface VersionInfo {
   resourcePacks?: string[];
   /** 是否已安装中文本地化资源包 */
   localized?: boolean;
+  /** 实例显示名；null / 未下发 = 沿用版本 id */
+  displayName?: string | null;
+  /** 实例图标（emoji 或短文字，由后端原样保存） */
+  icon?: string | null;
+  /** 是否为该实例启用独立存档 / options / mods 目录 */
+  isolated?: boolean;
+  /** 是否已有实例级设置覆盖 */
+  hasInstanceSettings?: boolean;
+}
+
+/**
+ * 实例元数据（E22）：显示名、图标与是否隔离存储。
+ * 老版本后端可能不下发这些字段，VersionInfo 全部可选。
+ */
+export interface InstanceMeta {
+  displayName: string | null;
+  icon: string | null;
+  isolated: boolean;
+}
+
+export interface PatchVersionResponse {
+  ok: true;
+  metadata: InstanceMeta;
+}
+
+export interface VersionSettingsResponse {
+  settings: Settings;
+  /** 当前实例覆盖的字段；空对象表示完全跟随全局设置 */
+  override: Partial<Settings>;
+}
+
+/** DELETE /api/versions/:id/settings 额外带一个 ok 标记。 */
+export interface ResetVersionSettingsResponse extends VersionSettingsResponse {
+  ok: true;
 }
 
 export interface JavaInfo {
@@ -350,6 +384,10 @@ function jsonBody(payload: unknown): RequestInit {
   return { method: "POST", body: JSON.stringify(payload) };
 }
 
+function jsonPatchBody(payload: unknown): RequestInit {
+  return { method: "PATCH", body: JSON.stringify(payload) };
+}
+
 export const api = {
   health: () => request<Health>("/api/health"),
 
@@ -366,6 +404,27 @@ export const api = {
 
   /** 单个实例详情（含 lang / resourcePacks / localized）；结果交给 normalizeVersion 收敛 */
   version: (id: string) => request<unknown>("/api/versions/" + encodeURIComponent(id)),
+
+  /** E22：修改实例显示名 / 图标 / 是否独立存储 */
+  patchVersion: (id: string, patch: Partial<InstanceMeta>) =>
+    request<PatchVersionResponse>("/api/versions/" + encodeURIComponent(id), jsonPatchBody(patch)),
+
+  /** E24：读取实例级设置与生效后的完整设置 */
+  getVersionSettings: (id: string) =>
+    request<VersionSettingsResponse>("/api/versions/" + encodeURIComponent(id) + "/settings"),
+
+  /** E24：保存实例级设置覆盖；至少一个字段 */
+  saveVersionSettings: (id: string, patch: Partial<Settings>) =>
+    request<VersionSettingsResponse>("/api/versions/" + encodeURIComponent(id) + "/settings", {
+      method: "PUT",
+      body: JSON.stringify(patch),
+    }),
+
+  /** E24：清除全部实例级覆盖，恢复跟随全局 */
+  resetVersionSettings: (id: string) =>
+    request<ResetVersionSettingsResponse>("/api/versions/" + encodeURIComponent(id) + "/settings", {
+      method: "DELETE",
+    }),
 
   /** 一键汉化：下载中文资源包 + 写入 options.txt，异步任务，进度走 /api/events */
   localize: (versionId: string) =>

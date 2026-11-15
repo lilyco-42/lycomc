@@ -8,7 +8,7 @@ use std::sync::Arc;
 use lilyco::prelude::*;
 use serde_json::{json, Value};
 
-use crate::mc::{self, auth, fabric, install, java, launch, modrinth, paths, Progress};
+use crate::mc::{self, auth, fabric, install, instances, java, launch, modrinth, paths, Progress};
 use crate::settings;
 
 /// 命令面是同步的（lilyco 的 App trait 如此），内核是 async 的 ——
@@ -199,7 +199,11 @@ pub struct LaunchCmd {
 }
 
 fn run_launch(app: &LaunchCmd, ctx: &Context) -> Result<Value, AppError> {
-    let s = settings::load();
+    let global = settings::load();
+    let meta = instances::load(&app.version_id).unwrap_or_default();
+    let s = meta
+        .effective_settings(&global)
+        .map_err(AppError::Runtime)?;
     let name = app
         .account
         .clone()
@@ -222,6 +226,7 @@ fn run_launch(app: &LaunchCmd, ctx: &Context) -> Result<Value, AppError> {
             app.server.as_deref(),
             s.quick_play_server.as_deref(),
         ),
+        game_dir: Some(instances::game_dir(&app.version_id, &meta)),
     };
     let rep = reporter(ctx);
     let prepared = block_on(launch::prepare(&opts, &rep)).map_err(AppError::Runtime)?;

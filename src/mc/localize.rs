@@ -15,7 +15,7 @@ use serde_json::{json, Value};
 use zip::write::SimpleFileOptions;
 use zip::{ZipArchive, ZipWriter};
 
-use super::{launch, meta, modrinth, options, paths, ProgressFn};
+use super::{launch, meta, modrinth, options, ProgressFn};
 
 const CFPA_RELEASE: &str =
     "https://github.com/CFPAOrg/Minecraft-Mod-Language-Package/releases/download/autobuild";
@@ -226,7 +226,7 @@ pub async fn run(
     let (v, _) = launch::instance_json(id)?;
     let fabric = v.inherits_from.is_some();
     let gv = v.inherits_from.clone().unwrap_or_else(|| v.id.clone());
-    let dir = paths::version_dir(id).join("resourcepacks");
+    let dir = launch::game_dir(id).join("resourcepacks");
     std::fs::create_dir_all(&dir).map_err(|e| format!("创建 resourcepacks 目录失败: {e}"))?;
 
     progress(super::pct(5.0, format!("准备汉化 {id}（{gv}）…")));

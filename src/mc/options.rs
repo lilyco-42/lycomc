@@ -6,8 +6,6 @@
 
 use std::path::PathBuf;
 
-use super::paths;
-
 /// 我们投放的汉化资源包文件名前缀，用来判断实例是否已汉化。
 pub const PACK_PREFIX: &str = "lycomc-";
 
@@ -20,7 +18,7 @@ pub struct Options {
 }
 
 fn file_of(id: &str) -> PathBuf {
-    paths::version_dir(id).join("options.txt")
+    super::launch::game_dir(id).join("options.txt")
 }
 
 fn parse_packs(v: &str) -> Vec<String> {
@@ -114,7 +112,7 @@ pub fn enable_packs(id: &str, names: &[String], lang: &str) -> Result<(), String
 /// 手动关掉资源包后会如实显示未汉化。
 pub fn status(id: &str) -> (Option<String>, Vec<String>, bool) {
     let o = read(id);
-    let dir = paths::version_dir(id).join("resourcepacks");
+    let dir = super::launch::game_dir(id).join("resourcepacks");
     let prefix = format!("file/{PACK_PREFIX}");
     let localized = o.resource_packs.iter().any(|p| {
         p.starts_with(&prefix)

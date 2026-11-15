@@ -121,6 +121,61 @@ check('GET unknown API -> 404 JSON', 'GET', '/api/does-not-exist', None, lambda 
 check('static traversal -> no leak', 'GET', '/assets/../../../../etc/passwd', None, lambda r: (r['status'] != 200 and b'root:' not in r['body'], 'traversal'))
 check('GET /api/state 200', 'GET', '/api/state', None, lambda r: (r['status'] == 200, 'state'))
 
+# E22/E24: instance metadata and instance-scoped settings.
+version_id = 'suff-1.20.1'
+version_dir = os.path.join(out, 'data', 'versions', version_id)
+os.makedirs(version_dir, exist_ok=True)
+with open(os.path.join(version_dir, version_id + '.json'), 'w', encoding='utf8') as f:
+    json.dump({'id': version_id, 'type': 'release', 'javaVersion': {'majorVersion': 17}}, f)
+
+def patch_instance_metadata():
+    body = {'displayName': '测试实例', 'icon': '🧊', 'isolated': False}
+    r = raw('PATCH', '/api/versions/' + version_id, body)
+    j = jget(r)
+    m = j.get('metadata') or {}
+    state = jget(raw('GET', '/api/state'))
+    found = [v for v in (state.get('versions') or []) if v.get('id') == version_id]
+    okv = (r['status'] == 200 and j.get('ok') is True and m.get('displayName') == '测试实例' and m.get('icon') == '🧊' and m.get('isolated') is False and bool(found) and found[0].get('hasInstanceSettings') is False)
+    meta_path = os.path.join(version_dir, 'instance-meta.json')
+    shared = os.path.join(out, 'data', 'shared-game')
+    if okv and os.name == 'posix':
+        okv = os.path.isfile(meta_path) and (os.stat(meta_path).st_mode & 0o777) == 0o600
+    return r['status'], r['headers'], r['body'], bool(okv), 'metadata=' + str(m)[:100] + ' shared=' + str(os.path.isdir(shared))
+case('PATCH /api/versions/:id metadata -> 200 + shared dir', patch_instance_metadata)
+
+check('PATCH /api/versions/:id illegal id -> 4xx', 'PATCH', '/api/versions/a..b', {'displayName': 'x'}, lambda r: (400 <= r['status'] < 500 and 'error' in jget(r), 'illegal id rejected'))
+check('PATCH /api/versions/:id missing -> 404', 'PATCH', '/api/versions/not-installed-123', {'displayName': 'x'}, lambda r: (r['status'] == 404 and 'error' in jget(r), 'missing version'))
+
+def put_instance_settings():
+    r = raw('PUT', '/api/versions/' + version_id + '/settings', {'memoryMb': 123, 'downloadSource': 'weird', 'gameLang': 'ZH_CN'})
+    j = jget(r)
+    effective = j.get('settings') or {}
+    override_map = j.get('override') or {}
+    got = raw('GET', '/api/versions/' + version_id + '/settings')
+    gj = jget(got)
+    state = jget(raw('GET', '/api/state'))
+    found = [v for v in (state.get('versions') or []) if v.get('id') == version_id]
+    okv = (r['status'] == 200 and got['status'] == 200 and effective.get('memoryMb') >= 256 and effective.get('downloadSource') == 'mojang' and effective.get('gameLang') == 'zh_cn' and override_map.get('memoryMb') == 123 and (gj.get('settings') or {}).get('memoryMb') == effective.get('memoryMb') and bool(found) and found[0].get('hasInstanceSettings') is True)
+    return r['status'], r['headers'], r['body'], bool(okv), 'effective=' + str(effective)[:120]
+case('PUT /api/versions/:id/settings sanitize + persist', put_instance_settings)
+
+def put_instance_settings_null():
+    r1 = raw('PUT', '/api/versions/' + version_id + '/settings', {'gameLang': None})
+    j1 = jget(r1)
+    r2 = raw('PUT', '/api/versions/' + version_id + '/settings', {})
+    r3 = raw('PUT', '/api/versions/' + version_id + '/settings', {'notAllowed': 1})
+    okv = (r1['status'] == 200 and 'gameLang' not in (j1.get('override') or {}) and 400 <= r2['status'] < 500 and 400 <= r3['status'] < 500)
+    return r1['status'], r1['headers'], r1['body'], bool(okv), 'null cleared, empty+unknown rejected'
+case('PUT /api/versions/:id/settings null/empty/unknown', put_instance_settings_null)
+
+def delete_instance_settings():
+    r = raw('DELETE', '/api/versions/' + version_id + '/settings')
+    j = jget(r)
+    global_settings = jget(raw('GET', '/api/settings'))
+    okv = (r['status'] == 200 and j.get('ok') is True and j.get('override') == {} and (j.get('settings') or {}).get('memoryMb') == global_settings.get('memoryMb'))
+    return r['status'], r['headers'], r['body'], bool(okv), 'reset override=' + str(j.get('override'))
+case('DELETE /api/versions/:id/settings reset to global', delete_instance_settings)
+
 # H35: settings export/import, backup/restore, cleanup boundary.
 def export_no_secret(r):
     j = jget(r)

@@ -4,6 +4,7 @@ pub mod auth;
 pub mod download;
 pub mod fabric;
 pub mod install;
+pub mod instances;
 pub mod java;
 pub mod launch;
 pub mod localize;
