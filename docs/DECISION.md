@@ -461,3 +461,19 @@ cargo test（解析逻辑单测：device code / XBL / XSTS / MC token / textures
 落地：docs/CONTRACT.md 直接更新为活契约；scripts/test-sufficiency.sh 扩到 30 条断言并由 CI 强制；纯追加 TEST-REPORT §20、本决策章节与 TEST-EVIDENCE group20；evidence-group20-manifest.json sha256=0475518435a27079b14fee6d7e4d7d479ad8cfa90ed4ff8dc857de0a56791925 作为末项登记自身。
 
 结论：E22 与 E24 的 7 字段启动设置子集已完成本轮验收；整体 PCL-CE 100% 仍 ACTIVE，剩余差距必须按 v2.15.1 重算并逐项补实现、测试与证据，L9 真机/签名/公网联机仍未开始。
+
+## PCL-CE C17 本地 Mod 管理与 F30 延期决策（Round 4）
+
+背景：E22/E24 已落地实例元数据、隔离目录和实例级启动设置；F30 的 PCL-CE v2.15.1 崩溃归因清点发现 27 文件 / 45 causes，且全部位于自定义 LICENCE 的 Plain Craft Launcher 2/ 目录，直接移植规则/正则/文案不可接受。C17 是自包含、无需外部凭据的下一项，可复用 E22 游戏目录隔离和现有 zip/sha1 能力。
+
+| 方案 | 内容 | 判定 | 理由 |
+| --- | --- | --- | --- |
+| A | 直接宣布 PCL-CE 100% 完成 | 否决 | 本轮只实现 C17 的本地 Mod 启停与信息，剩余差距和 L9 未覆盖 |
+| B | 从 PCL-CE 自定义 LICENCE 源码移植崩溃规则或 Mod 判定正则 | 否决 | 许可边界；只观察语义，独立实现 |
+| C | 本轮直接实现 F30 45 类崩溃分析 | 否决 | 面宽、规则证据与许可证边界未收敛，先落 c17-pcl-semantic-survey.json 与 f30-source-inventory.json |
+| D | C17 采用 .jar <-> .jar.disabled 安全重命名 + 只读本地元数据 + Web Switch/Dialog | 采纳 | 能完整证明 L1/L2/L3/L4/L5/L6，且不依赖公网/凭据 |
+| E | 对任意文件名或实例 ID 直接拼路径 | 否决 | valid_mod_file 与 instances::valid_id 双重白名单，阻断 ..、斜杠、控制字符和非法实例 |
+| F | 删除并发测试假失败日志或以 || true 绕过 | 否决 | 保留失败日志，定位到进程级 LYCOMC_DATA_DIR 竞争并以 test_env 全局锁修复 |
+| G | force 已公开 tag 或重发 Release | 否决 | 本轮不动 v0.1.0/v0.1.1 发布物 |
+
+落地：8 个实现/契约/测试文件改动、35 条充分性断言、独立 CDP 真交互、第 21 组证据与 manifest 自登记。整体目标仍 ACTIVE；待按 PCL-CE v2.15.1 重算剩余差距并逐项实现，L9 真机/签名/公网正版联机仍未开始。

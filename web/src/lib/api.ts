@@ -238,6 +238,33 @@ export interface ModFile {
   /** 展示名（项目名 / mod 名） */
   name: string;
   size: number;
+  /** C17：是否被禁用（禁用文件仍留在 mods 目录里，改后缀保存） */
+  enabled?: boolean;
+  /** 禁用后的实际文件名；启用时为 null / 未下发 */
+  disabledFile?: string | null;
+  sha1?: string | null;
+  modId?: string | null;
+  version?: string | null;
+  description?: string | null;
+  loader?: string | null;
+}
+
+export interface ToggleModResponse {
+  ok: true;
+  file: string;
+  enabled: boolean;
+}
+
+/** GET /api/mods/info?versionId=&file= 的本地 Mod 信息（同一响应也用于详情弹窗）。 */
+export interface ModInfo {
+  file: string;
+  enabled: boolean;
+  size: number;
+  sha1: string | null;
+  modId?: string | null;
+  version?: string | null;
+  description?: string | null;
+  loader?: string | null;
 }
 
 export interface ModListResponse {
@@ -494,6 +521,22 @@ export const api = {
 
   mods: (versionId: string) =>
     request<ModListResponse>("/api/mods?versionId=" + encodeURIComponent(versionId)),
+
+  /** C17：启用 / 禁用本地 Mod，后端负责 .jar / .jar.disabled 改名 */
+  toggleMod: (versionId: string, file: string, enabled: boolean) =>
+    request<ToggleModResponse>(
+      "/api/mods/toggle",
+      jsonBody({ versionId, file, enabled }),
+    ),
+
+  /** C17：读取单个本地 Mod 详情（SHA-1 / Mod ID / 版本 / 加载器） */
+  getModInfo: (versionId: string, file: string) =>
+    request<ModInfo>(
+      "/api/mods/info?versionId=" +
+        encodeURIComponent(versionId) +
+        "&file=" +
+        encodeURIComponent(file),
+    ),
 
   removeMod: (versionId: string, file: string) =>
     request<OkResponse>("/api/mods/remove", jsonBody({ versionId, file })),

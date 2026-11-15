@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   Boxes,
+  CircleCheck,
+  CircleSlash,
   Download,
+  FileText,
+  Info,
   Loader2,
   Package,
   Puzzle,
@@ -13,8 +17,10 @@ import {
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
@@ -23,7 +29,7 @@ import { ErrorAlert } from "@/components/error-alert";
 import { SectionHeader } from "@/components/section-header";
 import { JobProgressCard } from "@/components/job-progress-card";
 import { useAppData } from "@/context/app-data-context";
-import { api, errorMessage, type Job, type ModFile } from "@/lib/api";
+import { api, errorMessage, isRecord, type Job, type ModFile, type ModInfo } from "@/lib/api";
 import { formatBytes, formatDownloads } from "@/lib/format";
 import { normalizeHits, type ModProject } from "@/lib/modrinth";
 import { navigate } from "@/lib/router";
@@ -48,6 +54,8 @@ export function ModsPage() {
   const [query, setQuery] = useState("");
   const [submitted, setSubmitted] = useState("");
   const [removingFile, setRemovingFile] = useState<string | null>(null);
+  const [togglingFile, setTogglingFile] = useState<string | null>(null);
+  const [infoTarget, setInfoTarget] = useState<ModFile | null>(null);
   const [installingProject, setInstallingProject] = useState<string | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
 
@@ -132,7 +140,40 @@ export function ModsPage() {
     [versionId, mods],
   );
 
-  const installed = mods.data ?? [];
+  const handleToggle = useCallback(
+    async (file: ModFile) => {
+      if (versionId === "") {
+        return;
+      }
+      const nextEnabled = file.enabled === false;
+      setTogglingFile(file.file);
+      try {
+        const result = await api.toggleMod(versionId, file.file, nextEnabled);
+        toast.success(result.enabled ? "已启用 " + file.name : "已禁用 " + file.name);
+        mods.reload();
+        setInfoTarget((current) =>
+          current !== null && current.file === result.file
+            ? { ...current, enabled: result.enabled }
+            : current,
+        );
+      } catch (cause: unknown) {
+        toast.error(resultEnabledLabel(nextEnabled) + "失败", { description: errorMessage(cause) });
+      } finally {
+        setTogglingFile(null);
+      }
+    },
+    [versionId, mods],
+  );
+
+  const sortedInstalled = (mods.data ?? []).slice().sort((a, b) => {
+    const aEnabled = a.enabled === false ? 0 : 1;
+    const bEnabled = b.enabled === false ? 0 : 1;
+    if (aEnabled !== bEnabled) {
+      return aEnabled - bEnabled;
+    }
+    return a.file.localeCompare(b.file, "zh-CN");
+  });
+  const installed = sortedInstalled;
   const totalSize = installed.reduce((sum, item) => sum + item.size, 0);
   const isFabric = versions.find((item) => item.id === versionId)?.kind === "fabric";
   const hits = search.data?.hits ?? [];
@@ -288,7 +329,7 @@ export function ModsPage() {
               versionId === ""
                 ? "先选一个实例"
                 : installed.length > 0
-                  ? installed.length + " 个 Mod · 共 " + formatBytes(totalSize)
+                  ? installed.length + " 个 Mod（启用 " + sortedInstalled.filter((mod) => mod.enabled !== false).length + "）· 共 " + formatBytes(totalSize)
                   : "这个实例还没有 Mod"
             }
             action={
@@ -326,26 +367,60 @@ export function ModsPage() {
                 {installed.map((file) => (
                   <li
                     key={file.file}
-                    className="card-soft flex items-center gap-2.5 rounded-xl border border-border bg-card px-3 py-2.5"
+                    className={cn(
+                      "card-soft flex items-center gap-2.5 rounded-xl border bg-card px-3 py-2.5",
+                      file.enabled === false ? "border-dashed border-border/70 opacity-80" : "border-border",
+                    )}
                   >
-                    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-pcl-7 text-pcl-2 dark:text-pcl-5">
-                      <Puzzle className="size-4" />
+                    <span className={cn(
+                      "flex size-8 shrink-0 items-center justify-center rounded-lg",
+                      file.enabled === false ? "bg-muted text-muted-foreground" : "bg-pcl-7 text-pcl-2 dark:text-pcl-5",
+                    )}>
+                      {file.enabled === false ? <CircleSlash className="size-4" /> : <Puzzle className="size-4" />}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">{file.name}</p>
-                      <p className="truncate font-mono text-[11px] text-muted-foreground" title={file.file}>
-                        {file.file} · {formatBytes(file.size)}
+                      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                        <p className={cn("truncate text-sm font-medium", file.enabled === false && "text-muted-foreground")} title={file.name}>
+                          {file.name}
+                        </p>
+                        <Badge variant={file.enabled === false ? "secondary" : "default"} className="h-4 px-1.5 text-[10px]">
+                          {file.enabled === false ? "已禁用" : "已启用"}
+                        </Badge>
+                        {file.loader ? (
+                          <Badge variant="outline" className="h-4 px-1.5 text-[10px]">{file.loader}</Badge>
+                        ) : null}
+                      </div>
+                      <p className="truncate font-mono text-[11px] text-muted-foreground" title={file.disabledFile ?? file.file}>
+                        {file.disabledFile ?? file.file} · {formatBytes(file.size)}
                       </p>
                     </div>
-                    <Button
-                      variant="destructive"
-                      size="icon-xs"
-                      disabled={removingFile === file.file}
-                      onClick={() => { void handleRemove(file); }}
-                      aria-label={"删除 " + file.name}
-                    >
-                      {removingFile === file.file ? <Loader2 className="animate-spin" /> : <Trash2 />}
-                    </Button>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <Switch
+                        size="sm"
+                        checked={file.enabled !== false}
+                        disabled={versionId === "" || togglingFile !== null || removingFile === file.file}
+                        onCheckedChange={() => { void handleToggle(file); }}
+                        aria-label={(file.enabled === false ? "启用 " : "禁用 ") + file.name}
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        disabled={togglingFile === file.file}
+                        onClick={() => { setInfoTarget(file); }}
+                        aria-label={"查看 " + file.name + " 的信息"}
+                      >
+                        <Info />
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="icon-xs"
+                        disabled={removingFile === file.file || togglingFile !== null}
+                        onClick={() => { void handleRemove(file); }}
+                        aria-label={"删除 " + file.name}
+                      >
+                        {removingFile === file.file ? <Loader2 className="animate-spin" /> : <Trash2 />}
+                      </Button>
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -353,7 +428,152 @@ export function ModsPage() {
           </div>
         </div>
       </div>
+
+      {infoTarget !== null ? (
+        <ModInfoDialog
+          key={versionId + "|" + infoTarget.file}
+          versionId={versionId}
+          file={infoTarget}
+          onClose={() => { setInfoTarget(null); }}
+          onToggle={() => { void handleToggle(infoTarget); }}
+          toggling={togglingFile === infoTarget.file}
+        />
+      ) : null}
     </div>
+  );
+}
+
+function resultEnabledLabel(enabled: boolean): string {
+  return enabled ? "启用" : "禁用";
+}
+
+function stringOrNull(value: unknown): string | null {
+  return typeof value === "string" && value.trim() !== "" ? value : null;
+}
+
+/** GET /api/mods/info 的容错解析：老后端缺字段时照样能展示本地文件信息。 */
+function normalizeModInfo(raw: unknown, fallback: ModFile, enabled: boolean): ModInfo {
+  const record = isRecord(raw) ? raw : {};
+  const file = stringOrNull(record["file"]) ?? fallback.file;
+  const sizeValue = record["size"];
+  const size = typeof sizeValue === "number" && Number.isFinite(sizeValue) && sizeValue >= 0
+    ? sizeValue
+    : fallback.size;
+  return {
+    file,
+    enabled: typeof record["enabled"] === "boolean" ? record["enabled"] : enabled,
+    size,
+    sha1: stringOrNull(record["sha1"]),
+    modId: stringOrNull(record["modId"]),
+    version: stringOrNull(record["version"]),
+    description: stringOrNull(record["description"]),
+    loader: stringOrNull(record["loader"]),
+  };
+}
+
+interface ModInfoDialogProps {
+  versionId: string;
+  file: ModFile;
+  toggling: boolean;
+  onClose: () => void;
+  onToggle: () => void;
+}
+
+interface ModInfoResult {
+  key: string;
+  detail: ModInfo | null;
+  error: string | null;
+}
+
+function ModInfoDialog({ versionId, file, toggling, onClose, onToggle }: ModInfoDialogProps) {
+  const [nonce, setNonce] = useState(0);
+  const [result, setResult] = useState<ModInfoResult | null>(null);
+  const key = versionId + "|" + file.file + "|" + nonce;
+
+  useEffect(() => {
+    let cancelled = false;
+    api.getModInfo(versionId, file.file)
+      .then((raw) => {
+        if (cancelled) return;
+        setResult({ key, detail: normalizeModInfo(raw, file, file.enabled !== false), error: null });
+      })
+      .catch((cause: unknown) => {
+        if (cancelled) return;
+        setResult({ key, detail: null, error: errorMessage(cause) });
+      });
+    return () => { cancelled = true; };
+  }, [key, versionId, file]);
+
+  const matched = result !== null && result.key === key ? result : null;
+  const detail = matched?.detail ?? null;
+  const error = matched?.error ?? null;
+  const loading = matched === null;
+
+  const rows: Array<{ label: string; value: string; mono?: boolean }> = detail === null ? [] : [
+    { label: "文件名", value: detail.file, mono: true },
+    { label: "状态", value: detail.enabled ? "已启用" : "已禁用" },
+    { label: "大小", value: formatBytes(detail.size) },
+    { label: "SHA-1", value: detail.sha1 ?? "未知", mono: true },
+    { label: "Mod ID", value: detail.modId ?? "未知", mono: true },
+    { label: "版本", value: detail.version ?? "未知" },
+    { label: "加载器", value: detail.loader ?? "未知" },
+    { label: "简介", value: detail.description ?? "未知" },
+  ];
+
+  return (
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <FileText className="size-4 text-primary" />
+            {file?.name ?? "Mod 信息"}
+          </DialogTitle>
+          <DialogDescription>查看本地文件信息与启用状态，不会修改游戏文件。</DialogDescription>
+        </DialogHeader>
+
+        {file.enabled === false ? (
+          <div className="flex items-center gap-2 rounded-lg border border-dashed border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+            <CircleSlash className="size-3.5 shrink-0" />
+            <span>这个 Mod 当前已禁用，启动游戏时不会加载；文件仍保留在实例目录中。</span>
+          </div>
+        ) : null}
+
+        {loading ? (
+          <div className="space-y-2" role="status" aria-label="正在读取 Mod 信息">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="size-3.5 animate-spin" />正在读取本地信息…
+            </div>
+            <Skeleton className="h-9 w-full rounded-lg" />
+            <Skeleton className="h-9 w-full rounded-lg" />
+            <Skeleton className="h-9 w-full rounded-lg" />
+          </div>
+        ) : error !== null ? (
+          <ErrorAlert title="读取信息失败" message={error} onRetry={() => { setNonce((value) => value + 1); }} />
+        ) : (
+          <div className="space-y-1.5">
+            {rows.map((row) => (
+              <div key={row.label} className="flex flex-wrap gap-x-3 gap-y-0.5 rounded-lg bg-pcl-8/70 px-3 py-2 text-xs dark:bg-muted/40">
+                <span className="w-16 shrink-0 text-muted-foreground">{row.label}</span>
+                <span className={cn("min-w-0 flex-1 break-all text-foreground", row.mono === true && "font-mono")}>{row.value}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => { setNonce((value) => value + 1); }} disabled={key === "" || loading}>
+            <RefreshCw className={loading ? "animate-spin" : undefined} />
+            刷新信息
+          </Button>
+          {detail !== null ? (
+            <Button variant={detail.enabled ? "outline" : "default"} onClick={onToggle} disabled={toggling}>
+              {toggling ? <Loader2 className="animate-spin" /> : detail.enabled ? <CircleSlash /> : <CircleCheck />}
+              {detail.enabled ? "禁用这个 Mod" : "启用这个 Mod"}
+            </Button>
+          ) : null}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

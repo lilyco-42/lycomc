@@ -37,7 +37,9 @@ POST   /api/auth/microsoft/logout      body {name} -> {ok}（清凭据、保留�
 GET    /api/skin/image?url=&model=     -> image/png（同源代理；官方纹理失效/非法 URL 恒回退内置 Steve/Alex）
 GET    /api/modrinth/search?q=&versionId=&type=mod  -> {hits:[...]}
 POST   /api/mods/install               body {versionId, projectId} -> {jobId}
-GET    /api/mods?versionId=            -> {mods:[{file,name,size}]}
+GET    /api/mods?versionId=            -> {mods:[{file,name,size,enabled,disabledFile?,sha1?,modId?,version?,description?,loader?}]}（同时列出 .jar 与 .jar.disabled）
+POST   /api/mods/toggle                body {versionId,file,enabled} -> {ok:true,file,enabled}（.jar <-> .jar.disabled；非法 id/路径或目标冲突 400）
+GET    /api/mods/info?versionId=&file= -> {file,name,size,enabled,sha1?,modId?,version?,description?,loader?}（只读本地 ZIP 元数据，不联网）
 POST   /api/mods/remove                body {versionId,file} -> {ok}
 GET    /api/settings                   -> Settings
 PUT    /api/settings                   -> Settings（部分更新：只改请求体里出现的键，缺省字段保持原值；显式传 null 才清空 javaPath / selectVersion / defaultAccount / quickPlayServer）
@@ -57,6 +59,7 @@ POST   /api/cleanup                    -> {ok:true,freedBytes,removedFiles,remov
 ## 类型
 VersionInfo = {id, kind:"vanilla"|"fabric", baseVersion, installedAt, javaMajor, lang?, resourcePacks:string[], localized:bool}
 InstanceMeta = {displayName:string|null,icon:string|null,isolated:boolean}
+ModFile = {file,name,size,enabled:boolean,baseFile?,disabledFile?:string|null,sha1?:string|null,modId?:string|null,version?:string|null,description?:string|null,loader?:string|null}
 VersionInfo 增加 displayName/icon/isolated/hasInstanceSettings 字段；设置页与版本页共用。
 JavaInfo = {path, version:number, source:"system"|"managed"}
 Account = {name, uuid, kind:"offline"|"microsoft", hasSession:bool, entitled?:bool,
@@ -118,3 +121,4 @@ Job = {id, kind, title, state:"running"|"done"|"error", progress:0-100, message,
 - 2026-11-14 一键直连多人服务器（quickPlay）：POST /api/launch 增 `server?:string|null` 本次覆盖值（缺省才回落 `settings.quickPlayServer`，显式 null / 空串 / 非法值清空本次直连但不改写默认值）；Settings 增 `quickPlayServer?:string|null`，沿用 double_option 区分缺失 / 显式 null；CLI `lycomc launch` 增 `--server <地址>`。不新增端点、不新增依赖、不改 14 命令与 26 条 HTTP 路由；仅当版本元数据含 `is_quick_play_multiplayer` 规则时注入 `--quickPlayMultiplayer <addr>`。前端主页与设置页各增一个输入框，教程 / 图表 / 正版登录 / 皮肤 / SSE 均不回退。详见 DECISION.md「一键直连多人服务器」与 TEST-REPORT.md §10。
 - 2026-11-15 H35 设置导入导出/备份/清理：新增 6 个端点（settings/export|import、backup/create|list|{id}/restore、cleanup）。导入浅合并后 sanitize，显式 null 仍清空可空字段；备份快照含 accounts.json 但响应只给条目元数据，Unix 0600，id 白名单拒绝路径穿越；restore 原子写回 settings/accounts 并同步内存；cleanup 只删 dataDir/cache 子项。充分性脚本新增 9 个 H35 断言。
 - 2026-11-15 E22/E24 实例资料与实例级设置：新增 PATCH /api/versions/:id 与 GET|PUT|DELETE /api/versions/:id/settings；displayName/icon/isolated 持久化到 versions/<id>/instance-meta.json（0600，显式 null 清空）；设置覆盖仅白名单 7 个启动字段，合并后 sanitize，null 删覆盖、空对象 400；isolated=false 让游戏目录与 mods/options/resourcepacks 落到 shared-game，默认 isolated=true 零迁移。充分性脚本新增 6 个 E22/E24 断言；补充修复：PUT 按 Partial 语义保留未提交覆盖键，null 仅删除对应键，避免把 null 误写入 gameLang 等非可空 Settings 字段。
+- 2026-11-15 C17 本地 Mod 启用/禁用与信息：GET /api/mods 同时列出 .jar 和 .jar.disabled 并带 enabled/baseFile/sha1 等字段；POST /api/mods/toggle 安全重命名 .jar <-> .jar.disabled（幂等、冲突拒绝、非法 ID/路径 400）；GET /api/mods/info 计算 SHA-1 并只读解析 fabric.mod.json / quilt.mod.json / META-INF/mods.toml / mcmod.info，不联网且损坏文件回退未知；POST /api/mods/remove 复用严格文件名校验。充分性脚本新增 C17 断言。

@@ -567,3 +567,14 @@ v0.1.1 的 L0–L8 结论不变；L9 在 A/B/C 未确认前不得标记为完成
 - 浏览器 CDP：独立端口 9612/9613、独立数据与 profile、预置 e22-cdp-1.20.1 的 version json、加载前注入 lycomc.onboarded=1；真点击保存资料得到 displayName=CDP 冰岛 / icon=🧊，真选择 gameLang=en_us 并保存，再确认恢复跟随全局；e22-browser-result.json pass route/metadata/instanceSettings/reset/health/all 全 true，4 张截图落盘；afterResetOverride={}，gameLang 与全局 zh_cn 一致，无残留进程。
 - 证据：第 20 组登记实现文件、两份失败、最终门禁、CDP 脚本/结果/截图、凭据扫描与 group19 manifest 链根；evidence-group20-manifest.json sha256=0475518435a27079b14fee6d7e4d7d479ad8cfa90ed4ff8dc857de0a56791925。docs/TEST-EVIDENCE.json 采用尾部 marker 前插入，前 19 组语义不变，三份历史文档均恰好一个尾换行。
 - 边界：本轮只证 E22 与 E24 的 7 字段启动设置子集在 Web/API/CLI 的闭环；PCL-CE v2.15.1 全量设置键、剩余历史代理差距（需重算）、真机/签名/公网正版联机/L9 仍未完成；不移动 v0.1.0/v0.1.1 tag 与 Release。
+
+## 21. PCL-CE C17 本地 Mod 启用/禁用与信息展示（Round 4）
+
+- 精确基线仍为 PCL-Community/PCL-CE Release v2.15.1 / commit 1a7653127d578efdb2a9388999a3fdc67d9e49d5；本轮只独立重实现本地 Mod 启停与只读本地信息语义，不复制自定义 LICENCE 目录内源码、正则、界面文案或资产，不宣称整体 100%。
+- 后端 src/mc/modrinth.rs 增安全 .jar <-> .jar.disabled 重命名、冲突与路径穿越拒绝、实例 id 白名单；list_mods 同时列出启用/禁用文件并输出 enabled/baseFile/disabledFile；mod_info 计算本地 SHA-1 并解析 fabric.mod.json、quilt.mod.json、META-INF/mods.toml、mcmod.info，损坏 ZIP 回退「未知」；remove_mod 复用严格文件名校验。src/api.rs 新增 POST /api/mods/toggle 与 GET /api/mods/info 两条端点并统一错误体。
+- 修复并行测试全局 LYCOMC_DATA_DIR 竞争：src/lib.rs 增 #[cfg(test)] test_env::data_dir_guard()，settings 默认账号测试与 modrinth with_mods 共用该锁；失败日志 check-v0.1.1-c17-failed.log 保留，含 mc::java 探测和 default_account 两处并发假失败，不用 || true 掩盖。
+- 前端 ui task-4 在 /mods 页面实现启用优先排序、状态 Badge、Switch、信息 Dialog（SHA-1/Mod ID/版本/加载器/简介与未知回退）、刷新/错误重试/中文 toast；api.ts 增 toggleMod/getModInfo 与 ModInfo/扩展 ModFile 类型。docs/CONTRACT.md 同步活契约。
+- 充分性脚本从 30 扩到 35 条断言：禁用、禁用文件入列表、SHA-1、非法路径 4xx、恢复启用；首次 34/35 因 fixture 缺 versions/<id>/<id>.json 导致 /api/state 未列出实例，补齐后 35/35 failed=[]，16 并发 5.04 ms 全 2xx，30s/10 采样全 2xx，慢 JAVA worst 2012.944 ms 且 bounded=true。
+- 最终 scripts/check.sh EXIT=0：pnpm lint 0 errors、2601 modules、默认 59 passed、--features desktop 64 passed、fmt/clippy -D warnings、双轨构建、runtime smoke、6 次 --help/--schema 各 1 种；日志 check-v0.1.1-c17-final.log 15230 B。
+- 浏览器 CDP 独立端口 9614/9615、独立 profile/data、预置 c17-cdp-1.20.1 与 alpha.jar，加载前注入 lycomc.onboarded=1；真点击信息按钮验证 SHA-1 d0ed5b7760d2ebe2212bb23d48661ce8f8fac67e，真点击 Dialog 禁用使磁盘出现 alpha.jar.disabled 且 API enabled=false，Esc 关闭后真点击 Switch 重新启用并恢复 alpha.jar；c17-browser-result.json route/info/dialogToggle/switchToggle/health/all 全 true，4 张截图落盘，进程与端口清理干净。
+- 边界：本轮只证 .jar/.jar.disabled 两类本地文件与四类本地元数据；不覆盖 .zip/.litemod/.old、云端 Modrinth 依赖解析、F30 44/45 类崩溃归因、公网正版联机、真机/签名/L9。F30 源码清点 27 文件、45 causes 另存第 21 组证据，因自定义许可与面宽继续延后。PCL-CE v2.15.1 全量差距仍须重算，整体 100% 未达成。

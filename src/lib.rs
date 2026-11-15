@@ -10,6 +10,21 @@ pub mod mc;
 pub mod policy;
 pub mod settings;
 
+/// 测试间共享的 LYCOMC_DATA_DIR 环境变量锁。Rust 测试默认并行，任何修改该
+/// 进程级变量的用例必须串行，否则另一个测试会读到临时目录或误用真实账号数据。
+#[cfg(test)]
+pub mod test_env {
+    use std::sync::{Mutex, MutexGuard};
+
+    static DATA_DIR_LOCK: Mutex<()> = Mutex::new(());
+
+    pub fn data_dir_guard() -> MutexGuard<'static, ()> {
+        DATA_DIR_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+}
+
 // Web 优先：默认构建完全不编译 wry / tao / tray-icon，也不链接系统 WebView。
 #[cfg(all(
     feature = "desktop",

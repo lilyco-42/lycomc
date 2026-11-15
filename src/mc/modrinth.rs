@@ -168,8 +168,51 @@ pub async fn install_mod(
     Ok(dest)
 }
 
-/// 列出实例 mods/ 里的文件
+/// C17：合法 Mod 文件名。禁用态在 PCL 语义里是追加 .disabled，不复制 PCL 源码。
+fn strip_disabled(file: &str) -> (&str, bool) {
+    let suffix = ".disabled";
+    let Some(at) = file.len().checked_sub(suffix.len()) else {
+        return (file, false);
+    };
+    let Some(tail) = file.get(at..) else {
+        return (file, false);
+    };
+    if tail.eq_ignore_ascii_case(suffix) {
+        (file.get(..at).unwrap_or(file), true)
+    } else {
+        (file, false)
+    }
+}
+
+fn valid_mod_file(file: &str) -> bool {
+    if file.is_empty() || file.len() > 255 || file.starts_with('.') || file.contains("..") {
+        return false;
+    }
+    if file.contains('/') || file.contains('\\') || !file.bytes().all(|c| c >= 32 && c != 127) {
+        return false;
+    }
+    let (base, _) = strip_disabled(file);
+    base.get(base.len().saturating_sub(4)..)
+        .is_some_and(|ext| ext.eq_ignore_ascii_case(".jar"))
+}
+
+fn display_name_of(base: &str) -> &str {
+    let at = base.len().saturating_sub(4);
+    if base
+        .get(at..)
+        .is_some_and(|ext| ext.eq_ignore_ascii_case(".jar"))
+    {
+        &base[..at]
+    } else {
+        base
+    }
+}
+
+/// 列出实例 mods/ 里的文件（含 .jar.disabled 禁用态）。
 pub fn list_mods(instance_id: &str) -> Vec<serde_json::Value> {
+    if !super::instances::valid_id(instance_id) {
+        return Vec::new();
+    }
     let dir = super::launch::mods_dir(instance_id);
     let mut out = Vec::new();
     let Ok(rd) = std::fs::read_dir(&dir) else {
@@ -185,16 +228,22 @@ pub fn list_mods(instance_id: &str) -> Vec<serde_json::Value> {
             .file_name()
             .map(|n| n.to_string_lossy().to_string())
             .unwrap_or_default();
-        if name.ends_with(".disabled") || name.starts_with('.') {
+        if !valid_mod_file(&name) {
             continue;
         }
-        if !name.to_lowercase().ends_with(".jar") {
-            continue;
-        }
+        let (base, disabled) = strip_disabled(&name);
         out.push(serde_json::json!({
             "file": name,
-            "name": name.trim_end_matches(".jar"),
+            "name": display_name_of(base),
             "size": m.len(),
+            "enabled": !disabled,
+            "baseFile": base,
+            "disabledFile": format!("{base}.disabled"),
+            "sha1": serde_json::Value::Null,
+            "modId": serde_json::Value::Null,
+            "version": serde_json::Value::Null,
+            "description": serde_json::Value::Null,
+            "loader": serde_json::Value::Null,
         }));
     }
     out.sort_by(|a, b| {
@@ -206,8 +255,181 @@ pub fn list_mods(instance_id: &str) -> Vec<serde_json::Value> {
     out
 }
 
+/// C17：读取单个本地 Mod 信息（不联网），禁用态自动映射回启用文件名。
+pub fn mod_info(instance_id: &str, file: &str) -> Result<serde_json::Value, String> {
+    if !super::instances::valid_id(instance_id) {
+        return Err("非法实例 ID".into());
+    }
+    if !valid_mod_file(file) {
+        return Err("非法文件名".into());
+    }
+    let dir = super::launch::mods_dir(instance_id);
+    let path = dir.join(file);
+    if !path.is_file() {
+        return Err(format!("{file} 不存在"));
+    }
+    let meta_data = std::fs::metadata(&path).map_err(|e| format!("读取失败: {e}"))?;
+    let (base, disabled) = strip_disabled(file);
+    let sha1 = super::download::sha1_file(&path).ok();
+    let (mod_id, version, description, loader) = read_local_metadata(&path);
+    Ok(serde_json::json!({
+        "file": file,
+        "name": display_name_of(base),
+        "size": meta_data.len(),
+        "enabled": !disabled,
+        "baseFile": base,
+        "disabledFile": format!("{base}.disabled"),
+        "sha1": sha1,
+        "modId": mod_id,
+        "version": version,
+        "description": description,
+        "loader": loader,
+    }))
+}
+
+fn read_local_metadata(
+    path: &std::path::Path,
+) -> (
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+) {
+    let Ok(f) = std::fs::File::open(path) else {
+        return (None, None, None, None);
+    };
+    let Ok(mut z) = zip::ZipArchive::new(f) else {
+        return (None, None, None, None);
+    };
+    for member in [
+        "fabric.mod.json",
+        "quilt.mod.json",
+        "META-INF/mods.toml",
+        "mcmod.info",
+    ] {
+        let Ok(mut entry) = z.by_name(member) else {
+            continue;
+        };
+        use std::io::Read;
+        let mut bytes = Vec::new();
+        if entry.read_to_end(&mut bytes).is_err() || bytes.len() > 2_048 * 1_024 {
+            continue;
+        }
+        let text = String::from_utf8_lossy(&bytes);
+        if member.ends_with(".json") {
+            if let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) {
+                let s = |k: &str| v.get(k).and_then(|x| x.as_str()).map(str::to_string);
+                let id = s("id")
+                    .or_else(|| v.get("schemaVersion").and_then(|_| s("id")))
+                    .or_else(|| {
+                        v.get("quilt_loader")
+                            .and_then(|q| q.get("id"))
+                            .and_then(|x| x.as_str())
+                            .map(str::to_string)
+                    });
+                if id.is_some() {
+                    return (
+                        id,
+                        s("version"),
+                        s("description"),
+                        Some(if member.starts_with("quilt") {
+                            "quilt".into()
+                        } else {
+                            "fabric".into()
+                        }),
+                    );
+                }
+            }
+        } else if member.ends_with(".toml") {
+            let mut id = None;
+            let mut version = None;
+            let mut description = None;
+            for line in text.lines() {
+                let l = line.trim();
+                if let Some(v) = l
+                    .strip_prefix("modId")
+                    .and_then(|v| v.trim_start_matches(['=', ' ']).strip_prefix('"'))
+                    .and_then(|v| v.split('"').next())
+                {
+                    id = Some(v.to_string());
+                }
+                if let Some(v) = l
+                    .strip_prefix("version")
+                    .and_then(|v| v.trim_start_matches(['=', ' ']).strip_prefix('"'))
+                    .and_then(|v| v.split('"').next())
+                {
+                    version = Some(v.to_string());
+                }
+                if let Some(v) = l
+                    .strip_prefix("description")
+                    .and_then(|v| v.trim_start_matches(['=', ' ']).strip_prefix('"'))
+                    .and_then(|v| v.split('"').next())
+                {
+                    description = Some(v.to_string());
+                }
+            }
+            if id.is_some() {
+                return (id, version, description, Some("forge".into()));
+            }
+        } else if text.trim_start().starts_with('[') {
+            if let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) {
+                let first = v.get(0).cloned().unwrap_or(serde_json::Value::Null);
+                let s = |k: &str| first.get(k).and_then(|x| x.as_str()).map(str::to_string);
+                let id = s("modid");
+                if id.is_some() {
+                    return (id, s("version"), s("description"), Some("forge".into()));
+                }
+            }
+        }
+    }
+    (None, None, None, None)
+}
+
+/// C17：启用/禁用仅在文件名末尾增删 .disabled，不修改文件内容。
+pub fn toggle_mod(
+    instance_id: &str,
+    file: &str,
+    enable: bool,
+) -> Result<serde_json::Value, String> {
+    if !super::instances::valid_id(instance_id) {
+        return Err("非法实例 ID".into());
+    }
+    if !valid_mod_file(file) {
+        return Err("非法文件名".into());
+    }
+    let dir = super::launch::mods_dir(instance_id);
+    let src = dir.join(file);
+    if !src.is_file() {
+        return Err(format!("{file} 不存在"));
+    }
+    let (base, disabled) = strip_disabled(file);
+    let target_file = if enable {
+        if !disabled {
+            return Ok(serde_json::json!({ "ok": true, "file": file, "enabled": true }));
+        }
+        base.to_string()
+    } else {
+        if disabled {
+            return Ok(serde_json::json!({ "ok": true, "file": file, "enabled": false }));
+        }
+        format!("{base}.disabled")
+    };
+    if !valid_mod_file(&target_file) || target_file == file {
+        return Err("非法目标文件名".into());
+    }
+    let dst = dir.join(&target_file);
+    if dst.exists() {
+        return Err(format!("目标文件已存在: {target_file}"));
+    }
+    std::fs::rename(&src, &dst).map_err(|e| format!("切换失败: {e}"))?;
+    Ok(serde_json::json!({ "ok": true, "file": target_file, "enabled": enable }))
+}
+
 pub fn remove_mod(instance_id: &str, file: &str) -> Result<(), String> {
-    if file.contains("..") || file.contains('/') || file.contains('\\') {
+    if !super::instances::valid_id(instance_id) {
+        return Err("非法实例 ID".into());
+    }
+    if !valid_mod_file(file) {
         return Err("非法文件名".into());
     }
     let p = super::launch::mods_dir(instance_id).join(file);
@@ -317,5 +539,89 @@ mod mirror_tests {
     fn non_modrinth_or_already_mirrored_urls_are_skipped() {
         assert_eq!(mirror_cdn("https://piston-meta.mojang.com/x.json"), None);
         assert_eq!(mirror_cdn("https://mod.mcimirror.top/data/x.jar"), None);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    fn with_mods(vid: &str, body: impl FnOnce(&std::path::Path)) {
+        let _env_guard = crate::test_env::data_dir_guard();
+        let root = std::env::temp_dir().join(format!("lycomc-c17-{}-{}", std::process::id(), vid));
+        let dir = root.join("versions").join(vid);
+        let mods = dir.join("mods");
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&mods).unwrap();
+        std::fs::write(
+            dir.join(format!("{vid}.json")),
+            "{\"id\":\"x\",\"type\":\"release\",\"javaVersion\":{\"majorVersion\":17}}",
+        )
+        .unwrap();
+        std::env::set_var("LYCOMC_DATA_DIR", &root);
+        body(&mods);
+        std::env::remove_var("LYCOMC_DATA_DIR");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn toggle_mod_roundtrip_and_collision() {
+        with_mods("c17-toggle", |dir| {
+            std::fs::write(dir.join("a.jar"), b"jar").unwrap();
+            let r = toggle_mod("c17-toggle", "a.jar", false).unwrap();
+            assert_eq!(r["file"], "a.jar.disabled");
+            assert_eq!(r["enabled"], false);
+            assert!(dir.join("a.jar.disabled").is_file());
+            let list = list_mods("c17-toggle");
+            assert_eq!(list.len(), 1);
+            assert_eq!(list[0]["enabled"], false);
+            assert_eq!(list[0]["baseFile"], "a.jar");
+            assert_eq!(list[0]["disabledFile"], "a.jar.disabled");
+            let r = toggle_mod("c17-toggle", "a.jar.disabled", true).unwrap();
+            assert_eq!(r["file"], "a.jar");
+            assert_eq!(r["enabled"], true);
+            std::fs::write(dir.join("b.jar"), b"b").unwrap();
+            std::fs::write(dir.join("b.jar.disabled"), b"d").unwrap();
+            assert!(toggle_mod("c17-toggle", "b.jar", false).is_err());
+        });
+    }
+
+    #[test]
+    fn path_traversal_and_non_mod_rejected() {
+        assert!(!valid_mod_file("../a.jar"));
+        assert!(!valid_mod_file("a/b.jar"));
+        assert!(!valid_mod_file("a.txt"));
+        assert!(valid_mod_file("a.jar.disabled"));
+        with_mods("c17-invalid", |dir| {
+            std::fs::write(dir.join("c.jar"), b"c").unwrap();
+            assert!(toggle_mod("c17-invalid", "../c.jar", false).is_err());
+            assert!(mod_info("c17-invalid", "c.jar/../../settings").is_err());
+            assert!(remove_mod("c17-invalid", "../c.jar").is_err());
+        });
+    }
+
+    #[test]
+    fn mod_info_reads_local_metadata_and_sha1() {
+        use std::io::Write;
+        with_mods("c17-info", |dir| {
+            let p = dir.join("meta.jar");
+            let f = std::fs::File::create(&p).unwrap();
+            let mut z = zip::ZipWriter::new(f);
+            let opts = zip::write::SimpleFileOptions::default();
+            z.start_file("fabric.mod.json", opts).unwrap();
+            let payload =
+                "{\"id\":\"coolmod\",\"version\":\"1.2.3\",\"description\":\"local mod\"}";
+            z.write_all(payload.as_bytes()).unwrap();
+            z.finish().unwrap();
+            let info = mod_info("c17-info", "meta.jar").unwrap();
+            assert_eq!(info["modId"], "coolmod");
+            assert_eq!(info["version"], "1.2.3");
+            assert_eq!(info["description"], "local mod");
+            assert_eq!(info["loader"], "fabric");
+            assert_eq!(info["sha1"].as_str().unwrap().len(), 40);
+            std::fs::write(dir.join("plain.jar"), b"not zip").unwrap();
+            let fallback = mod_info("c17-info", "plain.jar").unwrap();
+            assert!(fallback["modId"].is_null());
+            assert_eq!(fallback["sha1"].as_str().unwrap().len(), 40);
+        });
     }
 }

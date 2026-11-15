@@ -144,6 +144,8 @@ pub fn router(state: AppState) -> Router {
         .route("/api/skin/image", get(skin_image))
         .route("/api/modrinth/search", get(mod_search))
         .route("/api/mods", get(list_mods))
+        .route("/api/mods/toggle", post(mod_toggle))
+        .route("/api/mods/info", get(mod_info_handler))
         .route("/api/mods/install", post(mod_install))
         .route("/api/mods/remove", post(mod_remove))
         .route("/api/settings", get(get_settings).put(put_settings))
@@ -884,6 +886,44 @@ async fn list_mods(State(st): State<AppState>, Query(q): Query<ModSearchQ>) -> J
         return Json(json!({ "mods": [] }));
     }
     Json(json!({ "mods": modrinth::list_mods(&id) }))
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ModToggleReq {
+    #[serde(alias = "version_id")]
+    version_id: String,
+    file: String,
+    enabled: bool,
+}
+
+async fn mod_toggle(
+    State(_st): State<AppState>,
+    Json(req): Json<ModToggleReq>,
+) -> Result<Json<Value>, ApiError> {
+    if !instances::valid_id(&req.version_id) {
+        return Err(ApiError::bad("非法实例 ID"));
+    }
+    modrinth::toggle_mod(&req.version_id, &req.file, req.enabled)
+        .map(Json)
+        .map_err(ApiError::bad)
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ModInfoQ {
+    #[serde(alias = "version_id")]
+    version_id: String,
+    file: String,
+}
+
+async fn mod_info_handler(Query(q): Query<ModInfoQ>) -> Result<Json<Value>, ApiError> {
+    if !instances::valid_id(&q.version_id) {
+        return Err(ApiError::bad("非法实例 ID"));
+    }
+    modrinth::mod_info(&q.version_id, &q.file)
+        .map(Json)
+        .map_err(ApiError::bad)
 }
 
 #[derive(Deserialize)]

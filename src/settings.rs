@@ -429,6 +429,7 @@ mod tests {
     /// 用唯一目录避免并行测试互相踩数据。
     #[test]
     fn default_account_survives_disk_and_clears_after_remove() {
+        let _env_guard = crate::test_env::data_dir_guard();
         let dir =
             std::env::temp_dir().join(format!("lycomc-default-account-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);

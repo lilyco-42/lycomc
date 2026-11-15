@@ -121,6 +121,49 @@ check('GET unknown API -> 404 JSON', 'GET', '/api/does-not-exist', None, lambda 
 check('static traversal -> no leak', 'GET', '/assets/../../../../etc/passwd', None, lambda r: (r['status'] != 200 and b'root:' not in r['body'], 'traversal'))
 check('GET /api/state 200', 'GET', '/api/state', None, lambda r: (r['status'] == 200, 'state'))
 
+# C17: local mod enable/disable and local metadata.
+mod_version_id = 'c17-suff-1.20.1'
+mod_version_dir = os.path.join(out, 'data', 'versions', mod_version_id)
+mod_dir = os.path.join(mod_version_dir, 'mods')
+os.makedirs(mod_dir, exist_ok=True)
+with open(os.path.join(mod_version_dir, mod_version_id + '.json'), 'w', encoding='utf8') as f:
+    json.dump({'id': mod_version_id, 'type': 'release', 'javaVersion': {'majorVersion': 17}}, f)
+with open(os.path.join(mod_dir, 'alpha.jar'), 'wb') as f:
+    f.write(b'PK\x03\x04fake-jar')
+
+def mod_toggle_case():
+    r = raw('POST', '/api/mods/toggle', {'versionId': mod_version_id, 'file': 'alpha.jar', 'enabled': False})
+    disabled = os.path.join(mod_dir, 'alpha.jar.disabled')
+    okv = r['status'] == 200 and jget(r).get('enabled') is False and os.path.isfile(disabled) and not os.path.exists(os.path.join(mod_dir, 'alpha.jar'))
+    if okv:
+        state = jget(raw('GET', '/api/state'))
+        found = [v for v in (state.get('versions') or []) if v.get('id') == mod_version_id]
+        okv = bool(found)
+    return r['status'], r['headers'], r['body'], bool(okv), 'disabled=' + str(os.path.isfile(disabled)) + ' state=' + str(okv)
+case('POST /api/mods/toggle disable -> .jar.disabled', mod_toggle_case)
+
+def mod_list_case():
+    r = raw('GET', '/api/mods?versionId=' + mod_version_id)
+    mods = jget(r).get('mods') or []
+    okv = r['status'] == 200 and any(m.get('file') == 'alpha.jar.disabled' and m.get('enabled') is False and m.get('baseFile') == 'alpha.jar' for m in mods)
+    return r['status'], r['headers'], r['body'], bool(okv), 'mods=' + str(mods)[:160]
+case('GET /api/mods includes disabled mod', mod_list_case)
+
+def mod_info_case():
+    r = raw('GET', '/api/mods/info?versionId=' + mod_version_id + '&file=alpha.jar.disabled')
+    j = jget(r)
+    okv = r['status'] == 200 and j.get('enabled') is False and len(str(j.get('sha1') or '')) == 40
+    return r['status'], r['headers'], r['body'], bool(okv), 'sha1=' + str(j.get('sha1'))[:12]
+case('GET /api/mods/info -> sha1 + enabled=false', mod_info_case)
+
+check('POST /api/mods/toggle invalid path -> 4xx', 'POST', '/api/mods/toggle', {'versionId': mod_version_id, 'file': '../alpha.jar', 'enabled': True}, lambda r: (400 <= r['status'] < 500 and 'error' in jget(r), 'traversal rejected'))
+
+def mod_toggle_back_case():
+    r = raw('POST', '/api/mods/toggle', {'versionId': mod_version_id, 'file': 'alpha.jar.disabled', 'enabled': True})
+    okv = r['status'] == 200 and jget(r).get('enabled') is True and os.path.isfile(os.path.join(mod_dir, 'alpha.jar')) and not os.path.exists(os.path.join(mod_dir, 'alpha.jar.disabled'))
+    return r['status'], r['headers'], r['body'], bool(okv), 'enabled=' + str(os.path.isfile(os.path.join(mod_dir, 'alpha.jar')))
+case('POST /api/mods/toggle enable -> .jar', mod_toggle_back_case)
+
 # E22/E24: instance metadata and instance-scoped settings.
 version_id = 'suff-1.20.1'
 version_dir = os.path.join(out, 'data', 'versions', version_id)
