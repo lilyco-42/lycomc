@@ -1727,6 +1727,41 @@
         "sha256": "c6563bb2272256a0cf138259a1d79f1fd1fd94614c11f725dcd20d9500c0574e"
       }
     ]
+  },
+  {
+    "label": "PCL-CE 100% 功能对标计划与差距固化：41 项代理基线、验收口径与 P0–P5 阶段（2026-11-15）",
+    "files": [
+      {
+        "path": "/home/lilyco/.cache/lycomc-perf/evidence-group17-manifest.json",
+        "bytes": 1732,
+        "sha256": "c6563bb2272256a0cf138259a1d79f1fd1fd94614c11f725dcd20d9500c0574e"
+      },
+      {
+        "path": "/home/lilyco/code/lycomc/docs/PCL-CE-100-PLAN.md",
+        "bytes": 4996,
+        "sha256": "7466cda1434ef4dfbc232422d8c55935455928d647ad13992a62db301575f12f"
+      },
+      {
+        "path": "/home/lilyco/code/lycomc/docs/PCL-COMPARISON.md",
+        "bytes": 19354,
+        "sha256": "d58f8ac64a48b7ba3dd47ff21143549a1d9bfde634db2797323c1cda0b978962"
+      },
+      {
+        "path": "/home/lilyco/code/lycomc/scripts/check.sh",
+        "bytes": 2014,
+        "sha256": "3771c76539965f2658ca82f7e02bd85a6fb2ce15c55567fa3184d1d3e1fabd8f"
+      },
+      {
+        "path": "/home/lilyco/code/lycomc/scripts/test-sufficiency.sh",
+        "bytes": 11719,
+        "sha256": "ca7dc47dddc83f5288e4b9b4c70a4ec032474a7a16d9a804ddfeb4da554589d1"
+      },
+      {
+        "path": "/home/lilyco/.cache/lycomc-perf/evidence-group18-manifest.json",
+        "bytes": 1277,
+        "sha256": "5138a6655574618610fce9b3ebfc776e9c64776cab06e807d397522885c17de9"
+      }
+    ]
   }
   ]
 }

@@ -419,3 +419,15 @@ cargo test（解析逻辑单测：device code / XBL / XSTS / MC token / textures
 落地：新增 `docs/L9-READINESS.md`；纯追加 `docs/TEST-REPORT.md` §17、本决策章节、`docs/TEST-EVIDENCE.json` group17；新增 `evidence-group17-manifest.json`，以 group16 manifest 为链根。CI 门禁不变，仍由 `scripts/test-sufficiency.sh` 在每次 push/PR 守护 L0–L8。
 
 待用户确认 A/B/C 后：按 `docs/L9-READINESS.md` 第 4 节补 L9 证据，新建 group18+ 证据组，必要时新增签名/安装器 workflow 与 secrets，不改本轮及更早结论。
+
+## PCL-CE 100% 功能对标计划决策（Round 1）
+
+| 方案 | 内容 | 判定 | 理由 |
+| --- | --- | --- | --- |
+| A | 直接宣布 100% 完成 | 否决 | 历史对比仍有 14 项未覆盖、16 项部分覆盖；PCL-CE 精确版本未确认 |
+| B | 复制 PCL/PCL-CE 源码与视觉资产 | 否决 | 原版许可 NOASSERTION 且带重度使用限制；与自研 Web-first 路线冲突 |
+| C | 只写计划、不实现 | 部分采纳 | 本轮采纳为「计划与差距固化」，但不算功能完成；后续每轮必须至少实现一个真实功能并补测试 |
+| D | 以 41 项历史清单为代理基线，先按 P0 数据模型 → P1 启动账号 → P2 资源实例 → P3 联机帮助 → P4 UI → P5 全量测试推进 | 采纳 | 依赖顺序清晰，能把「100%」拆成可验收项；拿到 PCL-CE 版本后重算差异项 |
+| E | 先做 PCL-CE 房间/EasyTier/自更新等高风险项 | 否决 | 需要服务、协议、签名与隐私决策，缺少前提下无法真实验收 |
+
+落地：新增 `docs/PCL-CE-100-PLAN.md`，纯追加 TEST-REPORT §18、本决策章节与 TEST-EVIDENCE group18；不改 v0.1.0/v0.1.1 tag、Release 二进制、既有 CI 门禁与历史证据。

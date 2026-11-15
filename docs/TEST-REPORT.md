@@ -540,3 +540,10 @@ test result: ok. 17 passed; 0 failed
 ### 17.6 结论
 
 v0.1.1 的 L0–L8 结论不变；L9 在 A/B/C 未确认前不得标记为完成。Wine、交叉编译、Runner 打包均不能替代真机与分发准入证据。
+
+## 18. PCL-CE 100% 功能对标计划与当前差距（Round 1）
+
+- 用户目标更新为「做好测试 和 搞好 对标 pcl -ce 功能100% 实现」。本轮先做事实核验：`docs/PCL-COMPARISON.md` 已有 41 项对比，历史基线为 ✅9 / 🟡16 / ❌14 / ➖2；该基线来自 PCL 原版而非 PCL-CE 精确版本。
+- 新增 `docs/PCL-CE-100-PLAN.md`，给出 100% 验收口径、14 项未覆盖与 16 项部分覆盖清单、P0–P5 依赖分阶段、阻塞前提。本轮不宣称 100% 完成，也不改 tag/Release/旧证据。
+- 测试连续性：L0–L8 门禁保持（scripts/check.sh + scripts/test-sufficiency.sh + CI run 43702223841）；L9 仍待 `docs/L9-READINESS.md` 的 A/B/C 决策。
+- 证据：第 18 组登记计划文档、历史对比文档、门禁脚本与远端 CI 锚点；前 17 组字节与语义不变。
